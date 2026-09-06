@@ -1,0 +1,24 @@
+[project]
+name = "caspian-app"
+version = "1.0.0"
+requires-python = ">=3.14"
+dependencies = [
+    "beautifulsoup4==4.15.0",
+    "caspian-utils~=0.4",
+    "cuid==0.4",
+    "cuid2==2.0.1",
+    "fastapi==0.141.1",
+    "jinja2==3.1.6",
+    "nanoid==2.0.0",
+    "python-dotenv==1.2.3",
+    "python-multipart==0.0.32",
+    "python-ulid==4.0.1",
+    "slowapi==0.1.10",
+    "starsessions==2.2.1",
+    "tzdata==2026.3",
+    "uvicorn==0.52.4",
+    "werkzeug==3.1.8",
+]
+
+[tool.uv]
+package = false

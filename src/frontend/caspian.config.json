@@ -1,0 +1,19 @@
+{
+  "projectName": "frontend",
+  "projectRootPath": "D:\\ai-stylist\\src\\frontend",
+  "bsTarget": "http://localhost/",
+  "bsPathRewrite": {
+    "^/": "/"
+  },
+  "backendOnly": false,
+  "tailwindcss": false,
+  "mcp": false,
+  "websocket": false,
+  "prisma": false,
+  "typescript": false,
+  "version": "1.5.7",
+  "componentScanDirs": [
+    "src"
+  ],
+  "excludeFiles": []
+}
