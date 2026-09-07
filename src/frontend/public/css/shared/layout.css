@@ -59,6 +59,16 @@
   color: #ffffff;
 }
 
+.site-sidebar__link--disabled {
+  cursor: default;
+}
+
+.site-sidebar__link--disabled,
+.site-sidebar__link--disabled:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
 .site-shell__body {
   min-width: 0;
   min-height: 100vh;
