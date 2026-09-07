@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Python runtime and virtual environment
+.venv/
+.runtime/
+.bootstrap/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Log files
+*.log
+
+# Test, lint, and coverage caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+
+# Build output and generated frontend artifacts
+dist/
+build/
+static/
+
+# Backup and temporary files
+*.swp
+*.tmp
+*.bak
+
+# Caspian generated files
+.casp/
+caches/
+settings/bs-config.json
+settings/component-map.json
+settings/files-list.json
+settings/prisma-schema.json
