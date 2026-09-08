@@ -188,8 +188,17 @@
   background: rgb(0 0 0 / 60%);
 }
 
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .modal-content {
   position: relative;
+  z-index: 1;
   width: min(100%, 420px);
   border: 1px solid #000000;
   border-radius: 8px;

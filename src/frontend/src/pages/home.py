@@ -22,6 +22,8 @@ def page():
     </div>
 
     <div id="authModal" class="modal">
+      <button class="modal-backdrop" type="button" aria-label="Закрыть окно входа" onclick="document.getElementById('authModal').style.display='none'"></button>
+
       <div class="modal-content">
         <button class="close" id="closeModal" type="button" onclick="document.getElementById('authModal').style.display='none'">
           &times;
