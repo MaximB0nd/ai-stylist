@@ -2,7 +2,7 @@
 
 `AI Core` — независимый backend, который выполняет AI-задачи проекта. Он разворачивается и масштабируется отдельно от основного backend и взаимодействует с ним только через API-контракт.
 
-![Архитектура AI Core](docs/ai-system-architecture.png)
+![Архитектура AI Core](docs/images/ai-system-architecture.png)
 
 Подробное описание генерационного конвейера: [Архитектура генерации образов](docs/image-generation-architecture.md).
 
