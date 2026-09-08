@@ -1,22 +1,24 @@
-from casp.component_decorator import html
 from casp.layout import Metadata
-
+from src.components.shared.layout.app_shell import app_shell
 
 metadata = Metadata(
-    title="AI Stylist",
-    description="AI Stylist frontend",
+    title="Носи Красиво",
+    description="AI stylist frontend",
 )
 
 
 def page():
-    return html(r"""
-<main class="app-shell">
-  <section class="app-card" aria-labelledby="page-title">
-    <p class="app-name">AI Stylist</p>
-    <h1 id="page-title">Frontend is ready</h1>
+    return app_shell(
+        r"""
+<section class="home-page" aria-labelledby="page-title">
+  <div class="app-card">
+    <p class="app-name">Носи Красиво</p>
+    <h2 id="page-title" class="home-page__title">Frontend is ready</h2>
     <p class="app-description">
       Minimal Caspian project is running.
     </p>
-  </section>
-</main>
-""")
+  </div>
+</section>
+""",
+        title="Главная",
+    )

@@ -1,38 +1,30 @@
-.app-shell {
+.home-page {
+  min-height: 100%;
   display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 24px;
+  align-items: center;
 }
 
 .app-card {
   width: min(100%, 560px);
-  text-align: center;
 }
 
 .app-name {
   margin: 0 0 12px;
-  color: #6b6b6b;
+  color: #000000;
   font-size: 14px;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-h1 {
+.home-page__title {
   margin: 0;
-  font-size: clamp(32px, 7vw, 56px);
+  color: #000000;
+  font-size: 48px;
   line-height: 1.05;
 }
 
 .app-description {
   margin: 20px 0 0;
-  color: #666666;
+  color: #000000;
   font-size: 16px;
   line-height: 1.6;
-}
-
-@media (max-width: 480px) {
-  .app-shell {
-    padding: 20px;
-  }
 }
