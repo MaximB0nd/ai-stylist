@@ -2,7 +2,6 @@ from casp.layout import Metadata
 
 from src.components.shared.layout.app_shell import app_shell
 
-
 metadata = Metadata(
     title="Носи Красиво",
     description="AI stylist frontend",
@@ -64,7 +63,7 @@ def page():
           <span>новые образы <span class="sparkle">✧</span></span>
         </h2>
         <p class="hero-description">Ответьте на 4 вопроса — мы соберём новый альбом</p>
-        <button class="generate-button" type="button">Генерировать</button>
+        <a class="generate-button" href="/generation">Генерировать</a>
       </div>
 
       <div class="hero-images" aria-label="Примеры образов">
