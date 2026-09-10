@@ -2,7 +2,6 @@ from casp.layout import Metadata
 
 from src.components.shared.layout.app_shell import app_shell
 
-
 metadata = Metadata(
     title="Новые образы",
     description="Заполните данные для генерации образов",
