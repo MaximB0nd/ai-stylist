@@ -1,0 +1,212 @@
+
+.gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 48px;
+}
+
+.gallery-title {
+    font: 400 64px/1 Georgia, serif;
+    letter-spacing: -2px;
+    margin: 0;
+    color: #1a1a1a;
+}
+
+.btn-new-album {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 28px;
+    background: #1a1a1a;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-new-album:hover {
+    background: #4a4a4a;
+}
+
+.btn-plus {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.gallery-filters {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 32px;
+    padding-bottom: 0;
+}
+
+.filters-tabs {
+    display: flex;
+    gap: 32px;
+}
+
+.filter-tab {
+    background: none;
+    border: none;
+    padding: 0 0 16px 0;
+    font-size: 16px;
+    color: #888;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.filter-tab span {
+    margin-left: 6px;
+    color: #bbb;
+    font-size: 14px;
+}
+
+.filter-tab:hover {
+    color: #1a1a1a;
+}
+
+.filter-tab.active {
+    color: #1a1a1a;
+    border-bottom-color: #1a1a1a;
+}
+
+.filter-tab.active span {
+    color: #1a1a1a;
+}
+
+.filters-count {
+    font-size: 14px;
+    color: #888;
+    padding-bottom: 16px;
+}
+
+.albums-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+}
+
+.album-card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s;
+}
+
+.album-card:hover {
+    transform: translateY(-4px);
+}
+
+.album-preview {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    aspect-ratio: 3 / 4;
+}
+
+.album-image {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.3s;
+}
+
+.album-card:hover .album-image {
+    transform: scale(1.03);
+}
+
+.image-office {
+    background: linear-gradient(145deg, #e8e8e8, #8a8a8a 55%, #1a1a1a);
+}
+.image-evening {
+    background: linear-gradient(145deg, #1a1a1a, #4a4a4a);
+}
+.image-street {
+    background: linear-gradient(145deg, #d0d0d0, #6a6a6a);
+}
+.image-study {
+    background: linear-gradient(145deg, #b0b0b0, #2a2a2a);
+}
+
+.album-badge {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    padding: 6px 12px;
+    background: #fff;
+    color: #1a1a1a;
+    font-size: 13px;
+    border-radius: 6px;
+}
+
+.album-archive-label {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 12px;
+    border-radius: 6px;
+}
+
+.album-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.album-meta {
+    flex: 1;
+}
+
+.album-name {
+    font: 26px Georgia, serif;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+}
+
+.album-date {
+    font-size: 13px;
+    color: #888;
+}
+
+.album-arrow {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid #d0d0d0;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    color: #1a1a1a;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.album-card:hover .album-arrow {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+}
+
+.album-arrow.filled {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+}
+
+.album-card.archived .album-image {
+    filter: grayscale(1) brightness(0.85);
+}
+

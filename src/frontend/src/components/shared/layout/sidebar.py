@@ -9,7 +9,7 @@ def sidebar():
   <nav class="site-sidebar__nav">
     <a class="site-sidebar__link" href="/">Главная</a>
     <a class="site-sidebar__link" href="/generation">Генерация</a>
-    <span class="site-sidebar__link site-sidebar__link--disabled" aria-disabled="true">Галерея</span>
+    <a class="site-sidebar__link" href="/gallery">Галерея</a>
     <span class="site-sidebar__link site-sidebar__link--disabled" aria-disabled="true">Профиль</span>
   </nav>
 </aside>
