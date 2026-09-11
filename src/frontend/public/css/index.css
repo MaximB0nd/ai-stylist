@@ -2,4 +2,5 @@
 @import "./shared/layout.css";
 @import "./pages/home.css";
 @import "./pages/generation.css";
+@import "./pages/gallery.css";
 @import "./pages/profile.css";
