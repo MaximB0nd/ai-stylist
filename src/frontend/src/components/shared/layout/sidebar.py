@@ -10,7 +10,7 @@ def sidebar():
     <a class="site-sidebar__link" href="/">Главная</a>
     <a class="site-sidebar__link" href="/generation">Генерация</a>
     <span class="site-sidebar__link site-sidebar__link--disabled" aria-disabled="true">Галерея</span>
-    <span class="site-sidebar__link site-sidebar__link--disabled" aria-disabled="true">Профиль</span>
+    <a class="site-sidebar__link" href="/profile">Профиль</a>
   </nav>
 </aside>
 """
