@@ -38,10 +38,17 @@
 }
 
 .site-sidebar__name {
-  font: 24px/1.1 var(--font-display);
+  font: var(--font-weight-display) 26px/1.1 var(--font-display);
 }
 
-.site-sidebar__name em { display: block; }
+.site-sidebar__name em {
+  display: block;
+  color: var(--color-accent);
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-weight: var(--font-weight-accent);
+  font-optical-sizing: auto;
+}
 
 .site-sidebar__nav {
   display: grid;
@@ -50,6 +57,8 @@
 }
 
 .site-sidebar__link {
+  font-size: var(--text-small);
+  font-weight: var(--font-weight-body);
   position: relative;
   display: flex;
   align-items: center;
@@ -70,7 +79,7 @@
 .site-sidebar [aria-current="page"] {
   background: var(--color-canvas);
   color: var(--color-accent);
-  font-weight: 600;
+  font-weight: var(--font-weight-body);
 }
 
 .site-sidebar__link[aria-current="page"]::before {
@@ -99,16 +108,17 @@
 }
 
 .site-sidebar__account-copy {
+  font-weight: var(--font-weight-body);
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 
 .site-sidebar__account-copy small {
   display: block;
   color: var(--color-muted);
-  font-size: 11px;
-  font-weight: 400;
+  font-size: var(--text-small);
+  font-weight: var(--font-weight-body);
 }
 
 .site-avatar {
@@ -156,12 +166,13 @@
 }
 
 .site-header__breadcrumb {
+  font-weight: var(--font-weight-body);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 13px;
   color: var(--color-muted);
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 
 .site-header__breadcrumb a {
@@ -172,11 +183,12 @@
 .site-header__title {
   margin: 0;
   color: var(--color-ink);
-  font: 500 14px/1.5 var(--font-body);
+  font: var(--font-weight-body) var(--text-body)/1.5 var(--font-body);
   overflow-wrap: anywhere;
 }
 
 .site-header__profile {
+  font-weight: var(--font-weight-body);
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -184,7 +196,7 @@
   padding: var(--space-1);
   border-radius: var(--radius-control);
   color: var(--color-ink);
-  font-size: 13px;
+  font-size: var(--text-small);
   text-decoration: none;
 }
 
@@ -200,6 +212,7 @@
 }
 
 .site-footer {
+  font-weight: var(--font-weight-body);
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -208,7 +221,7 @@
   padding: 19px 0 22px;
   border-top: 1px solid var(--color-line);
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .site-skip-link {

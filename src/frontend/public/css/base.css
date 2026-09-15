@@ -18,7 +18,8 @@ body {
 
 body {
   background: var(--color-canvas);
-  font-size: 14px;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-body);
   line-height: 1.55;
 }
 
@@ -35,6 +36,10 @@ textarea {
 
 img {
   max-width: 100%;
+}
+
+.site-shell :where(strong, b) {
+  font-weight: inherit;
 }
 
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {

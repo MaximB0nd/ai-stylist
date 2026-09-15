@@ -10,8 +10,14 @@
   --color-accent-hover: #883b47;
   --color-accent-soft: #fae9eb;
   --color-gold: #b38d60;
-  --font-body: "Segoe UI", Arial, sans-serif;
-  --font-display: Georgia, "Times New Roman", serif;
+  --font-body: "Manrope", sans-serif;
+  --font-display: "EB Garamond", serif;
+  --font-accent: "Literata", serif;
+  --font-weight-display: 400;
+  --font-weight-accent: 300;
+  --font-weight-body: 200;
+  --text-body: 16px;
+  --text-small: 14px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

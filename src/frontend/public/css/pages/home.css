@@ -25,7 +25,7 @@
   background: #ffffff;
   color: #000000;
   cursor: pointer;
-  font: 21px Georgia, serif;
+  font: var(--font-weight-display) 21px var(--font-display);
 }
 
 .home-page .home-avatar:hover {
@@ -34,7 +34,7 @@
 }
 
 .home-page .greeting-text {
-  font-size: 19px;
+  font-size: var(--text-body);
 }
 
 .home-page .hero {
@@ -47,7 +47,7 @@
 
 .home-page .hero-title {
   margin: 0;
-  font: 400 60px / 1.05 var(--font-display);
+  font: var(--font-weight-display) 60px / 1.05 var(--font-display);
   overflow-wrap: anywhere;
 }
 
@@ -62,7 +62,7 @@
 .home-page .hero-description {
   margin: 36px 0 38px;
   color: #000000;
-  font-size: 20px;
+  font-size: var(--text-body);
 }
 
 .home-page .generate-button {
@@ -102,7 +102,7 @@
 .home-page .section-title {
   margin: 0 0 25px;
   color: #000000;
-  font: 400 30px Georgia, serif;
+  font: var(--font-weight-display) 30px var(--font-display);
 }
 
 .home-page .albums-grid {
@@ -140,7 +140,7 @@
 .home-page .album-name {
   margin-bottom: 10px;
   color: #000000;
-  font: 26px Georgia, serif;
+  font: var(--font-weight-display) 26px var(--font-display);
 }
 
 .home-page .album-date {
@@ -209,14 +209,13 @@
 .home-page .modal-title {
   margin: 0 0 8px;
   color: #000000;
-  font-size: 26px;
-  font-weight: 600;
+  font: var(--font-weight-display) 32px/1.2 var(--font-display);
 }
 
 .home-page .modal-subtitle {
   margin: 0 0 28px;
   color: #5f5f5f;
-  font-size: 14px;
+  font-size: var(--text-small);
 }
 
 .home-page .auth-form {
@@ -233,8 +232,8 @@
 
 .home-page .form-group label {
   color: #000000;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-small);
+  font-weight: var(--font-weight-body);
 }
 
 .home-page .btn-submit {
@@ -244,13 +243,13 @@
 .home-page .form-footer {
   margin-top: 20px;
   color: #5f5f5f;
-  font-size: 14px;
+  font-size: var(--text-small);
   text-align: center;
 }
 
 .home-page .form-footer a {
   color: #000000;
-  font-weight: 500;
+  font-weight: var(--font-weight-body);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -260,7 +259,7 @@
   border: 1px solid #000000;
   border-radius: 8px;
   color: #000000;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.5;
   padding: 12px 16px;
   text-align: center;

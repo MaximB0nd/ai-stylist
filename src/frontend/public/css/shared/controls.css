@@ -10,7 +10,7 @@
   border-radius: var(--radius-control);
   background: var(--color-accent);
   color: var(--color-surface);
-  font: 600 14px/1.4 var(--font-body);
+  font: var(--font-weight-body) var(--text-small)/1.4 var(--font-body);
   text-align: center;
   text-decoration: none;
   overflow-wrap: anywhere;
@@ -50,7 +50,7 @@
   border-radius: var(--radius-control);
   background: var(--color-surface);
   color: var(--color-ink);
-  font: 400 14px/1.4 var(--font-body);
+  font: var(--font-weight-body) var(--text-small)/1.4 var(--font-body);
 }
 
 .ui-input::placeholder { color: var(--color-muted); }

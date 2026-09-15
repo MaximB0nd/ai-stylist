@@ -6,8 +6,32 @@ Page-specific redesigns remain separate tasks.
 ## Foundations
 
 `public/css/shared/tokens.css` owns the palette, fonts, spacing, radii and shell
-dimensions. It loads before `base.css`. Segoe UI and Georgia use local system
-fonts, so no font CDN or network connection is required.
+dimensions. It loads before `base.css`. Fonts are self-hosted in `public/fonts`;
+no font CDN or network connection is required at runtime.
+
+Exactly three font families are bundled and used, with three distinct roles:
+EB Garamond Regular 400 for display headings, Literata Italic 300 for rare accents,
+and Manrope ExtraLight 200 for all ordinary text. Literata is used for
+the brand's accent word with its near-upright cursive forms and optical sizing.
+The accent uses the shared rose color token. Ordinary text has exactly two sizes:
+16px for body copy and form-section titles, 14px for labels, navigation, inputs
+and buttons. Both use the same 200 weight, including active navigation. Hierarchy
+comes from size, spacing and color, not extra bold weights. The selected thin
+weight is a design preference; keep adequate contrast and do not shrink it further.
+Use the shared family, weight and size tokens instead of local variations.
+
+The unmodified variable TTFs come from the Google Fonts repository directories
+`ofl/ebgaramond`, `ofl/literata` and `ofl/manrope`, downloaded on 2026-09-15. All include
+Cyrillic and are redistributed with their SIL OFL 1.1 files alongside the fonts.
+Sources: https://github.com/google/fonts/tree/main/ofl/ebgaramond,
+https://github.com/google/fonts/tree/main/ofl/literata and
+https://github.com/google/fonts/tree/main/ofl/manrope.
+
+Marggraff Kursiv Zarte is not bundled: the discovered distribution only specifies
+personal use. Its web embedding and redistribution permissions must be verified
+before adding it. Literata is the only italic face; EB Garamond Italic is not
+bundled. Generic serif/sans-serif fallbacks only apply if a font fails to load;
+they do not add another downloaded font family.
 
 The mockup's darker rose is used for primary controls and focused elements to
 improve text contrast. Letter spacing stays at zero. Page content remains
