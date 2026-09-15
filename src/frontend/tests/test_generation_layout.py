@@ -82,7 +82,7 @@ class GenerationLayoutTests(unittest.TestCase):
 
     def test_all_generation_images_are_local_and_present(self):
         images = self.soup.select(".generation-page img[src]")
-        self.assertEqual(len(images), 17)
+        self.assertEqual(len(images), 16)
         for image in images:
             with self.subTest(src=image["src"]):
                 self.assertTrue(image["src"].startswith("/images/generation/"))

@@ -59,16 +59,23 @@ export function mountGeneration(form) {
     for (const group of groups) {
       const selected = group.querySelector("input:checked");
       const value = selected?.closest("label").querySelector(".generation-choice-card > span").textContent;
-      page.querySelector(`[data-selection="${group.dataset.question}"]`).textContent = value || "Не выбрано";
+      const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
+      output.textContent = value || "";
+      output.parentElement.hidden = !selected;
       if (selected) choices++;
     }
     const total = measurements + photoCount + choices;
-    for (const [key, value, max] of [
-      ["measurements", measurements, 3], ["photos", photoCount, 2],
-      ["choices", choices, 4], ["total", total, 9],
+    page.querySelector(".generation-selections").hidden = !choices;
+    for (const [key, value, max, empty, partial] of [
+      ["measurements", measurements, 3, "Не заполнены", "Не всё заполнено"],
+      ["photos", photoCount, 2, "Не добавлены", "Нужно ещё фото"],
+      ["choices", choices, 4, "Не выбраны", "Не всё выбрано"],
     ]) {
-      page.querySelector(`[data-count="${key}"]`).textContent = `${value} / ${max}`;
+      const output = page.querySelector(`[data-count="${key}"]`);
+      output.textContent = value === max ? "Готово" : value ? partial : empty;
+      output.classList.toggle("is-complete", value === max);
     }
+    page.querySelector('[data-count="total"]').textContent = `${total} / 9`;
     const progress = page.querySelector("progress");
     progress.value = total;
     progress.textContent = `${total} из 9`;

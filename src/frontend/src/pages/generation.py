@@ -143,18 +143,14 @@ def page():
       </section>
     </form>
     <aside class="generation-summary" aria-labelledby="generation-summary-title">
-      <figure>
-        <img src="/images/generation/photo06.webp" alt="Пример сочетания одежды для вдохновения" width="400" height="300" />
-        <figcaption>Вдохновение</figcaption>
-      </figure>
-      <h3 id="generation-summary-title">Ваш альбом</h3>
-      <dl class="generation-selections">
-        {"".join(f'<div><dt>{title}</dt><dd data-selection="{key}">Не выбрано</dd></div>' for key, title, _ in CHOICES)}
+      <h3 id="generation-summary-title">Ваша анкета</h3>
+      <dl class="generation-selections" hidden>
+        {"".join(f'<div hidden><dt>{title}</dt><dd data-selection="{key}"></dd></div>' for key, title, _ in CHOICES)}
       </dl>
       <dl class="generation-checklist">
-        <div><dt>Параметры</dt><dd data-count="measurements">0 / 3</dd></div>
-        <div><dt>Фотографии</dt><dd data-count="photos">0 / 2</dd></div>
-        <div><dt>Пожелания</dt><dd data-count="choices">0 / 4</dd></div>
+        <div><dt>Параметры</dt><dd data-count="measurements">Не заполнены</dd></div>
+        <div><dt>Фотографии</dt><dd data-count="photos">Не добавлены</dd></div>
+        <div><dt>Пожелания</dt><dd data-count="choices">Не выбраны</dd></div>
       </dl>
       <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
       <progress id="generation-progress" value="0" max="9">0 из 9</progress>
