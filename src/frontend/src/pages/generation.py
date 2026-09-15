@@ -85,10 +85,11 @@ def _uploads():
   <input id="generation-{key}" type="file" name="{key}"
     accept="image/jpeg,image/png,image/webp" aria-describedby="photo-formats {key}-error" />
   <div class="generation-upload-actions">
-    <button class="ui-button ui-button--quiet" type="button" data-replace-photo hidden>Заменить</button>
+    <button class="ui-button ui-button--secondary" type="button" data-replace-photo hidden>Заменить</button>
     <button class="ui-button ui-button--quiet" type="button" data-remove-photo hidden
       aria-label="Удалить: {label}">Удалить</button>
   </div>
+  <p class="generation-photo-status" data-photo-status role="status" aria-live="polite"></p>
   <p class="generation-error" id="{key}-error" role="alert" hidden></p>
 </div>"""
         for key, label in (("body", "Фото в полный рост"), ("face", "Фото лица"))

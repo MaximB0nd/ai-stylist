@@ -8,6 +8,24 @@ export function photoFileError(file) {
   return "";
 }
 
+export function measurementError(input, required = true) {
+  const names = { age: "возраст", height: "рост", weight: "вес" };
+  if (input.validity.badInput) return "Введите число.";
+  if (input.validity.valueMissing) return required ? `Укажите ${names[input.name]}.` : "";
+  if (input.validity.rangeUnderflow || input.validity.rangeOverflow) {
+    return `Укажите ${names[input.name]} от ${input.min} до ${input.max}.`;
+  }
+  if (input.validity.stepMismatch) {
+    return input.step === "1" ? "Введите целое число." : "Укажите вес с точностью до 0,1 кг.";
+  }
+  return "";
+}
+
+export function photoSelectionError(files) {
+  if (files.length > 1) return "Выберите одну фотографию для этой области.";
+  return files.length ? photoFileError(files[0]) : "";
+}
+
 export function mountGeneration(form) {
   const page = form.closest(".generation-page");
   const button = page.querySelector(".generation-submit");
@@ -39,15 +57,8 @@ export function mountGeneration(form) {
     else control.removeAttribute("aria-invalid");
   }
 
-  function validateNumber(input) {
-    let message = "";
-    if (input.validity.badInput || input.validity.valueMissing) {
-      message = "Введите число.";
-    } else if (input.validity.rangeUnderflow || input.validity.rangeOverflow) {
-      message = `Укажите значение от ${input.min} до ${input.max}.`;
-    } else if (input.validity.stepMismatch) {
-      message = input.step === "1" ? "Введите целое число." : "Укажите вес с точностью до 0,1 кг.";
-    }
+  function validateNumber(input, required = submitted) {
+    const message = measurementError(input, required);
     error(input, input.name, message);
     return !message;
   }
@@ -92,23 +103,30 @@ export function mountGeneration(form) {
     photo.element.querySelector("[data-replace-photo]").hidden = !hasPhoto;
     photo.element.querySelector("[data-remove-photo]").hidden = !hasPhoto;
     photo.element.setAttribute("aria-busy", String(photo.pending));
+    photo.element.querySelector("[data-photo-status]").textContent = photo.pending
+      ? "Открываем фото…" : hasPhoto ? "Фото добавлено" : "";
   }
 
-  async function acceptPhoto(photo, file) {
-    if (!file) return;
+  function photoError(photo, message) {
+    const preserved = message && photo.url ? " Предыдущее фото сохранено." : "";
+    error(photo.input, photo.input.name, message + preserved);
+  }
+
+  async function acceptPhotos(photo, files) {
+    if (!files.length) return;
     // A newer selection, including an invalid one, supersedes an in-flight decode.
     const request = ++photo.request;
     photo.pending = false;
     photo.input.value = "";
-    const message = photoFileError(file);
-    error(photo.input, photo.input.name, message);
+    const message = photoSelectionError(files);
+    photoError(photo, message);
     if (message) {
       renderPhoto(photo);
       updateSummary();
       return;
     }
 
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(files[0]);
     liveUrls.add(url);
     photo.pending = true;
     renderPhoto(photo);
@@ -122,7 +140,7 @@ export function mountGeneration(form) {
       photo.url = url;
     } catch {
       if (!disposed && request === photo.request) {
-        error(photo.input, photo.input.name, "Не удалось открыть фото. Выберите другой файл.");
+        photoError(photo, "Не удалось открыть фото. Выберите другой файл.");
       }
     } finally {
       if (photo.url !== url) revoke(url);
@@ -135,7 +153,21 @@ export function mountGeneration(form) {
   }
 
   for (const photo of photos) {
-    photo.input.addEventListener("change", () => acceptPhoto(photo, photo.input.files[0]), { signal: events.signal });
+    photo.input.addEventListener("change", () => acceptPhotos(photo, [...photo.input.files]), { signal: events.signal });
+    photo.element.addEventListener("dragover", (event) => {
+      if (!event.dataTransfer?.types.includes("Files")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      photo.element.classList.add("is-dragover");
+    }, { signal: events.signal });
+    photo.element.addEventListener("dragleave", (event) => {
+      if (!photo.element.contains(event.relatedTarget)) photo.element.classList.remove("is-dragover");
+    }, { signal: events.signal });
+    photo.element.addEventListener("drop", (event) => {
+      event.preventDefault();
+      photo.element.classList.remove("is-dragover");
+      acceptPhotos(photo, [...(event.dataTransfer?.files || [])]);
+    }, { signal: events.signal });
     photo.element.querySelector("[data-replace-photo]").addEventListener("click", () => photo.input.click(), { signal: events.signal });
     photo.element.querySelector("[data-remove-photo]").addEventListener("click", () => {
       photo.request++;
@@ -147,6 +179,13 @@ export function mountGeneration(form) {
       renderPhoto(photo);
       updateSummary();
       photo.input.focus();
+    }, { signal: events.signal });
+  }
+
+  // Prevent dropped files outside the photo areas from replacing the current page.
+  for (const name of ["dragover", "drop"]) {
+    page.addEventListener(name, (event) => {
+      if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
     }, { signal: events.signal });
   }
 
@@ -171,7 +210,7 @@ export function mountGeneration(form) {
       status.textContent = "Подождите, фотографии ещё открываются.";
       return;
     }
-    const invalid = numbers.filter((input) => !validateNumber(input));
+    const invalid = numbers.filter((input) => !validateNumber(input, true));
     for (const photo of photos) {
       error(photo.input, photo.input.name, photo.url ? "" : "Добавьте фотографию.");
       if (!photo.url) invalid.push(photo.input);
