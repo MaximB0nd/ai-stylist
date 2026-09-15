@@ -1,0 +1,27 @@
+:root {
+  --color-canvas: #fdfcfb;
+  --color-surface: #fffefd;
+  --color-sidebar: #eee8df;
+  --color-soft: #f2ede5;
+  --color-line: #e3ddd4;
+  --color-ink: #352e2a;
+  --color-muted: #74695f;
+  --color-accent: #a34855;
+  --color-accent-hover: #883b47;
+  --color-accent-soft: #fae9eb;
+  --color-gold: #b38d60;
+  --font-body: "Segoe UI", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-control: 4px;
+  --radius-card: 5px;
+  --sidebar-width: 222px;
+  --page-gutter: 40px;
+  --content-width: 1550px;
+}
