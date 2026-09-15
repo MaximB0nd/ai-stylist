@@ -7,148 +7,164 @@ metadata = Metadata(
     description="Заполните данные для генерации образов",
 )
 
+CHOICES = (
+    (
+        "occasion",
+        "Куда?",
+        (
+            ("street", "Улица"),
+            ("study", "Учёба"),
+            ("office", "Офис"),
+            ("evening", "Вечер"),
+        ),
+    ),
+    (
+        "style",
+        "Стиль",
+        (
+            ("minimal", "Минимализм"),
+            ("classic", "Классика"),
+            ("casual", "Casual"),
+            ("romantic", "Романтичный"),
+        ),
+    ),
+    (
+        "shoe",
+        "Обувь",
+        (
+            ("sneakers", "Кроссовки"),
+            ("loafers", "Лоферы"),
+            ("heels", "Каблук"),
+            ("boots", "Ботинки"),
+        ),
+    ),
+    (
+        "mood",
+        "Впечатление",
+        (
+            ("confident", "Уверенное"),
+            ("elegant", "Элегантное"),
+            ("relaxed", "Расслабленное"),
+            ("bright", "Яркое"),
+        ),
+    ),
+)
+
+
+def _measurements():
+    fields = (
+        ("age", "Возраст, лет", 1, 120, "1", "28"),
+        ("height", "Рост, см", 80, 240, "1", "168"),
+        ("weight", "Вес, кг", 20, 350, "0.1", "58"),
+    )
+    return "".join(
+        f"""
+<div class="generation-field">
+  <label for="generation-{key}">{label}</label>
+  <input class="ui-input" id="generation-{key}" type="number" name="{key}"
+    min="{minimum}" max="{maximum}" step="{step}" placeholder="{placeholder}"
+    required autocomplete="off" aria-describedby="{key}-error" />
+  <p class="generation-error" id="{key}-error" hidden></p>
+</div>"""
+        for key, label, minimum, maximum, step, placeholder in fields
+    )
+
+
+def _uploads():
+    return "".join(
+        f"""
+<div class="generation-upload" data-photo="{key}">
+  <label for="generation-{key}">{label}</label>
+  <label class="generation-upload-slot" for="generation-{key}">
+    <span class="generation-photo-empty">
+      <span class="site-icon site-icon--images" aria-hidden="true"></span>
+      <span>Добавить фото</span>
+    </span>
+    <img class="generation-preview" alt="{label}" hidden />
+  </label>
+  <input id="generation-{key}" type="file" name="{key}"
+    accept="image/jpeg,image/png,image/webp" aria-describedby="photo-formats {key}-error" />
+  <div class="generation-upload-actions">
+    <button class="ui-button ui-button--quiet" type="button" data-replace-photo hidden>Заменить</button>
+    <button class="ui-button ui-button--quiet" type="button" data-remove-photo hidden
+      aria-label="Удалить: {label}">Удалить</button>
+  </div>
+  <p class="generation-error" id="{key}-error" hidden></p>
+</div>"""
+        for key, label in (("body", "Фото в полный рост"), ("face", "Фото лица"))
+    )
+
+
+def _questions():
+    groups = []
+    for key, title, options in CHOICES:
+        cards = "".join(
+            f"""
+<label class="generation-choice">
+  <input type="radio" name="{key}" value="{value}" required />
+  <span class="generation-choice-card">
+    <img src="/images/generation/{key}-{value}.webp" width="400" height="400" alt="" loading="lazy" />
+    <span>{label}</span>
+  </span>
+</label>"""
+            for value, label in options
+        )
+        groups.append(f"""
+<fieldset class="generation-question" data-question="{key}" aria-describedby="{key}-error">
+  <legend>{title}</legend>
+  <div class="generation-card-grid">{cards}</div>
+  <p class="generation-error" id="{key}-error" hidden></p>
+</fieldset>""")
+    return "".join(groups)
+
 
 def page():
     return app_shell(
-        r"""
-<section class="generation-page">
-  <section class="generation-heading" aria-labelledby="generation-title">
+        f"""
+<section class="generation-page" aria-labelledby="generation-title">
+  <div class="generation-heading">
     <h2 id="generation-title">Новые образы</h2>
-    <p>Заполните данные и пожелания для генерации.</p>
-  </section>
-
-  <form class="generation-form">
-    <section class="generation-frame generation-data-frame" aria-labelledby="generation-data-title">
-      <div class="generation-frame-header">
-        <h2 id="generation-data-title">Данные для генерации</h2>
-      </div>
-
-      <div class="generation-fields generation-fields-three">
-        <label for="generation-age">
-          Возраст
-          <input class="ui-input" id="generation-age" type="number" name="age" min="1" value="28" />
-        </label>
-
-        <label for="generation-height">
-          Рост, см
-          <input class="ui-input" id="generation-height" type="number" name="height" min="1" value="168" />
-        </label>
-
-        <label for="generation-weight">
-          Вес, кг
-          <input class="ui-input" id="generation-weight" type="number" name="weight" min="1" value="56" />
-        </label>
-      </div>
-
-      <div class="generation-fields generation-fields-two">
-        <div class="generation-upload-frame">
-          <span>Фото в полный рост</span>
-          <span class="generation-upload-slot">Фото не добавлено</span>
-        </div>
-
-        <div class="generation-upload-frame">
-          <span>Фото лица</span>
-          <span class="generation-upload-slot">Фото не добавлено</span>
-        </div>
-      </div>
-    </section>
-
-    <div class="generation-question-grid" aria-label="Анкета">
-      <section class="generation-frame" aria-labelledby="occasion-title">
-        <h2 id="occasion-title">Куда?</h2>
-
-        <div class="generation-card-grid">
-          <div class="generation-choice-card">
-            <span>Улица</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Учёба</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Офис</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Вечер</span>
-          </div>
-        </div>
+    <p>Ваши параметры и пожелания к новому образу.</p>
+  </div>
+  <div class="generation-layout">
+    <form class="generation-form" id="generation-form" novalidate>
+      <section class="generation-section" aria-labelledby="generation-data-title">
+        <h3 id="generation-data-title"><span>01</span> Немного о вас</h3>
+        <div class="generation-measurements">{_measurements()}</div>
       </section>
-
-      <section class="generation-frame" aria-labelledby="style-title">
-        <h2 id="style-title">Стиль</h2>
-
-        <div class="generation-card-grid">
-          <div class="generation-choice-card">
-            <span>Минимализм</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Классика</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Casual</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Романтичный</span>
-          </div>
-        </div>
+      <section class="generation-section" aria-labelledby="generation-photo-title">
+        <h3 id="generation-photo-title"><span>02</span> Две фотографии</h3>
+        <div class="generation-uploads">{_uploads()}</div>
+        <p class="generation-note" id="photo-formats">JPG, PNG, WebP · до 10 МБ на фото</p>
       </section>
-
-      <section class="generation-frame" aria-labelledby="shoes-title">
-        <h2 id="shoes-title">Обувь</h2>
-
-        <div class="generation-card-grid">
-          <div class="generation-choice-card">
-            <span>Кроссовки</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Лоферы</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Каблук</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Ботинки</span>
-          </div>
-        </div>
+      <section class="generation-section" aria-labelledby="generation-questions-title">
+        <h3 id="generation-questions-title"><span>03</span> Параметры образа</h3>
+        <div class="generation-questions">{_questions()}</div>
       </section>
-
-      <section class="generation-frame" aria-labelledby="mood-title">
-        <h2 id="mood-title">Впечатление</h2>
-
-        <div class="generation-card-grid">
-          <div class="generation-choice-card">
-            <span>Уверенное</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Элегантное</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Расслабленное</span>
-          </div>
-
-          <div class="generation-choice-card">
-            <span>Яркое</span>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="generation-actions">
-      <button class="generation-submit ui-button" type="button" disabled title="Генерация пока недоступна">
-        Сгенерировать 5 образов
+    </form>
+    <aside class="generation-summary" aria-labelledby="generation-summary-title">
+      <figure>
+        <img src="/images/generation/photo06.webp" alt="Пример сочетания одежды для вдохновения" width="400" height="300" />
+        <figcaption>Вдохновение</figcaption>
+      </figure>
+      <h3 id="generation-summary-title">Ваш альбом</h3>
+      <dl class="generation-selections">
+        {"".join(f'<div><dt>{title}</dt><dd data-selection="{key}">Не выбрано</dd></div>' for key, title, _ in CHOICES)}
+      </dl>
+      <dl class="generation-checklist">
+        <div><dt>Параметры</dt><dd data-count="measurements">0 / 3</dd></div>
+        <div><dt>Фотографии</dt><dd data-count="photos">0 / 2</dd></div>
+        <div><dt>Пожелания</dt><dd data-count="choices">0 / 4</dd></div>
+      </dl>
+      <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
+      <progress id="generation-progress" value="0" max="9">0 из 9</progress>
+      <button class="generation-submit ui-button" type="submit" form="generation-form" disabled>
+        Проверить анкету
       </button>
-    </div>
-  </form>
+      <p class="generation-note">Генерация образов пока недоступна. Фото и параметры не отправляются на сервер.</p>
+      <p class="generation-status" role="status" aria-live="polite"></p>
+    </aside>
+  </div>
 </section>
 """,
         title="Новые образы",
