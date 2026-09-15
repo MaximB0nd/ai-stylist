@@ -89,7 +89,7 @@ def _uploads():
     <button class="ui-button ui-button--quiet" type="button" data-remove-photo hidden
       aria-label="Удалить: {label}">Удалить</button>
   </div>
-  <p class="generation-error" id="{key}-error" hidden></p>
+  <p class="generation-error" id="{key}-error" role="alert" hidden></p>
 </div>"""
         for key, label in (("body", "Фото в полный рост"), ("face", "Фото лица"))
     )
