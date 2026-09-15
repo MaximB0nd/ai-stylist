@@ -26,7 +26,7 @@ class PageControlsTests(unittest.TestCase):
         self.assertEqual(switch["type"], "button")
         self.assertTrue(switch.has_attr("disabled"))
 
-    def test_generation_fields_remain_editable_but_submit_is_unavailable(self):
+    def test_generation_check_stays_disabled_until_javascript_initializes(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")
         fields = soup.select('.generation-form input[type="number"]')
         self.assertEqual(len(fields), 3)

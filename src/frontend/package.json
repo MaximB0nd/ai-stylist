@@ -6,7 +6,8 @@
   "scripts": {
     "projectName": "tsx settings/project-name.ts",
     "dev": "npm run build && uv run python main.py",
-    "build": "tsx settings/project-name.ts"
+    "build": "tsx settings/project-name.ts",
+    "test:unit": "node --test tests/*.test.js"
   },
   "type": "module",
   "devDependencies": {
