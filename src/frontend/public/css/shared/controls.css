@@ -24,7 +24,7 @@
 }
 
 .ui-button--secondary {
-  border-color: var(--color-line);
+  border-color: var(--color-control-line);
   background: var(--color-surface);
   color: var(--color-ink);
 }
@@ -53,12 +53,17 @@
   cursor: not-allowed;
 }
 
+.ui-button--quiet:disabled {
+  border-color: transparent;
+  background: transparent;
+}
+
 .ui-input {
   width: 100%;
   min-width: 0;
   min-height: 44px;
   padding: 12px 14px;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-control-line);
   border-radius: var(--radius-control);
   background: var(--color-surface);
   color: var(--color-ink);

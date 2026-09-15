@@ -54,8 +54,16 @@
     font-size: var(--text-small);
 }
 
-.gallery-page .filter-tab:hover {
+.gallery-page .filter-tab:hover:not(:disabled) {
     color: var(--color-ink);
+}
+
+.gallery-page .filter-tab:disabled {
+    cursor: not-allowed;
+}
+
+.gallery-page .filter-tab:disabled:not(.active) {
+    opacity: 0.6;
 }
 
 .gallery-page .filter-tab.active {
@@ -84,11 +92,6 @@
     flex-direction: column;
     text-decoration: none;
     color: inherit;
-    transition: transform 0.2s;
-}
-
-.gallery-page .album-card:hover {
-    transform: translateY(-4px);
 }
 
 .gallery-page .album-preview {
@@ -104,27 +107,6 @@
     height: 100%;
     background-size: cover;
     background-position: center;
-    transition: transform 0.3s;
-}
-
-.gallery-page .album-card:hover .album-image {
-    transform: scale(1.03);
-}
-
-.gallery-page .image-office {
-    background: linear-gradient(145deg, #e8e8e8, #8a8a8a 55%, #1a1a1a);
-}
-
-.gallery-page .image-evening {
-    background: linear-gradient(145deg, #1a1a1a, #4a4a4a);
-}
-
-.gallery-page .image-street {
-    background: linear-gradient(145deg, #d0d0d0, #6a6a6a);
-}
-
-.gallery-page .image-study {
-    background: linear-gradient(145deg, #b0b0b0, #2a2a2a);
 }
 
 .gallery-page .album-badge {
@@ -194,8 +176,3 @@
     color: var(--color-surface);
     border-color: var(--color-accent);
 }
-
-.gallery-page .album-card.archived .album-image {
-    filter: grayscale(1) brightness(0.85);
-}
-

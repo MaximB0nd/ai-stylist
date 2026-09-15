@@ -20,7 +20,10 @@ class AlbumLayoutTests(unittest.TestCase):
                 looks = soup.select(".look-button")
                 self.assertEqual(len(looks), 5)
                 self.assertTrue(all(look["type"] == "button" for look in looks))
+                self.assertTrue(all(look.has_attr("disabled") for look in looks))
+                self.assertTrue(all(look.get("title") for look in looks))
                 self.assertEqual(len(soup.select(".look-visual[role=img]")), 5)
+                self.assertEqual(len(soup.select(".ui-image-placeholder")), 5)
                 self.assertEqual(
                     len(soup.select(".tag")), 2 if data.get("archived") else 1
                 )
@@ -35,6 +38,8 @@ class AlbumLayoutTests(unittest.TestCase):
         self.assertEqual(len(actions), 2)
         self.assertTrue(all("ui-button" in button["class"] for button in actions))
         self.assertTrue(all(button["type"] == "button" for button in actions))
+        self.assertTrue(all(button.has_attr("disabled") for button in actions))
+        self.assertTrue(all(button.get("title") for button in actions))
         self.assertIn("ui-button--secondary", actions[0]["class"])
         self.assertIn("ui-button--quiet", actions[1]["class"])
 

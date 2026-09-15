@@ -1,0 +1,18 @@
+.ui-image-placeholder {
+  position: relative;
+  background: var(--color-placeholder);
+}
+
+.ui-image-placeholder::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  background: var(--color-muted);
+  opacity: 0.45;
+  mask: url("/icons/lucide/images.svg") center / contain no-repeat;
+  content: "";
+  pointer-events: none;
+}

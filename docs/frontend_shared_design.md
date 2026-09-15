@@ -12,11 +12,11 @@ no font CDN or network connection is required at runtime.
 
 Exactly three font families are bundled and used, with three distinct roles:
 EB Garamond Regular 400 for display headings, Literata Italic 300 for rare accents,
-and Manrope ExtraLight 200 for all ordinary text. Literata is used for
+and Manrope Light 300 for all ordinary text. Literata is used for
 the brand's accent word with its near-upright cursive forms and optical sizing.
 The accent uses the shared rose color token. Ordinary text has exactly two sizes:
 16px for body copy and form-section titles, 14px for labels, navigation, inputs
-and buttons. Both use the same 200 weight, including active navigation. Hierarchy
+and buttons. Both use the same 300 weight, including active navigation. Hierarchy
 comes from size, spacing and color, not extra bold weights. The selected thin
 weight is a design preference; keep adequate contrast and do not shrink it further.
 Use the shared family, weight and size tokens instead of local variations.
@@ -96,10 +96,32 @@ variant is `--color-accent-hover`. Quiet and secondary controls use
 backdrop for the login dialog and archived-image badges.
 
 Do not introduce local hex colors for interface text, borders or control states.
-The grayscale gradients and silhouettes in existing demo previews are temporary
-media placeholders, not interface colors. Their replacement belongs to the
-page-design tasks and is intentionally outside FRONT-15.
+After the owner's UX refinement request, demo previews use the shared
+`.ui-image-placeholder` class from `shared/media.css`: a neutral surface with
+the existing Lucide image icon. Existing preview dimensions are preserved.
+Real photos and image-viewer behavior remain separate page-design tasks.
 Profile values remain semantic description-list text, not editable inputs.
+
+## UX Refinement
+
+The owner approved a follow-up refinement after the original FRONT-15 scope:
+Manrope increases from 200 to 300 for legibility, without adding another font.
+`--color-control-line` provides a stronger boundary for editable inputs and
+secondary actions; `--color-line` stays subtle for dividers and static items.
+
+The shared content width is 1320px including gutters. Home and generation use
+that container instead of additional centered wrappers. Generation's title
+starts at the shared top inset, with its description below; its form sections
+use separators instead of nested bordered panels. Profile may remain narrower
+while aligning with the same content edge.
+
+Unimplemented actions have native `disabled` and short availability titles:
+generation submission, gallery filters, album actions and image viewing, login
+submission and registration. The current All filter is also disabled because
+there is no filtering logic. Opening and closing the login dialog, editing fields
+and real navigation links remain available. Login copy no longer promises a
+working demo sign-in. Future feature tasks should enable controls only together
+with their behavior and update the corresponding tests.
 
 ## Verification
 
@@ -116,7 +138,8 @@ separate work. FRONT-8 album routes are not introduced by this change.
 
 FRONT-15 verification covers all five pages at 1280, 1440 and 1920px:
 no horizontal or text-container overflow, only the three intended font families,
-and body text at 200 weight. Existing plus/arrow/close glyphs are size exceptions.
+and body text at 200 weight before the UX refinement. Existing plus/arrow/close
+glyphs are size exceptions.
 The album action hover and keyboard focus, input focus, gallery-to-album links,
 album return link, browser Back, home-to-generation link, and login backdrop
 close were exercised in the browser. Gallery captions stay block-level with no
@@ -124,7 +147,15 @@ album-specific margins after navigating between the two pages.
 
 Unittest coverage includes all four demo albums, their five previews and tags,
 the unknown-album fallback, shared control classes and album's active navigation.
-The local checks are `python -m ruff check src/pages/album.py tests`,
+The local checks are
+`python -m ruff check src/pages/album.py src/pages/home.py src/pages/gallery.py src/pages/generation.py tests`,
 `python -m unittest discover -s tests -v`, and `npm run build`, run from
 `src/frontend` with the project's virtual environment active.
 No CSS linter or separate type-check script is configured; no new tool is added.
+
+After the UX refinement, the same desktop widths were checked again with
+Manrope 300, shared neutral previews and the narrower content container.
+All five pages stay within the viewport. The 16 unit tests cover unavailable
+actions as well as the preserved links and editable fields. Browser checks
+confirmed that Enter does not submit the unavailable login form, backdrop
+closing still works, and navigation to generation and gallery/album is intact.

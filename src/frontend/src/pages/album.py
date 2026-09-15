@@ -53,9 +53,8 @@ def page(params=None):
 
     looks = "\n".join(
         f"""
-        <button class="look-button" type="button" aria-label="Открыть образ {index}">
-          <span class="look-visual look-visual--{index}" role="img" aria-label="Демо-фотография образа {index}">
-            <span class="look-expand" aria-hidden="true">⌕</span>
+        <button class="look-button" type="button" disabled title="Просмотр образа пока недоступен" aria-label="Образ {index}">
+          <span class="look-visual look-visual--{index} ui-image-placeholder" role="img" aria-label="Превью образа {index} пока отсутствует">
           </span>
           <span class="look-caption">
             <span>Образ</span>
@@ -85,8 +84,8 @@ def page(params=None):
       </div>
 
       <div class="album-actions">
-        <button class="ui-button ui-button--secondary" type="button">Архивировать</button>
-        <button class="ui-button ui-button--quiet" type="button">Удалить</button>
+        <button class="ui-button ui-button--secondary" type="button" disabled title="Архивирование пока недоступно">Архивировать</button>
+        <button class="ui-button ui-button--quiet" type="button" disabled title="Удаление пока недоступно">Удалить</button>
       </div>
     </div>
 
