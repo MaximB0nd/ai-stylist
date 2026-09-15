@@ -11,10 +11,10 @@
 }
 
 .gallery-page .gallery-title {
-    font: var(--font-weight-display) 64px/1 var(--font-display);
+    font: var(--font-weight-display) var(--text-page)/1 var(--font-display);
     letter-spacing: 0;
     margin: 0;
-    color: #1a1a1a;
+    color: var(--color-ink);
 }
 
 .gallery-page .btn-plus {
@@ -26,7 +26,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--color-line);
     margin-bottom: 32px;
     padding-bottom: 0;
 }
@@ -41,7 +41,7 @@
     border: none;
     padding: 0 0 16px 0;
     font-size: var(--text-body);
-    color: #888;
+    color: var(--color-muted);
     cursor: pointer;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -50,26 +50,26 @@
 
 .gallery-page .filter-tab span {
     margin-left: 6px;
-    color: #bbb;
+    color: var(--color-muted);
     font-size: var(--text-small);
 }
 
 .gallery-page .filter-tab:hover {
-    color: #1a1a1a;
+    color: var(--color-ink);
 }
 
 .gallery-page .filter-tab.active {
-    color: #1a1a1a;
-    border-bottom-color: #1a1a1a;
+    color: var(--color-ink);
+    border-bottom-color: var(--color-accent);
 }
 
 .gallery-page .filter-tab.active span {
-    color: #1a1a1a;
+    color: var(--color-ink);
 }
 
 .gallery-page .filters-count {
     font-size: var(--text-small);
-    color: #888;
+    color: var(--color-muted);
     padding-bottom: 16px;
 }
 
@@ -132,8 +132,8 @@
     left: 12px;
     bottom: 12px;
     padding: 6px 12px;
-    background: #fff;
-    color: #1a1a1a;
+    background: var(--color-surface);
+    color: var(--color-ink);
     font-size: var(--text-small);
     border-radius: 6px;
 }
@@ -143,8 +143,8 @@
     right: 12px;
     top: 12px;
     padding: 6px 12px;
-    background: rgba(0, 0, 0, 0.7);
-    color: #fff;
+    background: var(--color-overlay);
+    color: var(--color-surface);
     font-size: var(--text-small);
     border-radius: 6px;
 }
@@ -160,39 +160,39 @@
 }
 
 .gallery-page .album-name {
-    font: var(--font-weight-display) 26px var(--font-display);
-    color: #1a1a1a;
+    font: var(--font-weight-display) var(--text-card) var(--font-display);
+    color: var(--color-ink);
     margin-bottom: 4px;
 }
 
 .gallery-page .album-date {
     font-size: var(--text-small);
-    color: #888;
+    color: var(--color-muted);
 }
 
 .gallery-page .album-arrow {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    border: 1px solid #d0d0d0;
+    border: 1px solid var(--color-line);
     display: grid;
     place-items: center;
     font-size: var(--text-body);
-    color: #1a1a1a;
+    color: var(--color-ink);
     transition: background 0.2s, color 0.2s, border-color 0.2s;
     flex-shrink: 0;
 }
 
 .gallery-page .album-card:hover .album-arrow {
-    background: #1a1a1a;
-    color: #fff;
-    border-color: #1a1a1a;
+    background: var(--color-accent);
+    color: var(--color-surface);
+    border-color: var(--color-accent);
 }
 
 .gallery-page .album-arrow.filled {
-    background: #1a1a1a;
-    color: #fff;
-    border-color: #1a1a1a;
+    background: var(--color-accent);
+    color: var(--color-surface);
+    border-color: var(--color-accent);
 }
 
 .gallery-page .album-card.archived .album-image {

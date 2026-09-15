@@ -10,6 +10,7 @@
   --color-accent-hover: #883b47;
   --color-accent-soft: #fae9eb;
   --color-gold: #b38d60;
+  --color-overlay: rgb(53 46 42 / 65%);
   --font-body: "Manrope", sans-serif;
   --font-display: "EB Garamond", serif;
   --font-accent: "Literata", serif;
@@ -18,6 +19,11 @@
   --font-weight-body: 200;
   --text-body: 16px;
   --text-small: 14px;
+  --text-hero: 60px;
+  --text-page: 52px;
+  --text-section: 30px;
+  --text-card: 26px;
+  --text-dialog: 32px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

@@ -3,8 +3,8 @@
   gap: 24px;
   width: min(100%, 1120px);
   margin: 0 auto;
-  background: #ffffff;
-  color: #000000;
+  background: transparent;
+  color: var(--color-ink);
   padding: 48px 24px;
 }
 
@@ -17,8 +17,8 @@
 
 .generation-heading h2 {
   margin: 0;
-  color: #000000;
-  font: var(--font-weight-display) 52px/1.05 var(--font-display);
+  color: var(--color-ink);
+  font: var(--font-weight-display) var(--text-page)/1.05 var(--font-display);
 }
 
 .generation-heading p {
@@ -42,9 +42,9 @@
 .generation-frame {
   display: grid;
   gap: 18px;
-  border: 1px solid #000000;
+  border: 1px solid var(--color-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-surface);
   padding: 20px;
 }
 
@@ -88,9 +88,9 @@
   display: grid;
   gap: 16px;
   min-height: 160px;
-  border: 1px solid #000000;
+  border: 1px solid var(--color-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-surface);
   padding: 16px;
   font-size: var(--text-small);
   font-weight: var(--font-weight-body);
@@ -100,7 +100,7 @@
   display: grid;
   min-height: 96px;
   place-items: center;
-  border: 1px dashed #000000;
+  border: 1px dashed var(--color-muted);
   border-radius: 8px;
   font-weight: var(--font-weight-body);
 }
@@ -121,9 +121,9 @@
   display: grid;
   min-height: 84px;
   place-items: center;
-  border: 1px solid #000000;
+  border: 1px solid var(--color-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-surface);
   font-size: var(--text-small);
   font-weight: var(--font-weight-body);
   text-align: center;
