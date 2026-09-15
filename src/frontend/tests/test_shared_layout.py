@@ -26,6 +26,7 @@ class SharedLayoutTests(unittest.TestCase):
                 self.assertEqual(
                     soup.select_one(".site-skip-link")["href"], "#main-content"
                 )
+                self.assertEqual(soup.select_one(".site-skip-link")["pp-spa"], "false")
 
     def test_title_is_text_but_page_content_is_html(self):
         title = '<script>alert("title")</script> & profile'

@@ -8,7 +8,7 @@ from src.components.shared.layout.sidebar import sidebar
 def app_shell(content, title="Носи Красиво", active_page=None):
     return html(f"""
 <div class="site-shell">
-  <a class="site-skip-link" href="#main-content">Перейти к содержимому</a>
+  <a class="site-skip-link" href="#main-content" pp-spa="false">Перейти к содержимому</a>
   {sidebar(active_page)}
 
   <div class="site-shell__body">

@@ -16,7 +16,7 @@ def page():
 
             <header class="gallery-header">
                 <h2 class="gallery-title">Галерея</h2>
-                <a href="/generation" class="btn-new-album">
+                <a href="/generation" class="btn-new-album ui-button">
                     <span class="btn-plus">+</span>
                     Новые образы
                 </a>
