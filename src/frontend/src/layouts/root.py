@@ -4,7 +4,7 @@ from casp.component_decorator import html
 def layout():
     return html(r"""
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
   <head>
     {% set page_title = metadata.title if metadata is defined else "AI Stylist" %}
     {% set page_description = metadata.description if metadata is defined else "AI Stylist frontend" %}

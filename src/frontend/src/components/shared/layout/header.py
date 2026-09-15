@@ -7,12 +7,16 @@ def header(title="Носи Красиво"):
     return f"""
 <header class="site-header">
   <div>
-    <p class="site-header__eyebrow">Носи Красиво</p>
-    <h1 class="site-header__title">{safe_title}</h1>
+    <div class="site-header__breadcrumb">
+      <a href="/">Носи Красиво</a>
+      <span aria-hidden="true">/</span>
+      <h1 class="site-header__title">{safe_title}</h1>
+    </div>
   </div>
 
-  <div class="site-header__profile" aria-label="User profile">
-    <span class="site-header__avatar">A</span>
-  </div>
+  <a class="site-header__profile" href="/profile" aria-label="Открыть профиль">
+    <span class="site-avatar" aria-hidden="true"><span class="site-icon site-icon--user-round"></span></span>
+    <span>Мой аккаунт</span>
+  </a>
 </header>
 """

@@ -1,7 +1,7 @@
 :root {
-  color: #171717;
-  background: #ffffff;
-  font-family: Inter, Arial, sans-serif;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  font-family: var(--font-body);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -17,5 +17,46 @@ body {
 }
 
 body {
-  background: #ffffff;
+  background: var(--color-canvas);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-body);
+  line-height: 1.55;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+img {
+  max-width: 100%;
+}
+
+.site-shell :where(strong, b) {
+  font-weight: inherit;
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

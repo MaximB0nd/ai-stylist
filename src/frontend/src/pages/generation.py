@@ -26,17 +26,17 @@ def page():
       <div class="generation-fields generation-fields-three">
         <label for="generation-age">
           Возраст
-          <input id="generation-age" type="number" name="age" min="1" value="28" />
+          <input class="ui-input" id="generation-age" type="number" name="age" min="1" value="28" />
         </label>
 
         <label for="generation-height">
           Рост, см
-          <input id="generation-height" type="number" name="height" min="1" value="168" />
+          <input class="ui-input" id="generation-height" type="number" name="height" min="1" value="168" />
         </label>
 
         <label for="generation-weight">
           Вес, кг
-          <input id="generation-weight" type="number" name="weight" min="1" value="56" />
+          <input class="ui-input" id="generation-weight" type="number" name="weight" min="1" value="56" />
         </label>
       </div>
 
@@ -144,7 +144,7 @@ def page():
     </div>
 
     <div class="generation-actions">
-      <button class="generation-submit" type="button">
+      <button class="generation-submit ui-button" type="button">
         Сгенерировать 5 образов
       </button>
     </div>
@@ -152,4 +152,5 @@ def page():
 </section>
 """,
         title="Новые образы",
+        active_page="generation",
     )

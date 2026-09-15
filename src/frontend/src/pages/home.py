@@ -34,15 +34,15 @@ def page():
         <form id="loginForm" class="auth-form">
           <div class="form-group">
             <label for="loginEmail">Почта</label>
-            <input type="email" id="loginEmail" placeholder="you@example.com" required>
+            <input class="ui-input" type="email" id="loginEmail" placeholder="you@example.com" required>
           </div>
 
           <div class="form-group">
             <label for="loginPassword">Пароль</label>
-            <input type="password" id="loginPassword" placeholder="Ваш пароль" required>
+            <input class="ui-input" type="password" id="loginPassword" placeholder="Ваш пароль" required>
           </div>
 
-          <button type="submit" class="btn-submit">Войти →</button>
+          <button type="submit" class="btn-submit ui-button">Войти →</button>
         </form>
 
         <div class="form-footer">
@@ -63,7 +63,7 @@ def page():
           <span>новые образы <span class="sparkle">✧</span></span>
         </h2>
         <p class="hero-description">Ответьте на 4 вопроса — мы соберём новый альбом</p>
-        <a class="generate-button" href="/generation">Генерировать</a>
+        <a class="generate-button ui-button" href="/generation">Генерировать</a>
       </div>
 
       <div class="hero-images" aria-label="Примеры образов">
@@ -104,4 +104,5 @@ def page():
 </section>
 """,
         title="Главная",
+        active_page="home",
     )

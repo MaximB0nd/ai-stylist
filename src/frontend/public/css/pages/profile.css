@@ -23,7 +23,7 @@
   height: 72px;
   border: 1px solid #000000;
   border-radius: 50%;
-  font: 28px/1 Georgia, serif;
+  font: var(--font-weight-display) 28px/1 var(--font-display);
 }
 
 .profile-identity {
@@ -32,13 +32,13 @@
 
 .profile-caption {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 
 .profile-identity h2 {
   margin: 0;
-  font: 28px/1.3 Georgia, serif;
+  font: var(--font-weight-display) 28px/1.3 var(--font-display);
   overflow-wrap: anywhere;
 }
 
@@ -55,7 +55,7 @@
 
 .profile-field dt {
   margin-bottom: 10px;
-  font-size: 14px;
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 
@@ -65,7 +65,7 @@
   padding: 12px 14px;
   border: 1px solid #000000;
   border-radius: 4px;
-  font-size: 16px;
+  font-size: var(--text-body);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
