@@ -34,6 +34,18 @@
   background: var(--color-soft);
 }
 
+.ui-button--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.ui-button--quiet:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--color-soft);
+  color: var(--color-ink);
+}
+
 .ui-button:disabled {
   border-color: var(--color-line);
   background: var(--color-soft);

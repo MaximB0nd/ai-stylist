@@ -70,7 +70,7 @@ def page(params=None):
         f"""
 <section class="album-page" aria-labelledby="album-title">
   <div class="content-wrapper">
-    <a href="/gallery" class="button-quiet album-back" aria-label="Вернуться в галерею">← Назад в галерею</a>
+    <a href="/gallery" class="ui-button ui-button--quiet album-back" aria-label="Вернуться в галерею">← Назад в галерею</a>
 
     <div class="page-heading album-heading">
       <div>
@@ -85,8 +85,8 @@ def page(params=None):
       </div>
 
       <div class="album-actions">
-        <button class="button button-secondary" type="button">Архивировать</button>
-        <button class="button-quiet delete-button" type="button">Удалить</button>
+        <button class="ui-button ui-button--secondary" type="button">Архивировать</button>
+        <button class="ui-button ui-button--quiet" type="button">Удалить</button>
       </div>
     </div>
 
@@ -103,4 +103,5 @@ def page(params=None):
 </section>
 """,
         title=album["name"],
+        active_page="gallery",
     )
