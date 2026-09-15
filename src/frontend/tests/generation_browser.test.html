@@ -1,0 +1,142 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Generation browser regression tests</title>
+<h1>Generation browser regression tests</h1>
+<p id="result" role="status">Running</p>
+<ol id="results"></ol>
+<div id="fixture" style="position:absolute;left:-10000px;width:1000px"></div>
+<script type="module">
+import { mountGeneration } from "/js/pages/generation.js";
+
+const pageResponse = await fetch("/generation", { headers: { Accept: "text/html" } });
+const pageHtml = await pageResponse.text();
+const parsedPage = new DOMParser().parseFromString(pageHtml, "text/html");
+const template = parsedPage.querySelector(".generation-page")
+  || parsedPage.querySelector("template[pp-component]")?.content.querySelector(".generation-page");
+if (!template) throw new Error(`Missing generation fixture: ${pageResponse.status} ${pageHtml.slice(0, 200)}`);
+const imageBlob = await (await fetch("/images/generation/occasion-office.webp")).blob();
+const photo = new File([imageBlob], "fixture.webp", { type: "image/webp" });
+const invalidFile = new File(["invalid"], "fixture.txt", { type: "text/plain" });
+const NativeImage = window.Image;
+const nativeRevoke = URL.revokeObjectURL.bind(URL);
+const revoked = new Set();
+let decodes = [];
+let passed = 0;
+let failed = 0;
+window.Image = class {
+  decode() { return new Promise((resolve, reject) => decodes.push({ resolve, reject })); }
+};
+URL.revokeObjectURL = (url) => { revoked.add(url); nativeRevoke(url); };
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+const assert = (value, message) => { if (!value) throw new Error(message); };
+
+async function test(name, run) {
+  const fixture = document.querySelector("#fixture");
+  fixture.replaceChildren(template.cloneNode(true));
+  const root = fixture.firstElementChild;
+  const query = selector => root.querySelector(selector);
+  const stop = mountGeneration(query("form"));
+  decodes = [];
+  const drop = (key, files) => {
+    const dataTransfer = new DataTransfer();
+    files.forEach(file => dataTransfer.items.add(file));
+    const target = query(`[data-photo="${key}"]`);
+    target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
+    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+  };
+  const row = document.createElement("li");
+  try {
+    await run({ query, drop, stop });
+    row.textContent = `PASS: ${name}`;
+    passed++;
+  } catch (error) {
+    row.textContent = `FAIL: ${name}: ${error.message}`;
+    failed++;
+  } finally {
+    stop();
+    decodes.forEach(item => item.resolve());
+    await tick();
+    fixture.replaceChildren();
+    document.querySelector("#results").append(row);
+  }
+}
+
+try {
+  await test("Empty blur is quiet; submission identifies and focuses errors", async ({ query }) => {
+    query('[name="age"]').dispatchEvent(new FocusEvent("blur"));
+    assert(query("#age-error").hidden, "Premature empty error");
+    const event = new Event("submit", { bubbles: true, cancelable: true });
+    query("form").dispatchEvent(event);
+    assert(event.defaultPrevented, "Submission was not intercepted");
+    assert(query("#age-error").textContent === "Укажите возраст.", "Missing specific error");
+    assert(document.activeElement === query('[name="age"]'), "Wrong error focus");
+  });
+  await test("Choices and valid measurements update the compact summary", async ({ query }) => {
+    for (const [name, value] of [["age", "28"], ["height", "168"], ["weight", "58.5"]]) {
+      query(`[name="${name}"]`).value = value;
+      query(`[name="${name}"]`).dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    query('[name="occasion"][value="office"]').click();
+    assert(query("progress").value === 4, "Wrong progress");
+    assert(!query(".generation-selections").hidden, "Selection remains hidden");
+    assert(query('[data-selection="occasion"]').textContent === "Офис", "Wrong selection");
+    assert(query('[data-selection="style"]').parentElement.hidden, "Empty selection is visible");
+  });
+  await test("Drop shows pending state, then a preview; deletion clears it", async ({ query, drop }) => {
+    drop("body", [photo]);
+    assert(query(".generation-submit").disabled, "Check allowed while decoding");
+    assert(query("[data-photo-status]").textContent.includes("Открываем"), "Missing loading state");
+    decodes[0].resolve(); await tick();
+    const preview = query(".generation-preview");
+    const url = preview.src;
+    assert(!preview.hidden && query("progress").value === 1, "Drop did not load");
+    query("[data-remove-photo]").click();
+    assert(preview.hidden && revoked.has(url), "Deleted photo not released");
+    assert(query("progress").value === 0, "Deleted photo still counted");
+  });
+  await test("Multiple files preserve the previous photo and explain the error", async ({ query, drop }) => {
+    drop("body", [photo]); decodes[0].resolve(); await tick();
+    const url = query(".generation-preview").src;
+    drop("body", [photo, photo]);
+    assert(query(".generation-preview").src === url, "Previous photo lost");
+    assert(query("#body-error").textContent.includes("Предыдущее фото сохранено"), "Missing preservation message");
+  });
+  await test("The newest photo wins when decoding completes out of order", async ({ query, drop }) => {
+    drop("body", [photo]); drop("body", [photo]);
+    decodes[1].resolve(); await tick();
+    const latest = query(".generation-preview").src;
+    decodes[0].resolve(); await tick();
+    assert(query(".generation-preview").src === latest, "Stale decode replaced latest photo");
+  });
+  await test("An invalid replacement cancels an older pending selection", async ({ query, drop }) => {
+    drop("body", [photo]); drop("body", [invalidFile]);
+    decodes[0].resolve(); await tick();
+    assert(query(".generation-preview").hidden, "Stale photo reappeared");
+    assert(!query(".generation-submit").disabled, "Button remained blocked");
+    assert(!query("#body-error").hidden, "Error disappeared");
+  });
+  await test("Disposal prevents late decodes from restoring previews", async ({ query, drop, stop }) => {
+    drop("body", [photo]); stop();
+    decodes[0].resolve(); await tick();
+    assert(query(".generation-preview").hidden, "Disposed preview reappeared");
+    assert(query(".generation-submit").disabled, "Disposed form still enabled");
+    assert(!query("form").dataset.ready, "Disposed form still initialized");
+  });
+  await test("Complete form intercepts submission and reports readiness", async ({ query, drop }) => {
+    for (const [name, value] of [["age", "28"], ["height", "168"], ["weight", "58.5"]]) query(`[name="${name}"]`).value = value;
+    for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();
+    drop("body", [photo]); drop("face", [photo]);
+    decodes.forEach(item => item.resolve()); await tick();
+    const event = new Event("submit", { bubbles: true, cancelable: true });
+    query("form").dispatchEvent(event);
+    assert(event.defaultPrevented && query("progress").value === 9, "Form is not complete");
+    assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
+  });
+} finally {
+  window.Image = NativeImage;
+  URL.revokeObjectURL = nativeRevoke;
+  const result = document.querySelector("#result");
+  result.textContent = `${passed} passed, ${failed} failed`;
+  result.dataset.complete = "true";
+}
+</script>

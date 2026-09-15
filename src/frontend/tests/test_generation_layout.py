@@ -92,6 +92,28 @@ class GenerationLayoutTests(unittest.TestCase):
                 self.assertTrue(image.get("width"))
                 self.assertTrue(image.get("height"))
 
+    def test_compact_summary_does_not_repeat_empty_selections(self):
+        summary = self.soup.select_one(".generation-summary")
+        self.assertEqual(summary.h3.get_text(), "Ваша анкета")
+        self.assertIsNone(summary.find("figure"))
+        choices = summary.select_one(".generation-selections")
+        self.assertTrue(choices.has_attr("hidden"))
+        self.assertTrue(all(row.has_attr("hidden") for row in choices.select("div")))
+        self.assertTrue(all(not value.get_text() for value in choices.select("dd")))
+
+    def test_photo_status_and_action_hierarchy_are_accessible(self):
+        for photo in self.soup.select("[data-photo]"):
+            status = photo.select_one("[data-photo-status]")
+            self.assertEqual(status["role"], "status")
+            self.assertEqual(status["aria-live"], "polite")
+            self.assertIn(
+                "ui-button--secondary",
+                photo.select_one("[data-replace-photo]")["class"],
+            )
+            self.assertIn(
+                "ui-button--quiet", photo.select_one("[data-remove-photo]")["class"]
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
