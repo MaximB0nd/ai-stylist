@@ -3,20 +3,19 @@ from casp.layout import Metadata
 from src.components.shared.layout.app_shell import app_shell
 
 metadata = Metadata(
-    title="Новые образы",
-    description="Заполните данные для генерации образов",
+    title="Галерея",
+    description="Альбомы образов",
 )
-
 
 
 def page():
     return app_shell(
         r"""
-    <section class="main-content">
+    <section class="gallery-page">
         <div class="content-wrapper">
 
             <header class="gallery-header">
-                <h1 class="gallery-title">Галерея</h1>
+                <h2 class="gallery-title">Галерея</h2>
                 <a href="/generation" class="btn-new-album">
                     <span class="btn-plus">+</span>
                     Новые образы
@@ -97,4 +96,5 @@ def page():
 </section>
 """,
         title="Галерея",
+        active_page="gallery",
     )

@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
+
+
 def footer():
-    return r"""
+    return f"""
 <footer class="site-footer">
-  <span>Носи Красиво</span>
-  <span>Desktop MVP layout</span>
+  <span>&copy; {datetime.now(UTC).year} Носи Красиво</span>
+  <span>Индивидуальность</span>
 </footer>
 """

@@ -104,4 +104,5 @@ def page():
 </section>
 """,
         title="Главная",
+        active_page="home",
     )

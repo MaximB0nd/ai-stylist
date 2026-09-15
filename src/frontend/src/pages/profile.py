@@ -43,4 +43,5 @@ def page():
 </section>
 """,
         title="Профиль",
+        active_page="profile",
     )

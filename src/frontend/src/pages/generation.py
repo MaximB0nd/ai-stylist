@@ -152,4 +152,5 @@ def page():
 </section>
 """,
         title="Новые образы",
+        active_page="generation",
     )
