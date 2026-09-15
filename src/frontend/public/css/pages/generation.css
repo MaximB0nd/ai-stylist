@@ -1,28 +1,27 @@
 .generation-page {
   display: grid;
   gap: 24px;
-  width: min(100%, 1120px);
-  margin: 0 auto;
-  background: #ffffff;
-  color: #000000;
-  padding: 48px 24px;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  color: var(--color-ink);
+  padding: 0;
 }
 
 .generation-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 24px;
+  display: grid;
+  gap: 12px;
 }
 
 .generation-heading h2 {
   margin: 0;
-  color: #000000;
-  font: var(--font-weight-display) 52px/1.05 var(--font-display);
+  color: var(--color-ink);
+  font: var(--font-weight-display) var(--text-page)/1.05 var(--font-display);
 }
 
 .generation-heading p {
-  margin: 18px 0 0;
+  margin: 0;
+  color: var(--color-muted);
   font-size: var(--text-body);
   line-height: 1.5;
 }
@@ -36,16 +35,14 @@
 
 .generation-form {
   display: grid;
-  gap: 12px;
+  gap: 24px;
 }
 
 .generation-frame {
   display: grid;
   gap: 18px;
-  border: 1px solid #000000;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 20px;
+  border-top: 1px solid var(--color-line);
+  padding: 24px 0;
 }
 
 .generation-data-frame {
@@ -88,10 +85,7 @@
   display: grid;
   gap: 16px;
   min-height: 160px;
-  border: 1px solid #000000;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 16px;
+  padding: 0;
   font-size: var(--text-small);
   font-weight: var(--font-weight-body);
 }
@@ -100,15 +94,17 @@
   display: grid;
   min-height: 96px;
   place-items: center;
-  border: 1px dashed #000000;
-  border-radius: 8px;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-placeholder);
+  color: var(--color-muted);
   font-weight: var(--font-weight-body);
 }
 
 .generation-question-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 24px;
 }
 
 .generation-card-grid {
@@ -121,9 +117,9 @@
   display: grid;
   min-height: 84px;
   place-items: center;
-  border: 1px solid #000000;
+  border: 1px solid var(--color-line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--color-surface);
   font-size: var(--text-small);
   font-weight: var(--font-weight-body);
   text-align: center;
@@ -165,10 +161,6 @@
 
   .generation-heading h2 {
     font-size: 36px;
-  }
-
-  .generation-page {
-    padding: 32px 16px;
   }
 
   .generation-card-grid {

@@ -43,12 +43,12 @@ def page():
       <div class="generation-fields generation-fields-two">
         <div class="generation-upload-frame">
           <span>Фото в полный рост</span>
-          <span class="generation-upload-slot">Зона фото</span>
+          <span class="generation-upload-slot">Фото не добавлено</span>
         </div>
 
         <div class="generation-upload-frame">
           <span>Фото лица</span>
-          <span class="generation-upload-slot">Зона фото</span>
+          <span class="generation-upload-slot">Фото не добавлено</span>
         </div>
       </div>
     </section>
@@ -144,7 +144,7 @@ def page():
     </div>
 
     <div class="generation-actions">
-      <button class="generation-submit ui-button" type="button">
+      <button class="generation-submit ui-button" type="button" disabled title="Генерация пока недоступна">
         Сгенерировать 5 образов
       </button>
     </div>

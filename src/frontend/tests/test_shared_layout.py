@@ -3,7 +3,7 @@ import unittest
 from bs4 import BeautifulSoup
 
 from src.components.shared.layout.app_shell import app_shell
-from src.pages import gallery, generation, home, profile
+from src.pages import album, gallery, generation, home, profile
 
 
 class SharedLayoutTests(unittest.TestCase):
@@ -12,6 +12,7 @@ class SharedLayoutTests(unittest.TestCase):
             (home, "/"),
             (generation, "/generation"),
             (gallery, "/gallery"),
+            (album, "/gallery"),
             (profile, "/profile"),
         ):
             with self.subTest(path=path):

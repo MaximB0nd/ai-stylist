@@ -4,20 +4,28 @@
   --color-sidebar: #eee8df;
   --color-soft: #f2ede5;
   --color-line: #e3ddd4;
+  --color-control-line: #9b9087;
+  --color-placeholder: #efeeec;
   --color-ink: #352e2a;
   --color-muted: #74695f;
   --color-accent: #a34855;
   --color-accent-hover: #883b47;
   --color-accent-soft: #fae9eb;
   --color-gold: #b38d60;
+  --color-overlay: rgb(53 46 42 / 65%);
   --font-body: "Manrope", sans-serif;
   --font-display: "EB Garamond", serif;
   --font-accent: "Literata", serif;
   --font-weight-display: 400;
   --font-weight-accent: 300;
-  --font-weight-body: 200;
+  --font-weight-body: 300;
   --text-body: 16px;
   --text-small: 14px;
+  --text-hero: 60px;
+  --text-page: 52px;
+  --text-section: 30px;
+  --text-card: 26px;
+  --text-dialog: 32px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -29,5 +37,5 @@
   --radius-card: 5px;
   --sidebar-width: 222px;
   --page-gutter: 40px;
-  --content-width: 1550px;
+  --content-width: 1320px;
 }

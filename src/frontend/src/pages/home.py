@@ -42,16 +42,15 @@ def page():
             <input class="ui-input" type="password" id="loginPassword" placeholder="Ваш пароль" required>
           </div>
 
-          <button type="submit" class="btn-submit ui-button">Войти →</button>
+          <button type="submit" class="btn-submit ui-button" disabled title="Вход пока недоступен">Войти →</button>
         </form>
 
         <div class="form-footer">
-          Пока нет аккаунта? <a href="#" id="switchToRegister">Зарегистрироваться</a>
+          Пока нет аккаунта? <button type="button" class="auth-switch" id="switchToRegister" disabled title="Регистрация пока недоступна">Зарегистрироваться</button>
         </div>
 
         <div class="demo-hint">
-          <strong>Демовход:</strong> любая почта и пароль от 8 символов.<br>
-          Данные не отправляются.
+          Вход и регистрация пока недоступны.
         </div>
       </div>
     </div>
@@ -67,9 +66,9 @@ def page():
       </div>
 
       <div class="hero-images" aria-label="Примеры образов">
-        <div class="fashion-image image-main"></div>
-        <div class="fashion-image image-top"></div>
-        <div class="fashion-image image-bottom"></div>
+        <div class="fashion-image image-main ui-image-placeholder"></div>
+        <div class="fashion-image image-top ui-image-placeholder"></div>
+        <div class="fashion-image image-bottom ui-image-placeholder"></div>
       </div>
     </section>
 
@@ -78,7 +77,7 @@ def page():
 
       <div class="albums-grid">
         <article class="album-card">
-          <div class="album-image office"></div>
+          <div class="album-image office ui-image-placeholder"></div>
           <div class="album-info">
             <div class="album-name">Офис</div>
             <div class="album-date">2 сентября</div>
@@ -86,7 +85,7 @@ def page():
         </article>
 
         <article class="album-card">
-          <div class="album-image evening"></div>
+          <div class="album-image evening ui-image-placeholder"></div>
           <div class="album-info">
             <div class="album-name">Вечер</div>
             <div class="album-date">31 августа</div>

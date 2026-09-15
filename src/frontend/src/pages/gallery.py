@@ -24,9 +24,9 @@ def page():
 
             <div class="gallery-filters">
                 <div class="filters-tabs">
-                    <button class="filter-tab active" data-filter="all">Все <span>4</span></button>
-                    <button class="filter-tab" data-filter="active">Активные <span>3</span></button>
-                    <button class="filter-tab" data-filter="archive">Архив <span>1</span></button>
+                    <button class="filter-tab active" data-filter="all" type="button" disabled title="Показаны все альбомы">Все <span>4</span></button>
+                    <button class="filter-tab" data-filter="active" type="button" disabled title="Фильтрация пока недоступна">Активные <span>3</span></button>
+                    <button class="filter-tab" data-filter="archive" type="button" disabled title="Фильтрация пока недоступна">Архив <span>1</span></button>
                 </div>
                 <div class="filters-count">4 альбома</div>
             </div>
@@ -35,7 +35,7 @@ def page():
 
                 <a href="/album/office" class="album-card">
                     <div class="album-preview">
-                        <div class="album-image image-office"></div>
+                        <div class="album-image image-office ui-image-placeholder"></div>
                         <span class="album-badge">10 образов</span>
                     </div>
                     <div class="album-footer">
@@ -49,7 +49,7 @@ def page():
 
                 <a href="/album/evening" class="album-card">
                     <div class="album-preview">
-                        <div class="album-image image-evening"></div>
+                        <div class="album-image image-evening ui-image-placeholder"></div>
                         <span class="album-badge">10 образов</span>
                     </div>
                     <div class="album-footer">
@@ -63,7 +63,7 @@ def page():
 
                 <a href="/album/street" class="album-card active">
                     <div class="album-preview">
-                        <div class="album-image image-street"></div>
+                        <div class="album-image image-street ui-image-placeholder"></div>
                         <span class="album-badge">10 образов</span>
                     </div>
                     <div class="album-footer">
@@ -77,7 +77,7 @@ def page():
 
                 <a href="/album/study" class="album-card archived">
                     <div class="album-preview">
-                        <div class="album-image image-study"></div>
+                        <div class="album-image image-study ui-image-placeholder"></div>
                         <span class="album-badge">10 образов</span>
                         <span class="album-archive-label">В архиве</span>
                     </div>
