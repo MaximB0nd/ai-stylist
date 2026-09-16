@@ -1,6 +1,8 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Generation browser regression tests</title>
+<link rel="stylesheet" href="/css/index.css">
 <h1>Generation browser regression tests</h1>
 <p id="result" role="status">Running</p>
 <ol id="results"></ol>
@@ -136,6 +138,41 @@ try {
     query("form").dispatchEvent(event);
     assert(event.defaultPrevented && query("progress").value === 8 && query("progress").max === 8, "Form is not complete");
     assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
+  });
+  await test("Photo frames fit portrait, landscape and square files without gutters or distortion", async ({ query, drop }) => {
+    window.Image = NativeImage;
+    const fixture = document.querySelector("#fixture");
+    try {
+      for (const type of ["image/png", "image/jpeg", "image/webp"]) {
+        for (const [width, height] of [[400, 600], [600, 400], [400, 400], [80, 800], [800, 80]]) {
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          const context = canvas.getContext("2d");
+          context.fillStyle = "#a34855";
+          context.fillRect(0, 0, width, height);
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, type));
+          drop("body", [new File([blob], "proportions", { type: blob.type })]);
+          const deadline = performance.now() + 5000;
+          while (query('[data-photo="body"]').getAttribute("aria-busy") === "true") {
+            assert(performance.now() < deadline, "Photo decoding timed out");
+            await tick();
+          }
+          const preview = query(".generation-preview");
+          assert(!preview.hidden, `Preview failed for ${type}`);
+          await preview.decode();
+          for (const containerWidth of [288, 358, 720, 1000]) {
+            fixture.style.width = `${containerWidth}px`;
+            const image = preview.getBoundingClientRect();
+            const frame = query(".generation-upload-slot").getBoundingClientRect();
+            assert(Math.abs(image.width / image.height - width / height) < 0.02, `Distorted ${width}x${height} at ${containerWidth}`);
+            assert(Math.abs(frame.width - image.width) <= 2 && Math.abs(frame.height - image.height) <= 2, `Empty photo gutters at ${containerWidth}`);
+            assert(frame.width <= query('[data-photo="body"]').clientWidth + 1, "Photo overflows its column");
+          }
+        }
+      }
+    } finally {
+      fixture.style.width = "1000px";
+    }
   });
 } finally {
   window.Image = NativeImage;
