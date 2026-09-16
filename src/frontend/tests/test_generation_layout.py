@@ -106,8 +106,15 @@ class GenerationLayoutTests(unittest.TestCase):
         sections = self.soup.select(".generation-form > section")
         self.assertEqual(
             [section["aria-labelledby"] for section in sections],
-            ["generation-questions-title", "generation-data-title", "generation-photo-title"],
+            ["generation-questions-title", "generation-data-title"],
         )
+
+    def test_personal_details_and_photos_share_one_section(self):
+        about = self.soup.select_one(".generation-about")
+        self.assertEqual(about.h3.get_text(strip=True), "02О вас")
+        self.assertEqual(len(about.select('input[type="number"]')), 2)
+        self.assertEqual(len(about.select('input[type="file"]')), 2)
+        self.assertIsNotNone(about.select_one("#photo-formats"))
 
     def test_selection_thumbnails_are_real_edit_controls(self):
         for key, title, _ in CHOICES:

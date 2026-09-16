@@ -149,12 +149,9 @@ def page():
         <h3 id="generation-questions-title"><span>01</span> Пожелания</h3>
         <div class="generation-questions">{_questions()}</div>
       </section>
-      <section class="generation-section" aria-labelledby="generation-data-title">
-        <h3 id="generation-data-title"><span>02</span> Немного о вас</h3>
+      <section class="generation-section generation-about" aria-labelledby="generation-data-title">
+        <h3 id="generation-data-title"><span>02</span> О вас</h3>
         <div class="generation-measurements">{_measurements()}</div>
-      </section>
-      <section class="generation-section" aria-labelledby="generation-photo-title">
-        <h3 id="generation-photo-title"><span>03</span> Две фотографии</h3>
         <div class="generation-uploads">{_uploads()}</div>
         <p class="generation-note" id="photo-formats">JPG, PNG, WebP · до 10 МБ на фото</p>
       </section>
