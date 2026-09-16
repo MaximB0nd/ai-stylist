@@ -121,6 +121,11 @@ try {
       assert(button.getAttribute("aria-label") && button.title, "Icon action has no accessible name or tooltip");
       assert(getComputedStyle(button.querySelector(".site-icon")).maskImage.includes("/icons/lucide/"), "Missing action icon mask");
     }
+    const actions = query(".generation-upload-actions").getBoundingClientRect();
+    const replace = query("[data-replace-photo]").getBoundingClientRect();
+    const remove = query("[data-remove-photo]").getBoundingClientRect();
+    assert(Math.abs(replace.left - actions.left) < 1, "Replace action is not left-aligned");
+    assert(Math.abs(remove.right - actions.right) < 1, "Remove action is not right-aligned");
     query("[data-remove-photo]").click();
     assert(preview.hidden && revoked.has(url), "Deleted photo not released");
     assert(query("progress").value === 0, "Deleted photo still counted");

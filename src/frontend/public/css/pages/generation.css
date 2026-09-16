@@ -85,7 +85,7 @@
 .generation-upload-actions .site-icon { width: 20px; height: 20px; flex-basis: 20px; }
 .generation-icon-pencil { --site-icon: url("/icons/lucide/pencil.svg"); }
 .generation-icon-trash { --site-icon: url("/icons/lucide/trash.svg"); }
-.generation-upload-actions [data-remove-photo] { color: var(--color-muted); }
+.generation-upload-actions [data-remove-photo] { margin-left: auto; color: var(--color-muted); }
 .generation-photo-status { margin: 8px 0 0; color: var(--color-muted); font-size: var(--text-small); }
 .generation-photo-status:empty { display: none; }
 .generation-question { margin: 0; padding: 0; min-width: 0; border: 0; }
