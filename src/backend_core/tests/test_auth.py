@@ -13,6 +13,9 @@ backend_core_dir = Path(__file__).resolve().parent.parent
 if str(backend_core_dir) not in sys.path:
     sys.path.insert(0, str(backend_core_dir))
 
+import os
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-execution")
+
 from app.core.config import settings
 from app.core.dependencies import get_user_repository
 from app.db.repositories.user_repository import UserRepository
