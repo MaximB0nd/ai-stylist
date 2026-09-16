@@ -76,8 +76,15 @@ def _uploads():
   <label for="generation-{key}">{label}</label>
   <label class="generation-upload-slot" for="generation-{key}">
     <span class="generation-photo-empty">
-      <span class="site-icon site-icon--images" aria-hidden="true"></span>
-      <span>Добавить фото</span>
+      <span class="generation-photo-example">
+        <img src="/images/generation/photo-example-{key}.png" width="1254" height="1254"
+          alt="{example}" loading="lazy" />
+        <span class="generation-example-label">Пример</span>
+      </span>
+      <span class="generation-upload-prompt">
+        <span class="site-icon site-icon--images" aria-hidden="true"></span>
+        Добавить фото
+      </span>
     </span>
     <img class="generation-preview" alt="{label}" hidden />
   </label>
@@ -92,7 +99,10 @@ def _uploads():
   <p class="generation-photo-status" data-photo-status role="status" aria-live="polite"></p>
   <p class="generation-error" id="{key}-error" role="alert" hidden></p>
 </div>"""
-        for key, label in (("body", "Фото в полный рост"), ("face", "Фото лица"))
+        for key, label, example in (
+            ("body", "Фото в полный рост", "Пример: человек целиком, от головы до стоп"),
+            ("face", "Фото лица", "Пример: лицо анфас и плечи"),
+        )
     )
 
 
@@ -151,9 +161,13 @@ def page():
       </section>
       <section class="generation-section generation-about" aria-labelledby="generation-data-title">
         <h3 id="generation-data-title"><span>02</span> О вас</h3>
-        <div class="generation-measurements">{_measurements()}</div>
-        <div class="generation-uploads">{_uploads()}</div>
-        <p class="generation-note" id="photo-formats">JPG, PNG, WebP · до 10 МБ на фото</p>
+        <div class="generation-about-layout">
+          <div class="generation-measurements">{_measurements()}</div>
+          <div class="generation-photos">
+            <div class="generation-uploads">{_uploads()}</div>
+            <p class="generation-note" id="photo-formats">JPG, PNG, WebP · до 10 МБ на фото</p>
+          </div>
+        </div>
       </section>
     </form>
     <aside class="generation-summary" aria-labelledby="generation-summary-title">

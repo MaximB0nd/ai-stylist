@@ -64,6 +64,18 @@ async function test(name, run) {
 }
 
 try {
+  await test("Example images and captions activate the matching file input", async ({ query }) => {
+    for (const key of ["body", "face"]) {
+      const card = query(`[data-photo="${key}"]`);
+      const input = card.querySelector('input[type="file"]');
+      let clicks = 0;
+      input.addEventListener("click", event => { event.preventDefault(); clicks++; });
+      card.querySelector(".generation-photo-example img").click();
+      card.querySelector(".generation-upload-prompt").click();
+      assert(clicks === 2, `Example does not activate ${key} input`);
+      assert(query("progress").value === 0, "Example counted as an uploaded photo");
+    }
+  });
   await test("Empty blur is quiet; submission identifies and focuses errors", async ({ query }) => {
     query('[name="age"]').dispatchEvent(new FocusEvent("blur"));
     assert(query("#age-error").hidden, "Premature empty error");
@@ -92,6 +104,8 @@ try {
     assert(query('[data-selection-image="occasion"]').src.endsWith("occasion-evening.webp"), "Summary image did not update");
   });
   await test("Drop shows pending state, then a preview; deletion clears it", async ({ query, drop }) => {
+    const example = query(".generation-photo-empty");
+    assert(!example.hidden, "Example is missing before upload");
     drop("body", [photo]);
     assert(query(".generation-submit").disabled, "Check allowed while decoding");
     assert(query("[data-photo-status]").textContent.includes("Открываем"), "Missing loading state");
@@ -99,9 +113,11 @@ try {
     const preview = query(".generation-preview");
     const url = preview.src;
     assert(!preview.hidden && query("progress").value === 1, "Drop did not load");
+    assert(example.hidden, "Example remains visible beside the uploaded photo");
     query("[data-remove-photo]").click();
     assert(preview.hidden && revoked.has(url), "Deleted photo not released");
     assert(query("progress").value === 0, "Deleted photo still counted");
+    assert(!example.hidden, "Example did not return after deletion");
   });
   await test("Multiple files preserve the previous photo and explain the error", async ({ query, drop }) => {
     drop("body", [photo]); decodes[0].resolve(); await tick();

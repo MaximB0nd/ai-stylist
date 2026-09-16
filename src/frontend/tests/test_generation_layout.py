@@ -57,7 +57,7 @@ class GenerationLayoutTests(unittest.TestCase):
                     button = card.select_one(selector)
                     self.assertEqual(button["type"], "button")
                     self.assertTrue(button.has_attr("hidden"))
-                self.assertTrue(card.select_one("img").has_attr("hidden"))
+                self.assertTrue(card.select_one(".generation-preview").has_attr("hidden"))
                 self.assertEqual(card.select_one(".generation-error")["role"], "alert")
 
     def test_error_references_resolve_and_ids_are_unique(self):
@@ -82,7 +82,7 @@ class GenerationLayoutTests(unittest.TestCase):
 
     def test_all_generation_images_are_local_and_present(self):
         images = self.soup.select(".generation-page img[src]")
-        self.assertEqual(len(images), 16)
+        self.assertEqual(len(images), 18)
         for image in images:
             with self.subTest(src=image["src"]):
                 self.assertTrue(image["src"].startswith("/images/generation/"))
@@ -117,6 +117,19 @@ class GenerationLayoutTests(unittest.TestCase):
         self.assertEqual(len(about.select('input[type="number"]')), 2)
         self.assertEqual(len(about.select('input[type="file"]')), 2)
         self.assertIsNotNone(about.select_one("#photo-formats"))
+
+    def test_photo_examples_are_distinct_from_uploaded_photos(self):
+        for key in ("body", "face"):
+            photo = self.soup.select_one(f'[data-photo="{key}"]')
+            empty = photo.select_one(".generation-photo-empty")
+            self.assertFalse(empty.has_attr("hidden"))
+            self.assertEqual(
+                empty.select_one(".generation-example-label").get_text(), "Пример"
+            )
+            self.assertIn(f"photo-example-{key}.png", empty.img["src"])
+            self.assertTrue(empty.img["alt"].startswith("Пример:"))
+            self.assertEqual(empty.parent["for"], photo.select_one("input")["id"])
+            self.assertFalse(photo.select_one(".generation-preview").has_attr("src"))
 
     def test_selection_thumbnails_are_real_edit_controls(self):
         for key, title, _ in CHOICES:
