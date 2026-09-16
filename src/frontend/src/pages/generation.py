@@ -168,11 +168,6 @@ def page():
       <dl class="generation-selections" hidden>
         {_selections()}
       </dl>
-      <dl class="generation-checklist">
-        <div><dt>Пожелания</dt><dd data-count="choices">0 / 4</dd></div>
-        <div><dt>Параметры</dt><dd data-count="measurements">0 / 2</dd></div>
-        <div><dt>Фотографии</dt><dd data-count="photos">0 / 2</dd></div>
-      </dl>
     </aside>
   </div>
 </section>

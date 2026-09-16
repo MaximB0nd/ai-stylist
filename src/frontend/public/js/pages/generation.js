@@ -82,15 +82,6 @@ export function mountGeneration(form) {
     }
     const total = measurements + photoCount + choices;
     page.querySelector(".generation-selections").hidden = !choices;
-    for (const [key, value, max] of [
-      ["measurements", measurements, numbers.length],
-      ["photos", photoCount, 2],
-      ["choices", choices, 4],
-    ]) {
-      const output = page.querySelector(`[data-count="${key}"]`);
-      output.textContent = `${value} / ${max}`;
-      output.classList.toggle("is-complete", value === max);
-    }
     const maximum = numbers.length + photos.length + groups.length;
     page.querySelector('[data-count="total"]').textContent = `${total} / ${maximum}`;
     const progress = page.querySelector("progress");

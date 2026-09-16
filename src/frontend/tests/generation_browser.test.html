@@ -80,6 +80,8 @@ try {
     }
     query('[name="occasion"][value="office"]').click();
     assert(query("progress").value === 3, "Wrong progress");
+    assert(query('[data-count="total"]').textContent === "3 / 8", "Wrong total count");
+    assert(!query(".generation-checklist"), "Duplicate section counts remain");
     assert(!query(".generation-selections").hidden, "Selection remains hidden");
     assert(query('[data-selection="occasion"]').textContent === "Офис", "Wrong selection");
     assert(query('[data-selection="style"]').closest("dl > div").hidden, "Empty selection is visible");

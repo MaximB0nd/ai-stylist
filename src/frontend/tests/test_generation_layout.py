@@ -100,6 +100,8 @@ class GenerationLayoutTests(unittest.TestCase):
         self.assertTrue(choices.has_attr("hidden"))
         self.assertTrue(all(row.has_attr("hidden") for row in choices.select("div")))
         self.assertTrue(all(not value.get_text(strip=True) for value in choices.select("dd")))
+        self.assertEqual(len(summary.select("[data-count]")), 1)
+        self.assertIsNone(summary.select_one(".generation-checklist"))
 
     def test_visual_choices_precede_personal_details(self):
         self.assertIsNone(self.soup.select_one('[name="weight"]'))
