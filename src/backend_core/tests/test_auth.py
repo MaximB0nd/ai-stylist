@@ -37,11 +37,17 @@ class InMemoryUserRepository(UserRepository):
         return None
 
     async def create(self, name: str, email: str, password_hash: str) -> User:
+        clean_email = email.strip().lower()
+        for u in self.users.values():
+            if u.email == clean_email:
+                from sqlalchemy.exc import IntegrityError
+                raise IntegrityError("duplicate key value violates unique constraint", params=None, orig=None)
+
         now = datetime.now(timezone.utc)
         user = User(
             id=uuid.uuid4(),
             name=name.strip(),
-            email=email.strip().lower(),
+            email=clean_email,
             password_hash=password_hash,
             is_active=True,
             created_at=now,
@@ -113,6 +119,7 @@ async def test_register_success(client: httpx.AsyncClient, payload: dict) -> Non
         pytest.param({"name": "Anna", "email": "test@example.com", "password": "        "}, id="space_pass"),
         pytest.param({"name": "Anna", "email": "test@example.com", "password": "Abcd" * 18 + "e"}, id="long_pass"),
         pytest.param({"name": "Anna", "email": "test@example.com", "password": "h * 20"}, id="unique_char_pass"),
+        pytest.param({"name": "Anna", "email": "test@example.com", "password": "ПарольСлишкомДлинныйДляХешированияBcrypt72Байт"}, id="unicode_bytes_long"),
     ],
 )
 async def test_register_validation_errors(client: httpx.AsyncClient, invalid_payload: dict) -> None:
@@ -146,6 +153,24 @@ async def test_register_duplicate_email(
 
     res2 = await client.post("/api/v1/auth/register", json=payload2)
     assert res2.status_code == 409
+
+
+async def test_register_race_condition_integrity_error(
+    client: httpx.AsyncClient, user_repo: InMemoryUserRepository, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that IntegrityError on concurrent insert returns 409 Conflict rather than 500."""
+    from sqlalchemy.exc import IntegrityError
+
+    async def mock_create_conflict(*args, **kwargs):
+        raise IntegrityError("duplicate key value violates unique constraint", params=None, orig=None)
+
+    monkeypatch.setattr(user_repo, "create", mock_create_conflict)
+
+    res = await client.post(
+        "/api/v1/auth/register",
+        json={"name": "Race User", "email": "race@example.com", "password": "SecurePassword123!"},
+    )
+    assert res.status_code == 409
 
 
 # =============================================================================
@@ -208,6 +233,29 @@ async def test_login_invalid_credentials(
     )
 
     res = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert res.status_code == 401
+
+
+async def test_login_corrupted_hash_returns_401(
+    client: httpx.AsyncClient, user_repo: InMemoryUserRepository
+) -> None:
+    """Test that a corrupted password hash in DB causes 401 Unauthorized, not 500 error."""
+    now = datetime.now(timezone.utc)
+    corrupted_user = User(
+        id=uuid.uuid4(),
+        name="Corrupted",
+        email="corrupted@example.com",
+        password_hash="invalid_corrupted_hash_string_not_bcrypt",
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+    user_repo.users[corrupted_user.id] = corrupted_user
+
+    res = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "corrupted@example.com", "password": "SecurePassword123!"},
+    )
     assert res.status_code == 401
 
 

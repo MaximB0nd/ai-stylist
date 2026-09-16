@@ -33,7 +33,11 @@ class UserRepository:
             password_hash=password_hash,
             is_active=True,
         )
-        self.session.add(user)
-        await self.session.commit()
-        await self.session.refresh(user)
-        return user
+        try:
+            self.session.add(user)
+            await self.session.commit()
+            await self.session.refresh(user)
+            return user
+        except Exception:
+            await self.session.rollback()
+            raise

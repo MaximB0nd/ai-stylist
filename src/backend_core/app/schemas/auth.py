@@ -25,6 +25,8 @@ class UserRegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password cannot exceed 72 bytes in UTF-8 encoding.")
         if len(value.strip()) < 8:
             raise ValueError("Password must be at least 8 characters and cannot be only whitespace.")
         if len(set(value)) < 4:

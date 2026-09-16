@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.repositories.user_repository import UserRepository
@@ -20,12 +21,18 @@ class AuthService:
                 detail="An account with this email address already exists.",
             )
 
-        password_hash = hash_password(data.password)
-        user = await self.user_repo.create(
-            name=data.name,
-            email=data.email,
-            password_hash=password_hash,
-        )
+        password_hash = await hash_password(data.password)
+        try:
+            user = await self.user_repo.create(
+                name=data.name,
+                email=data.email,
+                password_hash=password_hash,
+            )
+        except IntegrityError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email address already exists.",
+            )
 
         access_token = create_access_token(subject=user.id)
         return TokenResponse(
@@ -43,7 +50,8 @@ class AuthService:
                 detail="Invalid email or password.",
             )
 
-        if not verify_password(data.password, user.password_hash):
+        is_valid = await verify_password(data.password, user.password_hash)
+        if not is_valid:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password.",
