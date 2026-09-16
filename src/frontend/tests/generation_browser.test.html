@@ -114,6 +114,13 @@ try {
     const url = preview.src;
     assert(!preview.hidden && query("progress").value === 1, "Drop did not load");
     assert(example.hidden, "Example remains visible beside the uploaded photo");
+    for (const action of ["replace", "remove"]) {
+      const button = query(`[data-${action}-photo]`);
+      const rect = button.getBoundingClientRect();
+      assert(rect.width === 44 && rect.height === 44, "Photo action target is not 44px square");
+      assert(button.getAttribute("aria-label") && button.title, "Icon action has no accessible name or tooltip");
+      assert(getComputedStyle(button.querySelector(".site-icon")).maskImage.includes("/icons/lucide/"), "Missing action icon mask");
+    }
     query("[data-remove-photo]").click();
     assert(preview.hidden && revoked.has(url), "Deleted photo not released");
     assert(query("progress").value === 0, "Deleted photo still counted");
@@ -156,6 +163,23 @@ try {
     query("form").dispatchEvent(event);
     assert(event.defaultPrevented && query("progress").value === 8 && query("progress").max === 8, "Form is not complete");
     assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
+  });
+  await test("Summary selections align with the submit button and each other", async ({ query }) => {
+    for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();
+    const button = query(".generation-submit").getBoundingClientRect();
+    const grid = query(".generation-selections");
+    const rect = grid.getBoundingClientRect();
+    assert(Math.abs(button.left - rect.left) < 1 && Math.abs(button.right - rect.right) < 1, "Grid edges do not match the submit button");
+    const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+    const cells = [...grid.children];
+    for (let index = 0; index < cells.length; index++) {
+      const cell = cells[index].getBoundingClientRect();
+      const image = cells[index].querySelector("img").getBoundingClientRect();
+      const heading = cells[index].querySelector("dt").getBoundingClientRect();
+      assert(Math.abs(image.left - heading.left) < 1 && Math.abs(image.right - cell.right) < 1, `Image and heading do not fill column ${index}: ${JSON.stringify({ image: image.toJSON(), heading: heading.toJSON(), cell: cell.toJSON() })}`);
+      const rowStart = cells[index - index % columns].querySelector("img").getBoundingClientRect();
+      assert(Math.abs(image.top - rowStart.top) < 1, "Images in the same row are misaligned");
+    }
   });
   await test("Photo frames fit portrait, landscape and square files without gutters or distortion", async ({ query, drop }) => {
     window.Image = NativeImage;

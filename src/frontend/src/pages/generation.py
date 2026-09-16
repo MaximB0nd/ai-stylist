@@ -92,9 +92,14 @@ def _uploads():
     accept="image/jpeg,image/png,image/webp" aria-label="{label}"
     aria-describedby="photo-formats {key}-error" />
   <div class="generation-upload-actions">
-    <button class="ui-button ui-button--secondary" type="button" data-replace-photo hidden>Заменить</button>
+    <button class="ui-button ui-button--secondary" type="button" data-replace-photo hidden
+      aria-label="Заменить: {label}" title="Заменить фото">
+      <span class="site-icon generation-icon-pencil" aria-hidden="true"></span>
+    </button>
     <button class="ui-button ui-button--quiet" type="button" data-remove-photo hidden
-      aria-label="Удалить: {label}">Удалить</button>
+      aria-label="Удалить: {label}" title="Удалить фото">
+      <span class="site-icon generation-icon-trash" aria-hidden="true"></span>
+    </button>
   </div>
   <p class="generation-photo-status" data-photo-status role="status" aria-live="polite"></p>
   <p class="generation-error" id="{key}-error" role="alert" hidden></p>
@@ -156,11 +161,11 @@ def page():
   <div class="generation-layout">
     <form class="generation-form" id="generation-form" novalidate>
       <section class="generation-section" aria-labelledby="generation-questions-title">
-        <h3 id="generation-questions-title"><span>01</span> Пожелания</h3>
+        <h3 id="generation-questions-title">Пожелания</h3>
         <div class="generation-questions">{_questions()}</div>
       </section>
       <section class="generation-section generation-about" aria-labelledby="generation-data-title">
-        <h3 id="generation-data-title"><span>02</span> О вас</h3>
+        <h3 id="generation-data-title">О вас</h3>
         <div class="generation-about-layout">
           <div class="generation-measurements">{_measurements()}</div>
           <div class="generation-photos">

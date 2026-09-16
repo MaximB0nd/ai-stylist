@@ -113,7 +113,11 @@ class GenerationLayoutTests(unittest.TestCase):
 
     def test_personal_details_and_photos_share_one_section(self):
         about = self.soup.select_one(".generation-about")
-        self.assertEqual(about.h3.get_text(strip=True), "02О вас")
+        self.assertEqual(about.h3.get_text(strip=True), "О вас")
+        self.assertEqual(
+            self.soup.select_one("#generation-questions-title").get_text(), "Пожелания"
+        )
+        self.assertFalse(self.soup.select(".generation-section h3 span"))
         self.assertEqual(len(about.select('input[type="number"]')), 2)
         self.assertEqual(len(about.select('input[type="file"]')), 2)
         self.assertIsNotNone(about.select_one("#photo-formats"))
@@ -143,6 +147,12 @@ class GenerationLayoutTests(unittest.TestCase):
 
     def test_photo_status_and_action_hierarchy_are_accessible(self):
         for photo in self.soup.select("[data-photo]"):
+            for action, name in (("replace", "Заменить"), ("remove", "Удалить")):
+                button = photo.select_one(f"[data-{action}-photo]")
+                self.assertEqual(button.get_text(strip=True), "")
+                self.assertEqual(button["title"], f"{name} фото")
+                self.assertTrue(button["aria-label"].startswith(f"{name}:"))
+                self.assertEqual(button.span["aria-hidden"], "true")
             status = photo.select_one("[data-photo-status]")
             self.assertEqual(status["role"], "status")
             self.assertEqual(status["aria-live"], "polite")
