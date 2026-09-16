@@ -74,6 +74,7 @@ def _uploads():
         f"""
 <div class="generation-upload" data-photo="{key}">
   <label for="generation-{key}">{label}</label>
+  <div class="generation-photo-media">
   <label class="generation-upload-slot" for="generation-{key}">
     <span class="generation-photo-empty">
       <span class="generation-photo-example">
@@ -100,6 +101,7 @@ def _uploads():
       aria-label="Удалить: {label}" title="Удалить фото">
       <span class="site-icon generation-icon-trash" aria-hidden="true"></span>
     </button>
+  </div>
   </div>
   <p class="generation-photo-status" data-photo-status role="status" aria-live="polite"></p>
   <p class="generation-error" id="{key}-error" role="alert" hidden></p>

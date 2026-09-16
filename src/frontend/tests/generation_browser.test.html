@@ -211,9 +211,16 @@ try {
             fixture.style.width = `${containerWidth}px`;
             const image = preview.getBoundingClientRect();
             const frame = query(".generation-upload-slot").getBoundingClientRect();
+            const actions = query(".generation-upload-actions").getBoundingClientRect();
+            const remove = query("[data-remove-photo]").getBoundingClientRect();
+            const replace = query("[data-replace-photo]").getBoundingClientRect();
             assert(Math.abs(image.width / image.height - width / height) < 0.02, `Distorted ${width}x${height} at ${containerWidth}`);
             assert(Math.abs(frame.width - image.width) <= 2 && Math.abs(frame.height - image.height) <= 2, `Empty photo gutters at ${containerWidth}`);
             assert(frame.width <= query('[data-photo="body"]').clientWidth + 1, "Photo overflows its column");
+            assert(Math.abs(actions.width - frame.width) < 1, `Actions do not fit the photo at ${width}x${height}`);
+            assert(Math.abs(remove.right - frame.right) < 1, "Delete button is detached from the photo edge");
+            assert(Math.abs(replace.left - frame.left) < 1, "Replace button is detached from the photo edge");
+            assert(replace.right <= remove.left + 1 || replace.bottom <= remove.top + 1, "Photo actions overlap");
           }
         }
       }

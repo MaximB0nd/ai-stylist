@@ -53,6 +53,9 @@ class GenerationLayoutTests(unittest.TestCase):
                 self.assertEqual(field["accept"], "image/jpeg,image/png,image/webp")
                 self.assertFalse(field.has_attr("multiple"))
                 self.assertEqual(field["aria-label"], card.label.get_text())
+                media = card.select_one(".generation-photo-media")
+                self.assertIsNotNone(media.select_one(".generation-preview"))
+                self.assertIsNotNone(media.select_one(".generation-upload-actions"))
                 for selector in ("[data-replace-photo]", "[data-remove-photo]"):
                     button = card.select_one(selector)
                     self.assertEqual(button["type"], "button")
