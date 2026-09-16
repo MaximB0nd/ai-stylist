@@ -69,18 +69,23 @@ try {
     query("form").dispatchEvent(event);
     assert(event.defaultPrevented, "Submission was not intercepted");
     assert(query("#age-error").textContent === "Укажите возраст.", "Missing specific error");
-    assert(document.activeElement === query('[name="age"]'), "Wrong error focus");
+    assert(document.activeElement === query('[name="occasion"]'), "Wrong error focus");
   });
   await test("Choices and valid measurements update the compact summary", async ({ query }) => {
-    for (const [name, value] of [["age", "28"], ["height", "168"], ["weight", "58.5"]]) {
+    for (const [name, value] of [["age", "28"], ["height", "168"]]) {
       query(`[name="${name}"]`).value = value;
       query(`[name="${name}"]`).dispatchEvent(new Event("input", { bubbles: true }));
     }
     query('[name="occasion"][value="office"]').click();
-    assert(query("progress").value === 4, "Wrong progress");
+    assert(query("progress").value === 3, "Wrong progress");
     assert(!query(".generation-selections").hidden, "Selection remains hidden");
     assert(query('[data-selection="occasion"]').textContent === "Офис", "Wrong selection");
-    assert(query('[data-selection="style"]').parentElement.hidden, "Empty selection is visible");
+    assert(query('[data-selection="style"]').closest("dl > div").hidden, "Empty selection is visible");
+    assert(query('[data-selection-image="occasion"]').src.endsWith("occasion-office.webp"), "Wrong summary image");
+    query('[data-edit-question="occasion"]').click();
+    assert(document.activeElement === query('[name="occasion"][value="office"]'), "Edit did not focus the selection");
+    query('[name="occasion"][value="evening"]').click();
+    assert(query('[data-selection-image="occasion"]').src.endsWith("occasion-evening.webp"), "Summary image did not update");
   });
   await test("Drop shows pending state, then a preview; deletion clears it", async ({ query, drop }) => {
     drop("body", [photo]);
@@ -123,13 +128,13 @@ try {
     assert(!query("form").dataset.ready, "Disposed form still initialized");
   });
   await test("Complete form intercepts submission and reports readiness", async ({ query, drop }) => {
-    for (const [name, value] of [["age", "28"], ["height", "168"], ["weight", "58.5"]]) query(`[name="${name}"]`).value = value;
+    for (const [name, value] of [["age", "28"], ["height", "168"]]) query(`[name="${name}"]`).value = value;
     for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();
     drop("body", [photo]); drop("face", [photo]);
     decodes.forEach(item => item.resolve()); await tick();
     const event = new Event("submit", { bubbles: true, cancelable: true });
     query("form").dispatchEvent(event);
-    assert(event.defaultPrevented && query("progress").value === 9, "Form is not complete");
+    assert(event.defaultPrevented && query("progress").value === 8 && query("progress").max === 8, "Form is not complete");
     assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
   });
 } finally {

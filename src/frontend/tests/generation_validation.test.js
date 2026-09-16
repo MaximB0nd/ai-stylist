@@ -34,7 +34,7 @@ test("does not flag an untouched empty field before submission", () => {
 });
 
 test("identifies each missing measurement by name", () => {
-  for (const [name, label] of [["age", "возраст"], ["height", "рост"], ["weight", "вес"]]) {
+  for (const [name, label] of [["age", "возраст"], ["height", "рост"]]) {
     assert.equal(measurementError({ name, validity: { valueMissing: true } }), `Укажите ${label}.`);
   }
 });
@@ -49,9 +49,8 @@ test("names the out-of-range field and its bounds", () => {
   }
 });
 
-test("explains integer and decimal steps", () => {
+test("requires integer measurements", () => {
   assert.match(measurementError({ step: "1", validity: { stepMismatch: true } }), /целое/);
-  assert.match(measurementError({ step: "0.1", validity: { stepMismatch: true } }), /0,1 кг/);
   assert.equal(measurementError({ validity: {} }), "");
 });
 

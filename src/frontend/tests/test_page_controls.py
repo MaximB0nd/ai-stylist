@@ -29,7 +29,7 @@ class PageControlsTests(unittest.TestCase):
     def test_generation_check_stays_disabled_until_javascript_initializes(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")
         fields = soup.select('.generation-form input[type="number"]')
-        self.assertEqual(len(fields), 3)
+        self.assertEqual(len(fields), 2)
         self.assertTrue(all(not field.has_attr("disabled") for field in fields))
         button = soup.select_one(".generation-submit")
         self.assertEqual(button["type"], "submit")

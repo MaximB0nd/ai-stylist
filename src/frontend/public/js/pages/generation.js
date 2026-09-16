@@ -9,14 +9,14 @@ export function photoFileError(file) {
 }
 
 export function measurementError(input, required = true) {
-  const names = { age: "возраст", height: "рост", weight: "вес" };
+  const names = { age: "возраст", height: "рост" };
   if (input.validity.badInput) return "Введите число.";
   if (input.validity.valueMissing) return required ? `Укажите ${names[input.name]}.` : "";
   if (input.validity.rangeUnderflow || input.validity.rangeOverflow) {
     return `Укажите ${names[input.name]} от ${input.min} до ${input.max}.`;
   }
   if (input.validity.stepMismatch) {
-    return input.step === "1" ? "Введите целое число." : "Укажите вес с точностью до 0,1 кг.";
+    return "Введите целое число.";
   }
   return "";
 }
@@ -71,27 +71,43 @@ export function mountGeneration(form) {
       const selected = group.querySelector("input:checked");
       const value = selected?.closest("label").querySelector(".generation-choice-card > span").textContent;
       const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
+      const image = page.querySelector(`[data-selection-image="${group.dataset.question}"]`);
       output.textContent = value || "";
-      output.parentElement.hidden = !selected;
+      output.closest("button").setAttribute("aria-label", `Изменить: ${group.querySelector("legend").textContent}${value ? `, ${value}` : ""}`);
+      output.closest("dl > div").hidden = !selected;
+      image.hidden = !selected;
+      if (selected) image.src = selected.closest("label").querySelector("img").src;
+      else image.removeAttribute("src");
       if (selected) choices++;
     }
     const total = measurements + photoCount + choices;
     page.querySelector(".generation-selections").hidden = !choices;
-    for (const [key, value, max, empty, partial] of [
-      ["measurements", measurements, 3, "Не заполнены", "Не всё заполнено"],
-      ["photos", photoCount, 2, "Не добавлены", "Нужно ещё фото"],
-      ["choices", choices, 4, "Не выбраны", "Не всё выбрано"],
+    for (const [key, value, max] of [
+      ["measurements", measurements, numbers.length],
+      ["photos", photoCount, 2],
+      ["choices", choices, 4],
     ]) {
       const output = page.querySelector(`[data-count="${key}"]`);
-      output.textContent = value === max ? "Готово" : value ? partial : empty;
+      output.textContent = `${value} / ${max}`;
       output.classList.toggle("is-complete", value === max);
     }
-    page.querySelector('[data-count="total"]').textContent = `${total} / 9`;
+    const maximum = numbers.length + photos.length + groups.length;
+    page.querySelector('[data-count="total"]').textContent = `${total} / ${maximum}`;
     const progress = page.querySelector("progress");
+    progress.max = maximum;
     progress.value = total;
-    progress.textContent = `${total} из 9`;
+    progress.textContent = `${total} из ${maximum}`;
     button.disabled = photos.some((photo) => photo.pending);
     status.textContent = "";
+  }
+
+  for (const edit of page.querySelectorAll("[data-edit-question]")) {
+    edit.addEventListener("click", () => {
+      const group = groups.find((item) => item.dataset.question === edit.dataset.editQuestion);
+      const input = group.querySelector("input:checked") || group.querySelector("input");
+      input.focus({ preventScroll: true });
+      group.scrollIntoView({ block: "center", behavior: "instant" });
+    }, { signal: events.signal });
   }
 
   function renderPhoto(photo) {
@@ -223,7 +239,8 @@ export function mountGeneration(form) {
     status.textContent = invalid.length
       ? "Проверьте отмеченные поля."
       : "Анкета заполнена. Генерация будет доступна после подключения сервиса.";
-    invalid[0]?.focus();
+    // Follow the visible form order when sections are rearranged.
+    [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
   }, { signal: events.signal });
 
   photos.forEach(renderPhoto);

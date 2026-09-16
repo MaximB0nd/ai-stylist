@@ -55,7 +55,6 @@ def _measurements():
     fields = (
         ("age", "Возраст, лет", 1, 120, "1", "28"),
         ("height", "Рост, см", 80, 240, "1", "168"),
-        ("weight", "Вес, кг", 20, 350, "0.1", "58"),
     )
     return "".join(
         f"""
@@ -83,7 +82,8 @@ def _uploads():
     <img class="generation-preview" alt="{label}" hidden />
   </label>
   <input id="generation-{key}" type="file" name="{key}"
-    accept="image/jpeg,image/png,image/webp" aria-describedby="photo-formats {key}-error" />
+    accept="image/jpeg,image/png,image/webp" aria-label="{label}"
+    aria-describedby="photo-formats {key}-error" />
   <div class="generation-upload-actions">
     <button class="ui-button ui-button--secondary" type="button" data-replace-photo hidden>Заменить</button>
     <button class="ui-button ui-button--quiet" type="button" data-remove-photo hidden
@@ -119,47 +119,63 @@ def _questions():
     return "".join(groups)
 
 
+def _selections():
+    return "".join(
+        f"""
+<div hidden>
+  <dt>{title}</dt>
+  <dd>
+    <button class="generation-selection" type="button" data-edit-question="{key}"
+      aria-label="Изменить: {title}" title="Изменить: {title}">
+      <img data-selection-image="{key}" width="80" height="80" alt="" hidden />
+      <span data-selection="{key}"></span>
+    </button>
+  </dd>
+</div>"""
+        for key, title, _ in CHOICES
+    )
+
+
 def page():
     return app_shell(
         f"""
 <section class="generation-page" aria-labelledby="generation-title">
   <div class="generation-heading">
     <h2 id="generation-title">Новые образы</h2>
-    <p>Ваши параметры и пожелания к новому образу.</p>
   </div>
   <div class="generation-layout">
     <form class="generation-form" id="generation-form" novalidate>
+      <section class="generation-section" aria-labelledby="generation-questions-title">
+        <h3 id="generation-questions-title"><span>01</span> Пожелания</h3>
+        <div class="generation-questions">{_questions()}</div>
+      </section>
       <section class="generation-section" aria-labelledby="generation-data-title">
-        <h3 id="generation-data-title"><span>01</span> Немного о вас</h3>
+        <h3 id="generation-data-title"><span>02</span> Немного о вас</h3>
         <div class="generation-measurements">{_measurements()}</div>
       </section>
       <section class="generation-section" aria-labelledby="generation-photo-title">
-        <h3 id="generation-photo-title"><span>02</span> Две фотографии</h3>
+        <h3 id="generation-photo-title"><span>03</span> Две фотографии</h3>
         <div class="generation-uploads">{_uploads()}</div>
         <p class="generation-note" id="photo-formats">JPG, PNG, WebP · до 10 МБ на фото</p>
       </section>
-      <section class="generation-section" aria-labelledby="generation-questions-title">
-        <h3 id="generation-questions-title"><span>03</span> Параметры образа</h3>
-        <div class="generation-questions">{_questions()}</div>
-      </section>
     </form>
     <aside class="generation-summary" aria-labelledby="generation-summary-title">
-      <h3 id="generation-summary-title">Ваша анкета</h3>
-      <dl class="generation-selections" hidden>
-        {"".join(f'<div hidden><dt>{title}</dt><dd data-selection="{key}"></dd></div>' for key, title, _ in CHOICES)}
-      </dl>
-      <dl class="generation-checklist">
-        <div><dt>Параметры</dt><dd data-count="measurements">Не заполнены</dd></div>
-        <div><dt>Фотографии</dt><dd data-count="photos">Не добавлены</dd></div>
-        <div><dt>Пожелания</dt><dd data-count="choices">Не выбраны</dd></div>
-      </dl>
-      <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
-      <progress id="generation-progress" value="0" max="9">0 из 9</progress>
+      <h3 id="generation-summary-title">Ваш выбор</h3>
+      <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 8</span></div>
+      <progress id="generation-progress" value="0" max="8">0 из 8</progress>
       <button class="generation-submit ui-button" type="submit" form="generation-form" disabled>
         Проверить анкету
       </button>
-      <p class="generation-note">Генерация образов пока недоступна. Фото и параметры не отправляются на сервер.</p>
       <p class="generation-status" role="status" aria-live="polite"></p>
+      <p class="generation-note">Генерация пока недоступна. Данные не отправляются.</p>
+      <dl class="generation-selections" hidden>
+        {_selections()}
+      </dl>
+      <dl class="generation-checklist">
+        <div><dt>Пожелания</dt><dd data-count="choices">0 / 4</dd></div>
+        <div><dt>Параметры</dt><dd data-count="measurements">0 / 2</dd></div>
+        <div><dt>Фотографии</dt><dd data-count="photos">0 / 2</dd></div>
+      </dl>
     </aside>
   </div>
 </section>
