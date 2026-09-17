@@ -1,9 +1,10 @@
 import unittest
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from bs4 import BeautifulSoup
 
-from src.pages.generation import CHOICES, page
+from src.pages.generation import CHOICE_IMAGE_VERSION, CHOICES, page
 
 FRONTEND = Path(__file__).resolve().parents[1]
 
@@ -44,6 +45,27 @@ class GenerationLayoutTests(unittest.TestCase):
                 self.assertTrue(all(field["name"] == key for field in inputs))
                 self.assertTrue(all(field.has_attr("required") for field in inputs))
                 self.assertTrue(all(not field.has_attr("checked") for field in inputs))
+
+    def test_choice_images_keep_text_labels_and_native_controls(self):
+        for key, _, options in CHOICES:
+            for value, label in options:
+                with self.subTest(question=key, value=value):
+                    field = self.soup.select_one(
+                        f'input[name="{key}"][value="{value}"]'
+                    )
+                    card = field.find_parent("label")
+                    self.assertIsNotNone(card)
+                    self.assertEqual(card.get_text(strip=True), label)
+                    self.assertEqual(field["type"], "radio")
+                    self.assertFalse(field.has_attr("disabled"))
+                    self.assertNotEqual(field.get("tabindex"), "-1")
+                    image = card.select_one("img")
+                    self.assertEqual(image.get("alt"), "")
+                    self.assertEqual((image["width"], image["height"]), ("400", "400"))
+                    self.assertEqual(
+                        parse_qs(urlsplit(image["src"]).query),
+                        {"v": [CHOICE_IMAGE_VERSION]},
+                    )
 
     def test_photo_controls_are_separate_and_single_file(self):
         for key in ("body", "face"):
@@ -90,7 +112,7 @@ class GenerationLayoutTests(unittest.TestCase):
             with self.subTest(src=image["src"]):
                 self.assertTrue(image["src"].startswith("/images/generation/"))
                 self.assertTrue(
-                    (FRONTEND / "public" / image["src"].lstrip("/")).is_file()
+                    (FRONTEND / "public" / urlsplit(image["src"]).path.lstrip("/")).is_file()
                 )
                 self.assertTrue(image.get("width"))
                 self.assertTrue(image.get("height"))

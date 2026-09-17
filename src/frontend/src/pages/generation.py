@@ -7,6 +7,9 @@ metadata = Metadata(
     description="Заполните данные для генерации образов",
 )
 
+# Bump when replacing choice assets so browsers revalidate the illustrations.
+CHOICE_IMAGE_VERSION = "3"
+
 CHOICES = (
     (
         "occasion",
@@ -121,7 +124,7 @@ def _questions():
 <label class="generation-choice">
   <input type="radio" name="{key}" value="{value}" required />
   <span class="generation-choice-card">
-    <img src="/images/generation/{key}-{value}.webp" width="400" height="400" alt="" loading="lazy" />
+    <img src="/images/generation/{key}-{value}.webp?v={CHOICE_IMAGE_VERSION}" width="400" height="400" alt="" loading="lazy" />
     <span>{label}</span>
   </span>
 </label>"""

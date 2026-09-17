@@ -97,11 +97,12 @@ try {
     assert(!query(".generation-selections").hidden, "Selection remains hidden");
     assert(query('[data-selection="occasion"]').textContent === "Офис", "Wrong selection");
     assert(query('[data-selection="style"]').closest("dl > div").hidden, "Empty selection is visible");
-    assert(query('[data-selection-image="occasion"]').src.endsWith("occasion-office.webp"), "Wrong summary image");
+    assert(new URL(query('[data-selection-image="occasion"]').src).pathname.endsWith("occasion-office.webp"), "Wrong summary image");
+    assert(new URL(query('[data-selection-image="occasion"]').src).search === new URL(query('input[value="office"]').closest('label').querySelector('img').src).search, "Summary lost image version");
     query('[data-edit-question="occasion"]').click();
     assert(document.activeElement === query('[name="occasion"][value="office"]'), "Edit did not focus the selection");
     query('[name="occasion"][value="evening"]').click();
-    assert(query('[data-selection-image="occasion"]').src.endsWith("occasion-evening.webp"), "Summary image did not update");
+    assert(new URL(query('[data-selection-image="occasion"]').src).pathname.endsWith("occasion-evening.webp"), "Summary image did not update");
   });
   await test("Drop shows pending state, then a preview; deletion clears it", async ({ query, drop }) => {
     const example = query(".generation-photo-empty");
