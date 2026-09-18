@@ -26,15 +26,15 @@ class PageControlsTests(unittest.TestCase):
         self.assertEqual(switch["type"], "button")
         self.assertTrue(switch.has_attr("disabled"))
 
-    def test_generation_fields_remain_editable_but_submit_is_unavailable(self):
+    def test_generation_check_stays_disabled_until_javascript_initializes(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")
-        fields = soup.select(".generation-form input")
-        self.assertEqual(len(fields), 3)
+        fields = soup.select('.generation-form input[type="number"]')
+        self.assertEqual(len(fields), 2)
         self.assertTrue(all(not field.has_attr("disabled") for field in fields))
         button = soup.select_one(".generation-submit")
-        self.assertEqual(button["type"], "button")
+        self.assertEqual(button["type"], "submit")
         self.assertTrue(button.has_attr("disabled"))
-        self.assertTrue(button.get("title"))
+        self.assertEqual(button["form"], "generation-form")
 
     def test_gallery_filters_are_unavailable_but_album_links_still_work(self):
         soup = BeautifulSoup(str(gallery.page()), "html.parser")

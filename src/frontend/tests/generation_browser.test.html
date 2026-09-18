@@ -1,0 +1,239 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generation browser regression tests</title>
+<link rel="stylesheet" href="/css/index.css">
+<h1>Generation browser regression tests</h1>
+<p id="result" role="status">Running</p>
+<ol id="results"></ol>
+<div id="fixture" style="position:absolute;left:-10000px;width:1000px"></div>
+<script type="module">
+import { mountGeneration } from "/js/pages/generation.js";
+
+const pageResponse = await fetch("/generation", { headers: { Accept: "text/html" } });
+const pageHtml = await pageResponse.text();
+const parsedPage = new DOMParser().parseFromString(pageHtml, "text/html");
+const template = parsedPage.querySelector(".generation-page")
+  || parsedPage.querySelector("template[pp-component]")?.content.querySelector(".generation-page");
+if (!template) throw new Error(`Missing generation fixture: ${pageResponse.status} ${pageHtml.slice(0, 200)}`);
+const imageBlob = await (await fetch("/images/generation/occasion-office.webp")).blob();
+const photo = new File([imageBlob], "fixture.webp", { type: "image/webp" });
+const invalidFile = new File(["invalid"], "fixture.txt", { type: "text/plain" });
+const NativeImage = window.Image;
+const nativeRevoke = URL.revokeObjectURL.bind(URL);
+const revoked = new Set();
+let decodes = [];
+let passed = 0;
+let failed = 0;
+window.Image = class {
+  decode() { return new Promise((resolve, reject) => decodes.push({ resolve, reject })); }
+};
+URL.revokeObjectURL = (url) => { revoked.add(url); nativeRevoke(url); };
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+const assert = (value, message) => { if (!value) throw new Error(message); };
+
+async function test(name, run) {
+  const fixture = document.querySelector("#fixture");
+  fixture.replaceChildren(template.cloneNode(true));
+  const root = fixture.firstElementChild;
+  const query = selector => root.querySelector(selector);
+  const stop = mountGeneration(query("form"));
+  decodes = [];
+  const drop = (key, files) => {
+    const dataTransfer = new DataTransfer();
+    files.forEach(file => dataTransfer.items.add(file));
+    const target = query(`[data-photo="${key}"]`);
+    target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }));
+    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer }));
+  };
+  const row = document.createElement("li");
+  try {
+    await run({ query, drop, stop });
+    row.textContent = `PASS: ${name}`;
+    passed++;
+  } catch (error) {
+    row.textContent = `FAIL: ${name}: ${error.message}`;
+    failed++;
+  } finally {
+    stop();
+    decodes.forEach(item => item.resolve());
+    await tick();
+    fixture.replaceChildren();
+    document.querySelector("#results").append(row);
+  }
+}
+
+try {
+  await test("Example images and captions activate the matching file input", async ({ query }) => {
+    for (const key of ["body", "face"]) {
+      const card = query(`[data-photo="${key}"]`);
+      const input = card.querySelector('input[type="file"]');
+      let clicks = 0;
+      input.addEventListener("click", event => { event.preventDefault(); clicks++; });
+      card.querySelector(".generation-photo-example img").click();
+      card.querySelector(".generation-upload-prompt").click();
+      assert(clicks === 2, `Example does not activate ${key} input`);
+      assert(query("progress").value === 0, "Example counted as an uploaded photo");
+    }
+  });
+  await test("Empty blur is quiet; submission identifies and focuses errors", async ({ query }) => {
+    query('[name="age"]').dispatchEvent(new FocusEvent("blur"));
+    assert(query("#age-error").hidden, "Premature empty error");
+    const event = new Event("submit", { bubbles: true, cancelable: true });
+    query("form").dispatchEvent(event);
+    assert(event.defaultPrevented, "Submission was not intercepted");
+    assert(query("#age-error").textContent === "Укажите возраст.", "Missing specific error");
+    assert(document.activeElement === query('[name="occasion"]'), "Wrong error focus");
+  });
+  await test("Choices and valid measurements update the compact summary", async ({ query }) => {
+    for (const [name, value] of [["age", "28"], ["height", "168"]]) {
+      query(`[name="${name}"]`).value = value;
+      query(`[name="${name}"]`).dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    query('[name="occasion"][value="office"]').click();
+    assert(query("progress").value === 3, "Wrong progress");
+    assert(query('[data-count="total"]').textContent === "3 / 8", "Wrong total count");
+    assert(!query(".generation-checklist"), "Duplicate section counts remain");
+    assert(!query(".generation-selections").hidden, "Selection remains hidden");
+    assert(query('[data-selection="occasion"]').textContent === "Офис", "Wrong selection");
+    assert(query('[data-selection="style"]').closest("dl > div").hidden, "Empty selection is visible");
+    assert(new URL(query('[data-selection-image="occasion"]').src).pathname.endsWith("occasion-office.webp"), "Wrong summary image");
+    assert(new URL(query('[data-selection-image="occasion"]').src).search === new URL(query('input[value="office"]').closest('label').querySelector('img').src).search, "Summary lost image version");
+    query('[data-edit-question="occasion"]').click();
+    assert(document.activeElement === query('[name="occasion"][value="office"]'), "Edit did not focus the selection");
+    query('[name="occasion"][value="evening"]').click();
+    assert(new URL(query('[data-selection-image="occasion"]').src).pathname.endsWith("occasion-evening.webp"), "Summary image did not update");
+  });
+  await test("Drop shows pending state, then a preview; deletion clears it", async ({ query, drop }) => {
+    const example = query(".generation-photo-empty");
+    assert(!example.hidden, "Example is missing before upload");
+    drop("body", [photo]);
+    assert(query(".generation-submit").disabled, "Check allowed while decoding");
+    assert(query("[data-photo-status]").textContent.includes("Открываем"), "Missing loading state");
+    decodes[0].resolve(); await tick();
+    const preview = query(".generation-preview");
+    const url = preview.src;
+    assert(!preview.hidden && query("progress").value === 1, "Drop did not load");
+    assert(example.hidden, "Example remains visible beside the uploaded photo");
+    for (const action of ["replace", "remove"]) {
+      const button = query(`[data-${action}-photo]`);
+      const rect = button.getBoundingClientRect();
+      assert(rect.width === 44 && rect.height === 44, "Photo action target is not 44px square");
+      assert(button.getAttribute("aria-label") && button.title, "Icon action has no accessible name or tooltip");
+      assert(getComputedStyle(button.querySelector(".site-icon")).maskImage.includes("/icons/lucide/"), "Missing action icon mask");
+    }
+    const actions = query(".generation-upload-actions").getBoundingClientRect();
+    const replace = query("[data-replace-photo]").getBoundingClientRect();
+    const remove = query("[data-remove-photo]").getBoundingClientRect();
+    assert(Math.abs(replace.left - actions.left) < 1, "Replace action is not left-aligned");
+    assert(Math.abs(remove.right - actions.right) < 1, "Remove action is not right-aligned");
+    query("[data-remove-photo]").click();
+    assert(preview.hidden && revoked.has(url), "Deleted photo not released");
+    assert(query("progress").value === 0, "Deleted photo still counted");
+    assert(!example.hidden, "Example did not return after deletion");
+  });
+  await test("Multiple files preserve the previous photo and explain the error", async ({ query, drop }) => {
+    drop("body", [photo]); decodes[0].resolve(); await tick();
+    const url = query(".generation-preview").src;
+    drop("body", [photo, photo]);
+    assert(query(".generation-preview").src === url, "Previous photo lost");
+    assert(query("#body-error").textContent.includes("Предыдущее фото сохранено"), "Missing preservation message");
+  });
+  await test("The newest photo wins when decoding completes out of order", async ({ query, drop }) => {
+    drop("body", [photo]); drop("body", [photo]);
+    decodes[1].resolve(); await tick();
+    const latest = query(".generation-preview").src;
+    decodes[0].resolve(); await tick();
+    assert(query(".generation-preview").src === latest, "Stale decode replaced latest photo");
+  });
+  await test("An invalid replacement cancels an older pending selection", async ({ query, drop }) => {
+    drop("body", [photo]); drop("body", [invalidFile]);
+    decodes[0].resolve(); await tick();
+    assert(query(".generation-preview").hidden, "Stale photo reappeared");
+    assert(!query(".generation-submit").disabled, "Button remained blocked");
+    assert(!query("#body-error").hidden, "Error disappeared");
+  });
+  await test("Disposal prevents late decodes from restoring previews", async ({ query, drop, stop }) => {
+    drop("body", [photo]); stop();
+    decodes[0].resolve(); await tick();
+    assert(query(".generation-preview").hidden, "Disposed preview reappeared");
+    assert(query(".generation-submit").disabled, "Disposed form still enabled");
+    assert(!query("form").dataset.ready, "Disposed form still initialized");
+  });
+  await test("Complete form intercepts submission and reports readiness", async ({ query, drop }) => {
+    for (const [name, value] of [["age", "28"], ["height", "168"]]) query(`[name="${name}"]`).value = value;
+    for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();
+    drop("body", [photo]); drop("face", [photo]);
+    decodes.forEach(item => item.resolve()); await tick();
+    const event = new Event("submit", { bubbles: true, cancelable: true });
+    query("form").dispatchEvent(event);
+    assert(event.defaultPrevented && query("progress").value === 8 && query("progress").max === 8, "Form is not complete");
+    assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
+  });
+  await test("Summary selections align with the submit button and each other", async ({ query }) => {
+    for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();
+    const button = query(".generation-submit").getBoundingClientRect();
+    const grid = query(".generation-selections");
+    const rect = grid.getBoundingClientRect();
+    assert(Math.abs(button.left - rect.left) < 1 && Math.abs(button.right - rect.right) < 1, "Grid edges do not match the submit button");
+    const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+    const cells = [...grid.children];
+    for (let index = 0; index < cells.length; index++) {
+      const cell = cells[index].getBoundingClientRect();
+      const image = cells[index].querySelector("img").getBoundingClientRect();
+      const heading = cells[index].querySelector("dt").getBoundingClientRect();
+      assert(Math.abs(image.left - heading.left) < 1 && Math.abs(image.right - cell.right) < 1, `Image and heading do not fill column ${index}: ${JSON.stringify({ image: image.toJSON(), heading: heading.toJSON(), cell: cell.toJSON() })}`);
+      const rowStart = cells[index - index % columns].querySelector("img").getBoundingClientRect();
+      assert(Math.abs(image.top - rowStart.top) < 1, "Images in the same row are misaligned");
+    }
+  });
+  await test("Photo frames fit portrait, landscape and square files without gutters or distortion", async ({ query, drop }) => {
+    window.Image = NativeImage;
+    const fixture = document.querySelector("#fixture");
+    try {
+      for (const type of ["image/png", "image/jpeg", "image/webp"]) {
+        for (const [width, height] of [[400, 600], [600, 400], [400, 400], [80, 800], [800, 80]]) {
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          const context = canvas.getContext("2d");
+          context.fillStyle = "#a34855";
+          context.fillRect(0, 0, width, height);
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, type));
+          drop("body", [new File([blob], "proportions", { type: blob.type })]);
+          const deadline = performance.now() + 5000;
+          while (query('[data-photo="body"]').getAttribute("aria-busy") === "true") {
+            assert(performance.now() < deadline, "Photo decoding timed out");
+            await tick();
+          }
+          const preview = query(".generation-preview");
+          assert(!preview.hidden, `Preview failed for ${type}`);
+          await preview.decode();
+          for (const containerWidth of [288, 358, 720, 1000]) {
+            fixture.style.width = `${containerWidth}px`;
+            const image = preview.getBoundingClientRect();
+            const frame = query(".generation-upload-slot").getBoundingClientRect();
+            const actions = query(".generation-upload-actions").getBoundingClientRect();
+            const remove = query("[data-remove-photo]").getBoundingClientRect();
+            const replace = query("[data-replace-photo]").getBoundingClientRect();
+            assert(Math.abs(image.width / image.height - width / height) < 0.02, `Distorted ${width}x${height} at ${containerWidth}`);
+            assert(Math.abs(frame.width - image.width) <= 2 && Math.abs(frame.height - image.height) <= 2, `Empty photo gutters at ${containerWidth}`);
+            assert(frame.width <= query('[data-photo="body"]').clientWidth + 1, "Photo overflows its column");
+            assert(Math.abs(actions.width - frame.width) < 1, `Actions do not fit the photo at ${width}x${height}`);
+            assert(Math.abs(remove.right - frame.right) < 1, "Delete button is detached from the photo edge");
+            assert(Math.abs(replace.left - frame.left) < 1, "Replace button is detached from the photo edge");
+            assert(replace.right <= remove.left + 1 || replace.bottom <= remove.top + 1, "Photo actions overlap");
+          }
+        }
+      }
+    } finally {
+      fixture.style.width = "1000px";
+    }
+  });
+} finally {
+  window.Image = NativeImage;
+  URL.revokeObjectURL = nativeRevoke;
+  const result = document.querySelector("#result");
+  result.textContent = `${passed} passed, ${failed} failed`;
+  result.dataset.complete = "true";
+}
+</script>
