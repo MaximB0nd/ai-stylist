@@ -122,3 +122,29 @@
   margin-left: 10px;
   font-size: 24px;
 }
+
+.home-page .fashion-image,
+.home-page .album-image {
+  background-size: cover;
+  background-position: center top;
+}
+
+.home-page .image-main {
+  background-image: url("/images/home/hero-main.png");
+}
+
+.home-page .image-top {
+  background-image: url("/images/home/hero-top.png");
+}
+
+.home-page .image-bottom {
+  background-image: url("/images/home/hero-bottom.png");
+}
+
+.home-page .album-image.office {
+  background-image: url("/images/home/album-office-photo.png");
+}
+
+.home-page .album-image.evening {
+  background-image: url("/images/home/album-evening-photo.png");
+}

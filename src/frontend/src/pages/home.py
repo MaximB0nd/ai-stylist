@@ -24,9 +24,9 @@ def page():
       </div>
 
       <div class="hero-images" aria-label="Примеры образов">
-        <div class="fashion-image image-main ui-image-placeholder"></div>
-        <div class="fashion-image image-top ui-image-placeholder"></div>
-        <div class="fashion-image image-bottom ui-image-placeholder"></div>
+        <div class="fashion-image image-main"></div>
+        <div class="fashion-image image-top"></div>
+        <div class="fashion-image image-bottom"></div>
       </div>
     </section>
 
@@ -35,7 +35,7 @@ def page():
 
       <div class="albums-grid">
         <article class="album-card">
-          <div class="album-image office ui-image-placeholder"></div>
+          <div class="album-image office"></div>
           <div class="album-info">
             <div class="album-name">Офис</div>
             <div class="album-date">2 сентября</div>
@@ -43,7 +43,7 @@ def page():
         </article>
 
         <article class="album-card">
-          <div class="album-image evening ui-image-placeholder"></div>
+          <div class="album-image evening"></div>
           <div class="album-info">
             <div class="album-name">Вечер</div>
             <div class="album-date">31 августа</div>
