@@ -1,33 +1,34 @@
-1. User Registration
+# 1. Регистрация пользователя
 
-Creates a new user account and immediately returns a JWT token for seamless auto-login.
-Method: POST 
-URL: /api/v1/auth/register
+Создает новую учетную запись пользователя и сразу возвращает JWT-токен для автоматического входа в систему.
 
-    Headers: Content-Type: application/json
+- **Метод:** `POST`
+- **URL:** `/api/v1/auth/register`
+- **Заголовки:** `Content-Type: application/json`
 
-Request Body
-```JSON
+## Тело запроса (Request Body)
 
+```json
 {
-  "name": "Anna",
+  "name": "Анна",
   "email": "user@example.com",
   "password": "SecurePassword123!"
 }
 ```
 
-Responses
-201 Created
+## Ответы (Responses)
 
-JSON
-```
+### `201 Created`
+Учетная запись успешно создана:
+
+```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
   "id": "7b5b294e-28b9-48cb-9964-6d9b4db7be8d"
-  }
 }
 ```
-400 Bad Request — Invalid email format or weak password.
 
-409 Conflict — An account with this email address already exists.
+### Ошибки:
+- `400 Bad Request` — Неверный формат email или слабый пароль.
+- `409 Conflict` — Пользователь с таким email уже существует.

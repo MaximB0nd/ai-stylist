@@ -1,153 +1,159 @@
-# Database Structure (PostgreSQL 16)
+# Структура базы данных (PostgreSQL 16)
 
-This document describes the core relational database schema for the **AI Stylist** backend service, covering `users`, `albums`, and `photos`.
+В этом документе описана основная реляционная схема базы данных для бэкенд-сервиса **AI Stylist**, включающая таблицы `users`, `albums` и `photos`.
 
 ---
 
-## 1. Entity-Relationship Diagram (ERD)
+## 1. ER-диаграмма (Entity-Relationship Diagram)
 
 ```mermaid
 erDiagram
-    users ||--o{ albums : "owns (1:N)"
-    albums ||--|{ photos : "contains (1:N, exactly 10 photos)"
+    users ||--o{ albums : "владеет (1:N)"
+    albums ||--|{ photos : "содержит (1:N, ровно 10 фото)"
 
     users {
         uuid id PK "gen_random_uuid()"
-        varchar email UK "User login email (indexed)"
-        varchar password_hash "Bcrypt hashed password"
-        varchar name "User display name"
-        boolean is_active "Account status flag"
-        timestamptz created_at "Timestamp of registration"
-        timestamptz updated_at "Timestamp of last update"
+        varchar email UK "Email пользователя для логина (индексирован)"
+        varchar password_hash "Хэш пароля (Bcrypt)"
+        varchar name "Имя пользователя"
+        boolean is_active "Флаг активности аккаунта"
+        timestamptz created_at "Дата и время регистрации"
+        timestamptz updated_at "Дата и время последнего обновления"
     }
 
     albums {
         uuid id PK "gen_random_uuid()"
-        uuid user_id FK "References users(id)"
-        uuid generation_id UK "Ties to generation task UUID"
-        varchar title "Album display name (e.g. 'Office')"
-        varchar situation "Selection: street, study, office, evening"
-        jsonb styles "Selected styles array"
-        jsonb shoes "Selected shoes array"
-        jsonb impressions "Selected impressions array"
-        smallint user_age "User age metric at generation"
-        smallint user_height "User height in cm"
-        smallint user_weight "User weight in kg"
-        varchar source_face_key "MinIO key of input portrait"
-        varchar source_body_key "MinIO key of input body photo"
-        integer total_photos "Default 10"
-        boolean is_archived "Archive flag (default false)"
-        timestamptz created_at "Creation timestamp"
-        timestamptz updated_at "Last update timestamp"
+        uuid user_id FK "Ссылка на users(id)"
+        uuid generation_id UK "UUID задачи генерации"
+        varchar title "Название альбома (например, 'Офис')"
+        varchar situation "Ситуация: street, study, office, evening"
+        jsonb styles "Массив выбранных стилей"
+        jsonb shoes "Массив выбранной обуви"
+        jsonb impressions "Массив выбранных впечатлений"
+        smallint user_age "Возраст пользователя на момент генерации"
+        smallint user_height "Рост в см"
+        smallint user_weight "Вес в кг"
+        varchar source_face_key "Ключ исходного портрета в MinIO"
+        varchar source_body_key "Ключ исходного фото тела в MinIO"
+        integer total_photos "По умолчанию 10"
+        boolean is_archived "Флаг архивации (по умолчанию false)"
+        timestamptz created_at "Дата и время создания"
+        timestamptz updated_at "Дата и время последнего обновления"
     }
 
     photos {
         uuid id PK "gen_random_uuid()"
-        uuid album_id FK "References albums(id)"
-        smallint order_index "Position in album (0-9)"
-        varchar object_key "MinIO object key (e.g. albums/{id}/look_00.webp)"
-        boolean is_cover "Cover photo indicator"
-        boolean is_favorite "Favorite look indicator"
-        timestamptz created_at "Creation timestamp"
-        timestamptz updated_at "Last update timestamp"
+        uuid album_id FK "Ссылка на albums(id)"
+        smallint order_index "Позиция в альбоме (0-9)"
+        varchar object_key "Ключ объекта в MinIO (например, albums/{id}/look_00.webp)"
+        boolean is_cover "Флаг обложки"
+        boolean is_favorite "Флаг избранного образа"
+        timestamptz created_at "Дата и время создания"
+        timestamptz updated_at "Дата и время последнего обновления"
     }
 ```
 
 ---
 
-## 2. Table Specifications
+## 2. Спецификация таблиц
 
 ### 2.1. `users`
-Stores registered user accounts and authentication credentials.
+Хранит учетные записи зарегистрированных пользователей и данные аутентификации.
 
-| Column | Type | Constraints | Description |
+| Колонка | Тип | Ограничения | Описание |
 |---|---|---|---|
-| `id` | `UUID` | `PRIMARY KEY`, default `gen_random_uuid()` | Unique user identifier |
-| `email` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE`, `INDEX` | User email address used for login |
-| `password_hash` | `VARCHAR(255)` | `NOT NULL` | Bcrypt password hash |
-| `name` | `VARCHAR(100)` | `NOT NULL` | User name |
-| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `CURRENT_TIMESTAMP` | Account creation timestamp |
-| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, default `CURRENT_TIMESTAMP` | Account last update timestamp |
+| `id` | `UUID` | `PRIMARY KEY`, по умолчанию `gen_random_uuid()` | Уникальный идентификатор пользователя |
+| `email` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE`, `INDEX` | Email пользователя для входа |
+| `password_hash` | `VARCHAR(255)` | `NOT NULL` | Хэш пароля (Bcrypt) |
+| `name` | `VARCHAR(100)` | `NOT NULL` | Имя пользователя |
+| `is_active` | `BOOLEAN` | `NOT NULL`, по умолчанию `TRUE` | Статус активности аккаунта |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время создания аккаунта |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время последнего обновления |
 
-**Indexes & Constraints:**
+**Индексы и ограничения:**
 - `pk_users`: `PRIMARY KEY (id)`
 - `uq_users_email`: `UNIQUE (email)`
-- `idx_users_email`: B-tree index on `email`
+- `idx_users_email`: B-tree индекс по полю `email`
 
 ---
 
 ### 2.2. `albums`
-Stores generated collections of looks produced for a user. Each album is created after the AI module finishes generating 10 looks.
+Хранит сгенерированные коллекции образов (луков) пользователя. Каждый альбом формируется после того, как AI-модуль завершает генерацию 10 образов.
 
-| Column | Type | Constraints | Description |
+| Колонка | Тип | Ограничения | Описание |
 |---|---|---|---|
-| `id` | `UUID` | `PRIMARY KEY`, default `gen_random_uuid()` | Unique album identifier |
-| `user_id` | `UUID` | `NOT NULL`, `REFERENCES users(id) ON DELETE CASCADE` | Owner user ID |
-| `generation_id` | `UUID` | `NOT NULL`, `UNIQUE`, `INDEX` | Associated generation task identifier |
-| `title` | `VARCHAR(100)` | `NOT NULL` | Album title (default based on situation, e.g. "Office") |
-| `situation` | `VARCHAR(50)` | `NOT NULL` | Target situation (`street`, `study`, `office`, `evening`) |
-| `styles` | `JSONB` | `NOT NULL` | Selected styles (e.g. `["minimalism", "classic"]`) |
-| `shoes` | `JSONB` | `NOT NULL` | Selected shoes (e.g. `["loafers"]`) |
-| `impressions` | `JSONB` | `NOT NULL` | Selected impressions (e.g. `["confident", "elegant"]`) |
-| `user_age` | `SMALLINT` | `NULL` | Age at the time of generation |
-| `user_height` | `SMALLINT` | `NULL` | Height (cm) at the time of generation |
-| `user_weight` | `SMALLINT` | `NULL` | Weight (kg) at the time of generation |
-| `total_photos` | `INTEGER` | `NOT NULL`, default `10` | Total number of photos in the album |
-| `is_archived` | `BOOLEAN` | `NOT NULL`, default `FALSE` | Archive status flag |
-| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `CURRENT_TIMESTAMP` | Generation completion / album creation timestamp |
-| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, default `CURRENT_TIMESTAMP` | Last update timestamp |
+| `id` | `UUID` | `PRIMARY KEY`, по умолчанию `gen_random_uuid()` | Уникальный идентификатор альбома |
+| `user_id` | `UUID` | `NOT NULL`, `REFERENCES users(id) ON DELETE CASCADE` | ID владельца альбома |
+| `generation_id` | `UUID` | `NOT NULL`, `UNIQUE`, `INDEX` | Идентификатор связанной задачи генерации |
+| `title` | `VARCHAR(100)` | `NOT NULL` | Название альбома (по умолчанию на основе ситуации, например, "Офис") |
+| `situation` | `VARCHAR(50)` | `NOT NULL` | Выбранная ситуация (`street`, `study`, `office`, `evening`) |
+| `styles` | `JSONB` | `NOT NULL`, по умолчанию `'[]'::jsonb` | Массив выбранных стилей (например, `["minimalism", "classic"]`) |
+| `shoes` | `JSONB` | `NOT NULL`, по умолчанию `'[]'::jsonb` | Массив выбранной обуви (например, `["loafers"]`) |
+| `impressions` | `JSONB` | `NOT NULL`, по умолчанию `'[]'::jsonb` | Массив выбранных впечатлений (например, `["confident", "elegant"]`) |
+| `user_age` | `SMALLINT` | `NULL` | Возраст на момент генерации |
+| `user_height` | `SMALLINT` | `NULL` | Рост (см) на момент генерации |
+| `user_weight` | `SMALLINT` | `NULL` | Вес (кг) на момент генерации |
+| `source_face_key` | `VARCHAR(512)` | `NULL` | Ключ исходного фото лица в MinIO |
+| `source_body_key` | `VARCHAR(512)` | `NULL` | Ключ исходного фото тела в MinIO |
+| `total_photos` | `INTEGER` | `NOT NULL`, по умолчанию `10` | Общее количество фотографий в альбоме |
+| `is_archived` | `BOOLEAN` | `NOT NULL`, по умолчанию `FALSE` | Флаг нахождения в архиве |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время завершения генерации / создания альбома |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время последнего обновления |
 
-**Indexes & Constraints:**
+**Индексы и ограничения:**
 - `pk_albums`: `PRIMARY KEY (id)`
 - `fk_albums_user_id`: `FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`
 - `uq_albums_generation_id`: `UNIQUE (generation_id)`
-- `idx_albums_user_id`: B-tree index on `user_id` (optimizes `GET /api/v1/albums`)
-- `idx_albums_created_at`: B-tree index on `(user_id, created_at DESC)` for sorted album lists
-- `idx_albums_is_archived`: B-tree index on `(user_id, is_archived)`
+- `idx_albums_user_id`: B-tree индекс по `user_id` (оптимизирует запрос `GET /api/v1/albums`)
+- `idx_albums_user_created`: B-tree индекс по `(user_id, created_at DESC)` для быстрой сортировки
+- `idx_albums_generation_id`: B-tree индекс по `generation_id`
 
 ---
 
 ### 2.3. `photos`
-Stores individual looks within an album.
+Хранит отдельные образы (фотографии), входящие в состав альбома.
 
-| Column | Type | Constraints | Description |
+| Колонка | Тип | Ограничения | Описание |
 |---|---|---|---|
-| `id` | `UUID` | `PRIMARY KEY`, default `gen_random_uuid()` | Unique photo identifier |
-| `album_id` | `UUID` | `NOT NULL`, `REFERENCES albums(id) ON DELETE CASCADE` | Album identifier |
-| `order_index` | `SMALLINT` | `NOT NULL` | Display order index (0 to 9) |
-| `object_key` | `VARCHAR(512)` | `NOT NULL` | Object path in MinIO (e.g. `albums/3fa85f64/look_00.webp`) |
-| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, default `CURRENT_TIMESTAMP` | Creation timestamp |
+| `id` | `UUID` | `PRIMARY KEY`, по умолчанию `gen_random_uuid()` | Уникальный идентификатор фотографии |
+| `album_id` | `UUID` | `NOT NULL`, `REFERENCES albums(id) ON DELETE CASCADE` | Идентификатор альбома |
+| `order_index` | `SMALLINT` | `NOT NULL` | Порядковый номер отображения (от 0 до 9) |
+| `object_key` | `VARCHAR(512)` | `NOT NULL` | Путь к файлу в MinIO (например, `albums/3fa85f64/look_00.webp`) |
+| `is_cover` | `BOOLEAN` | `NOT NULL`, по умолчанию `FALSE` | Является ли обложкой альбома |
+| `is_favorite` | `BOOLEAN` | `NOT NULL`, по умолчанию `FALSE` | Добавлено ли в избранное |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время создания |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время последнего обновления |
 
-
-**Indexes & Constraints:**
+**Индексы и ограничения:**
 - `pk_photos`: `PRIMARY KEY (id)`
 - `fk_photos_album_id`: `FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE`
-- `uq_photos_album_order`: `UNIQUE (album_id, order_index)` ensures unique ordering slots within an album
-- `idx_photos_album_id`: B-tree index on `album_id`
-- `idx_photos_favorite`: Partial index on `(album_id, is_favorite)` where `is_favorite = TRUE`
+- `uq_photos_album_order`: `UNIQUE (album_id, order_index)` гарантирует уникальность порядкового номера в рамках альбома
+- `chk_photos_order_index`: `CHECK (order_index >= 0 AND order_index < 10)` ограничение диапазона от 0 до 9
+- `idx_photos_album_id`: B-tree индекс по `album_id`
+- `idx_photos_album_order`: B-tree индекс по `(album_id, order_index)`
 
 ---
 
-## 3. Storage Strategy (MinIO & Presigned URLs)
+## 3. Стратегия хранения медиа (MinIO и Presigned URL)
 
-1. **Object Key vs URL:**
-   - The database **only** persists `object_key` strings (e.g., `albums/3fa85f64/look_00.webp`).
-   - URLs are never stored statically in PostgreSQL because presigned URLs are temporary and cryptographically signed.
-2. **Dynamic URL Resolution:**
-   - When serving `GET /api/v1/albums/{album_id}`, the service iterates over the album's photos and invokes `minio_client.presigned_get_object(...)` with a configurable TTL (e.g. 3600 seconds) to populate the `url` field in the response DTO.
+1. **Ключ объекта (Object Key) вместо постоянного URL:**
+   - В базе данных сохраняются **только** строковые ключи объектов (например, `albums/3fa85f64/look_00.webp`).
+   - Статические URL не сохраняются в PostgreSQL, так как presigned-ссылки являются временными и защищены криптографической подписью.
+2. **Динамическая генерация ссылок:**
+   - При обработке запроса `GET /api/v1/albums/{album_id}` сервис перебирает фотографии альбома и вызывает метод `minio_client.presigned_get_object(...)` с заданным временем жизни (TTL, например 3600 секунд), заполняя поле `url` в ответе для фронтенда.
 
 ---
 
-## 4. PostgreSQL 16 DDL Script
+## 4. DDL-скрипт для PostgreSQL 16
 
 ```sql
--- Enable pgcrypto for gen_random_uuid() if required (built-in in PG 16)
+-- Подключение расширения pgcrypto для генерации UUID
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =============================================================================
--- Table: users
+-- Таблица: users (Пользователи)
 -- =============================================================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -158,12 +164,12 @@ CREATE TABLE users (
     CONSTRAINT uq_users_email UNIQUE (email)
 );
 
-CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- =============================================================================
--- Table: albums
+-- Таблица: albums (Альбомы генераций)
 -- =============================================================================
-CREATE TABLE albums (
+CREATE TABLE IF NOT EXISTS albums (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     generation_id UUID NOT NULL,
@@ -185,14 +191,14 @@ CREATE TABLE albums (
     CONSTRAINT uq_albums_generation_id UNIQUE (generation_id)
 );
 
-CREATE INDEX idx_albums_user_id ON albums(user_id);
-CREATE INDEX idx_albums_user_created ON albums(user_id, created_at DESC);
-CREATE INDEX idx_albums_generation_id ON albums(generation_id);
+CREATE INDEX IF NOT EXISTS idx_albums_user_id ON albums(user_id);
+CREATE INDEX IF NOT EXISTS idx_albums_user_created ON albums(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_albums_generation_id ON albums(generation_id);
 
 -- =============================================================================
--- Table: photos
+-- Таблица: photos (Фотографии образов)
 -- =============================================================================
-CREATE TABLE photos (
+CREATE TABLE IF NOT EXISTS photos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     album_id UUID NOT NULL,
     order_index SMALLINT NOT NULL,
@@ -206,20 +212,21 @@ CREATE TABLE photos (
     CONSTRAINT chk_photos_order_index CHECK (order_index >= 0 AND order_index < 10)
 );
 
-CREATE INDEX idx_photos_album_id ON photos(album_id);
-CREATE INDEX idx_photos_album_order ON photos(album_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_photos_album_id ON photos(album_id);
+CREATE INDEX IF NOT EXISTS idx_photos_album_order ON photos(album_id, order_index);
 ```
 
 ---
 
-## 5. SQLAlchemy 2.0 ORM Models Reference
+## 5. Эталонные ORM-модели SQLAlchemy 2.0
 
 ```python
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
+
 from sqlalchemy import (
-    Boolean, CheckConstraint, ForeignKey, Index, Integer,
+    Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer,
     SmallInteger, String, UniqueConstraint, func
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -240,9 +247,18 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     albums: Mapped[List["Album"]] = relationship(
@@ -274,9 +290,18 @@ class Album(Base):
     source_body_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     total_photos: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     user: Mapped["User"] = relationship("User", back_populates="albums")
@@ -302,9 +327,18 @@ class Photo(Base):
     object_key: Mapped[str] = mapped_column(String(512), nullable=False)
     is_cover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     album: Mapped["Album"] = relationship("Album", back_populates="photos")

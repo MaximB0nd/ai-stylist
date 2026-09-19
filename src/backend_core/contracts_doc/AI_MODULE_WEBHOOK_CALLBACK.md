@@ -1,18 +1,16 @@
-5. AI Module Webhook Callback (AI Module $\rightarrow$ Core Backend)
+# 5. Вебхук-коллбэк от AI-модуля (AI Module $\rightarrow$ Core Backend)
 
-Internal webhook invoked by the AI module to report generation completion, providing the MinIO object keys of all 10 generated looks.
+Внутренний вебхук, вызываемый модулем генерации искусственного интеллекта для уведомления о завершении генерации. Предоставляет ключи объектов MinIO для всех 10 созданных образов.
 
-Method: POST
+- **Метод:** `POST`
+- **URL:** `/api/v1/internal/generations/{generation_id}/complete`
+- **Заголовки:**
+  - `Content-Type: application/json`
+  - `X-Internal-Token: <internal_service_secret>`
 
-URL: /api/v1/internal/generations/{generation_id}/complete
+## Тело запроса (Request Body)
 
-Headers:
-- Content-Type: application/json
-- X-Internal-Token: <internal_service_secret>
-
-Request Body
-
-```JSON
+```json
 {
   "generation_id": "c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
   "status": "COMPLETED",
@@ -31,15 +29,18 @@ Request Body
 }
 ```
 
-Responses
+## Ответы (Responses)
 
-200 OK
+### `200 OK`
+Генерация успешно сохранена и создан альбом:
 
-```JSON
+```json
 {
   "success": true,
   "album_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
-404 Not Found — Unknown or invalid generation_id.
+### Ошибки:
+- `401 Unauthorized` — Неверный или отсутствующий токен `X-Internal-Token`.
+- `404 Not Found` — Неизвестный или недействительный `generation_id`.
