@@ -72,8 +72,7 @@ erDiagram
 
 **Индексы и ограничения:**
 - `pk_users`: `PRIMARY KEY (id)`
-- `uq_users_email`: `UNIQUE (email)`
-- `idx_users_email`: B-tree индекс по полю `email`
+- `ix_users_email`: Уникальный B-tree индекс по полю `email`
 
 ---
 
@@ -103,10 +102,9 @@ erDiagram
 **Индексы и ограничения:**
 - `pk_albums`: `PRIMARY KEY (id)`
 - `fk_albums_user_id`: `FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`
-- `uq_albums_generation_id`: `UNIQUE (generation_id)`
-- `idx_albums_user_id`: B-tree индекс по `user_id` (оптимизирует запрос `GET /api/v1/albums`)
-- `idx_albums_user_created`: B-tree индекс по `(user_id, created_at DESC)` для быстрой сортировки
-- `idx_albums_generation_id`: B-tree индекс по `generation_id`
+- `ix_albums_generation_id`: Уникальный B-tree индекс по `generation_id`
+- `ix_albums_user_id`: B-tree индекс по `user_id` (оптимизирует запрос `GET /api/v1/albums`)
+- `idx_albums_user_created`: B-tree индекс по `(user_id, created_at)` для быстрой сортировки
 
 ---
 
@@ -129,8 +127,7 @@ erDiagram
 - `fk_photos_album_id`: `FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE`
 - `uq_photos_album_order`: `UNIQUE (album_id, order_index)` гарантирует уникальность порядкового номера в рамках альбома
 - `chk_photos_order_index`: `CHECK (order_index >= 0 AND order_index < 10)` ограничение диапазона от 0 до 9
-- `idx_photos_album_id`: B-tree индекс по `album_id`
-- `idx_photos_album_order`: B-tree индекс по `(album_id, order_index)`
+- `ix_photos_album_id`: B-tree индекс по `album_id`
 
 ---
 
@@ -160,11 +157,10 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(100) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_users_email UNIQUE (email)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email);
 
 -- =============================================================================
 -- Таблица: albums (Альбомы генераций)
@@ -187,13 +183,12 @@ CREATE TABLE IF NOT EXISTS albums (
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_albums_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT uq_albums_generation_id UNIQUE (generation_id)
+    CONSTRAINT fk_albums_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_albums_user_id ON albums(user_id);
-CREATE INDEX IF NOT EXISTS idx_albums_user_created ON albums(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_albums_generation_id ON albums(generation_id);
+CREATE INDEX IF NOT EXISTS ix_albums_user_id ON albums(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_albums_generation_id ON albums(generation_id);
+CREATE INDEX IF NOT EXISTS idx_albums_user_created ON albums(user_id, created_at);
 
 -- =============================================================================
 -- Таблица: photos (Фотографии образов)
@@ -212,8 +207,7 @@ CREATE TABLE IF NOT EXISTS photos (
     CONSTRAINT chk_photos_order_index CHECK (order_index >= 0 AND order_index < 10)
 );
 
-CREATE INDEX IF NOT EXISTS idx_photos_album_id ON photos(album_id);
-CREATE INDEX IF NOT EXISTS idx_photos_album_order ON photos(album_id, order_index);
+CREATE INDEX IF NOT EXISTS ix_photos_album_id ON photos(album_id);
 ```
 
 ---

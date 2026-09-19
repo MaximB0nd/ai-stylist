@@ -2,6 +2,16 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =============================================================================
+-- Table: alembic_version (Baseline stamp for Alembic migrations)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS alembic_version (
+    version_num VARCHAR(32) NOT NULL,
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+
+INSERT INTO alembic_version (version_num) VALUES ('0001') ON CONFLICT DO NOTHING;
+
+-- =============================================================================
 -- Table: users
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS users (
@@ -11,11 +21,10 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(100) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_users_email UNIQUE (email)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email);
 
 -- =============================================================================
 -- Table: albums
@@ -38,13 +47,12 @@ CREATE TABLE IF NOT EXISTS albums (
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_albums_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT uq_albums_generation_id UNIQUE (generation_id)
+    CONSTRAINT fk_albums_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_albums_user_id ON albums(user_id);
-CREATE INDEX IF NOT EXISTS idx_albums_user_created ON albums(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_albums_generation_id ON albums(generation_id);
+CREATE INDEX IF NOT EXISTS ix_albums_user_id ON albums(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_albums_generation_id ON albums(generation_id);
+CREATE INDEX IF NOT EXISTS idx_albums_user_created ON albums(user_id, created_at);
 
 -- =============================================================================
 -- Table: photos
@@ -63,5 +71,4 @@ CREATE TABLE IF NOT EXISTS photos (
     CONSTRAINT chk_photos_order_index CHECK (order_index >= 0 AND order_index < 10)
 );
 
-CREATE INDEX IF NOT EXISTS idx_photos_album_id ON photos(album_id);
-CREATE INDEX IF NOT EXISTS idx_photos_album_order ON photos(album_id, order_index);
+CREATE INDEX IF NOT EXISTS ix_photos_album_id ON photos(album_id);
