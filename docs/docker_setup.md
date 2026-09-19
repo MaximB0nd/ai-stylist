@@ -1,84 +1,97 @@
-# Docker & Docker Compose Setup
+# Развертывание через Docker и Docker Compose
 
-This document describes the containerization and orchestration setup for the **AI Stylist** services.
+В этом документе описана конфигурация контейнеризации и оркестрации сервисов **AI Stylist**.
 
 ---
 
-## 1. Overview
+## 1. Архитектурная схема
 
-The project uses Docker Compose to orchestrate the infrastructure and backend services in isolated containers connected via an internal bridge network (`stylist-net`):
+Проект использует Docker Compose для запуска инфраструктуры и бэкенда в изолированных контейнерах, объединенных внутренней bridge-сетью (`stylist-net`):
 
 ```text
-[Client / Browser]
+[Клиент / Браузер]
        │
        │ :8000 (HTTP / Swagger)
        ▼
 ┌──────────────────────────────────────┐
 │ stylist-backend-core (FastAPI)       │
 │  - Python 3.12-slim                  │
+│  - Alembic (авто-миграции)           │
 │  - SQLAlchemy 2.0 + asyncpg          │
 └──────────────────┬───────────────────┘
                    │
-                   │ :5432 (Internal Network: db:5432)
+                   │ :5432 (внутренняя сеть: db:5432)
                    ▼
 ┌──────────────────────────────────────┐
 │ stylist-db (PostgreSQL 16)           │
 │  - postgres:16-alpine                │
 │  - Volume: postgres_data             │
-│  - Auto-init: db/init.sql            │
+│  - Bootstrap: db/init.sql            │
 └──────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Services Breakdown
+## 2. Описание сервисов
 
 ### 2.1. `db` (PostgreSQL 16)
-- **Image:** `postgres:16-alpine`
-- **Port:** `5432` mapped to host `localhost:5432`.
-- **Initialization:** Mounts [src/backend_core/db/init.sql](file:///c:/Users/ivan2/ai-stylist/src/backend_core/db/init.sql) into `/docker-entrypoint-initdb.d/init.sql:ro`. On first run, it automatically creates:
-  - `pgcrypto` extension for UUID generation.
-  - `users`, `albums`, `photos` tables per `DB_STRUCTURE.md`.
-  - All associated indexes and foreign key constraints.
-- **Persistence:** Uses a named volume `postgres_data` mapped to `/var/lib/postgresql/data`.
-- **Healthcheck:** Verifies readiness via `pg_isready`.
+- **Образ:** `postgres:16-alpine`
+- **Порт:** `5432` проброшен на хост `localhost:5432`.
+- **Первоначальная инициализация (Bootstrap):** Монтирует [../src/backend_core/db/init.sql](../src/backend_core/db/init.sql) в `/docker-entrypoint-initdb.d/init.sql:ro`. На чистом томе скрипт создает расширение `pgcrypto`, таблицы и базовые индексы.
+- **Постоянное хранение:** Использует именованный том `postgres_data`, примонтированный в `/var/lib/postgresql/data`.
+- **Проверка готовности (Healthcheck):** Проверяет готовность БД через утилиту `pg_isready`.
 
-### 2.2. `backend_core` (FastAPI Service)
-- **Build Context:** [src/backend_core](file:///c:/Users/ivan2/ai-stylist/src/backend_core) using [Dockerfile](file:///c:/Users/ivan2/ai-stylist/src/backend_core/Dockerfile).
-- **Port:** `8000` mapped to host `localhost:8000`.
-- **Database Connection:** Connects to PostgreSQL using internal service hostname:
-  ```text
-  postgresql+asyncpg://postgres:postgres@db:5432/stylist
-  ```
-- **Dependency Management:** Waits for `db` container to become healthy before starting.
-- **Development Mount:** Mounts `./src/backend_core/app:/app/app` for hot code reloading during development.
+### 2.2. `backend_core` (FastAPI-сервис)
+- **Контекст сборки:** [../src/backend_core](../src/backend_core) на базе [Dockerfile](../src/backend_core/Dockerfile).
+- **Порт:** `8000` проброшен на хост `localhost:8000`.
+- **Подключение к БД:** Отдельные параметры (`POSTGRES_SERVER`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`) собираются в безопасный URI через `URL.create()`, что исключает ошибки парсинга спецсимволов в пароле.
+- **Безопасность JWT:** Переменная `SECRET_KEY` строго обязательна (`${SECRET_KEY:?...}`). При её отсутствии запуск завершается с ошибкой.
+- **Миграции (Alembic):** При старте контейнера автоматически выполняется `alembic upgrade head`, гарантируя актуальность схемы базы данных даже на существующих томах.
+- **Монтирование каталогов:** Каталоги `./src/backend_core/app` и `./src/backend_core/alembic` монтируются в контейнер для мгновенного применения правок кода (hot-reload через `--reload`).
 
 ---
 
-## 3. Quick Start & Common Commands
+## 3. Быстрый старт и основные команды
 
-### Start All Services
+### Настройка переменных окружения
+Перед запуском создайте файл `.env` в корне проекта (на основе `.env.example`):
+```bash
+cp .env.example .env
+```
+Задайте свой секретный ключ для `SECRET_KEY` (например, сгенерировав через `openssl rand -hex 32`).
+
+### Запуск всех сервисов
 ```bash
 docker compose up -d --build
 ```
 
-### View Logs
+### Просмотр логов
 ```bash
 docker compose logs -f backend_core
 docker compose logs -f db
 ```
 
-### Access Application & Documentation
+### Управление миграциями Alembic
+- **Применить миграции:**
+  ```bash
+  docker compose exec backend_core alembic upgrade head
+  ```
+- **Создать новую миграцию:**
+  ```bash
+  docker compose exec backend_core alembic revision --autogenerate -m "описание_изменений"
+  ```
+
+### Доступ к приложению и документации
 - **Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - **Healthcheck:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### Stop Services
+### Остановка сервисов
 ```bash
 docker compose down
 ```
 
-### Stop Services & Wipe Data (Clean Reset)
+### Остановка с удалением томов (полная очистка данных)
 ```bash
 docker compose down -v
 ```
