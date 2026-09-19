@@ -1,26 +1,26 @@
-2. User Authentication (Login)
+# 2. Аутентификация пользователя (Вход)
 
-Verifies user credentials and issues a JWT token.  
-Method: POST
+Проверяет учетные данные пользователя и выдает JWT-токен доступа.
 
-URL: /api/v1/auth/login
+- **Метод:** `POST`
+- **URL:** `/api/v1/auth/login`
+- **Заголовки:** `Content-Type: application/json`
 
-Headers: Content-Type: application/jsonRequest Body
+## Тело запроса (Request Body)
 
-
-```JSON
+```json
 {
   "email": "user@example.com",
   "password": "SecurePassword123!"
 }
 ```
 
+## Ответы (Responses)
 
-Responses
+### `200 OK`
+Успешный вход в систему:
 
-200 OK
-
-```JSON
+```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
@@ -28,4 +28,5 @@ Responses
 }
 ```
 
-401 Unauthorized — Invalid email or password.
+### Ошибки:
+- `401 Unauthorized` — Неверный адрес электронной почты или пароль.

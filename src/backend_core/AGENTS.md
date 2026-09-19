@@ -1,29 +1,29 @@
-# AGENTS.md — Stylist Backend Service Guidelines
+# AGENTS.md — Руководство по разработке Stylist Backend Service
 
-## 1. Project Overview & Scope
-This service is the core managing backend for the **"AI Stylist" MVP** mobile-first web application.
-It orchestrates user authentication, generation questionnaires, photo uploads, generation task lifecycles, album management, asynchronous AI service communication, and secure media access.
+## 1. Обзор проекта и границы ответственности
+Данный сервис является основным управляющим бэкендом мобильного веб-приложения **"AI Stylist" MVP**.
+Он отвечает за аутентификацию пользователей, обработку опросника генерации, загрузку фотографий, жизненный цикл задач генерации, управление альбомами, асинхронное взаимодействие с AI-модулем и безопасный доступ к медиафайлам.
 
-### Architectural Boundaries:
-- **Core Backend (FastAPI - this service):** Business logic, JWT authentication, PostgreSQL metadata persistence, MinIO object storage management, generation task orchestration, and AI service webhooks.
-- **Infrastructure:** Nginx (Reverse Proxy & Gateway) + PostgreSQL 16 + MinIO + FastAPI orchestrated via Docker Compose.
-
----
-
-## 2. Tech Stack & Standards
-- **Runtime:** Python 3.12+
-- **Framework:** FastAPI (strictly asynchronous: `async`/`await`)
-- **Validation & Settings:** Pydantic v2, Pydantic Settings
-- **ORM & Migrations:** SQLAlchemy 2.0 (asyncio) + `asyncpg` + Alembic
-- **Primary Database:** PostgreSQL 16
-- **Object Storage:** MinIO Python SDK (S3-compatible API)
-- **Security:** JWT (Access/Refresh tokens) + Passlib (bcrypt)
-- **HTTP Client:** `httpx` (asynchronous client for AI service dispatch)
+### Архитектурные границы:
+- **Core Backend (FastAPI — текущий сервис):** Бизнес-логика, аутентификация по JWT, сохранение метаданных в PostgreSQL, управление объектным хранилищем MinIO, оркестрация задач генерации и обработка вебхуков от AI-модуля.
+- **Инфраструктура:** Nginx (Reverse Proxy и Gateway) + PostgreSQL 16 + MinIO + FastAPI, развернутые через Docker Compose.
 
 ---
 
-## 3. Project Directory Structure
-Maintain strict separation of concerns through layered architecture:
+## 2. Технологический стек и стандарты
+- **Среда выполнения:** Python 3.12+
+- **Фреймворк:** FastAPI (строго асинхронный: `async`/`await`)
+- **Валидация и настройки:** Pydantic v2, Pydantic Settings
+- **ORM и миграции:** SQLAlchemy 2.0 (asyncio) + `asyncpg` + Alembic
+- **Основная база данных:** PostgreSQL 16
+- **Объектное хранилище:** MinIO Python SDK (S3-совместимый API)
+- **Безопасность:** JWT (Access/Refresh токены) + Bcrypt (хэширование паролей)
+- **HTTP-клиент:** `httpx` (асинхронный клиент для отправки задач в AI-сервис)
+
+---
+
+## 3. Структура каталогов проекта
+Соблюдайте строгое разделение ответственности через многоуровневую архитектуру:
 
 ```text
 app/
@@ -31,9 +31,10 @@ app/
 │   └── v1/
 │       ├── endpoints/
 │       └── router.py
-├── core/
-├── db/
-├── models/                      # SQLAlchemy 2.0 ORM models
-├── schemas/                     # Pydantic v2 DTOs (Request/Response validation)
-├── services/                    # Business logic domain layer (No DB queries in endpoints)
-└── main.py                      # FastAPI app instance, lifespan handlers, CORS, middleware
+├── core/                        # Конфигурация, безопасность, общие зависимости
+├── db/                          # Подключение к БД, сессии, репозитории
+├── models/                      # ORM-модели SQLAlchemy 2.0
+├── schemas/                     # DTO Pydantic v2 (валидация запросов/ответов)
+├── services/                    # Слой бизнес-логики (запросы к БД в эндпоинтах запрещены)
+└── main.py                      # Экземпляр приложения FastAPI, lifespan, CORS, middleware
+```
