@@ -221,7 +221,7 @@ from typing import List, Optional
 
 from sqlalchemy import (
     Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer,
-    SmallInteger, String, UniqueConstraint, func
+    SmallInteger, String, UniqueConstraint, func, text
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -235,12 +235,12 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -264,7 +264,7 @@ class Album(Base):
     __tablename__ = "albums"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
@@ -274,16 +274,16 @@ class Album(Base):
     )
     title: Mapped[str] = mapped_column(String(100), nullable=False)
     situation: Mapped[str] = mapped_column(String(50), nullable=False)
-    styles: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
-    shoes: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
-    impressions: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    styles: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False)
+    shoes: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False)
+    impressions: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False)
     user_age: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     user_height: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     user_weight: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     source_face_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     source_body_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    total_photos: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
-    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    total_photos: Mapped[int] = mapped_column(Integer, server_default=text("10"), default=10, nullable=False)
+    is_archived: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -312,15 +312,15 @@ class Photo(Base):
     __tablename__ = "photos"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4
     )
     album_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("albums.id", ondelete="CASCADE"), nullable=False, index=True
     )
     order_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     object_key: Mapped[str] = mapped_column(String(512), nullable=False)
-    is_cover: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_cover: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False, nullable=False)
+    is_favorite: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

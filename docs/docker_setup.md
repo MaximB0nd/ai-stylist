@@ -26,7 +26,7 @@
 │ stylist-db (PostgreSQL 16)           │
 │  - postgres:16-alpine                │
 │  - Volume: postgres_data             │
-│  - Bootstrap: db/init.sql            │
+│  - DB Engine: PostgreSQL 16          │
 └──────────────────────────────────────┘
 ```
 
@@ -37,16 +37,16 @@
 ### 2.1. `db` (PostgreSQL 16)
 - **Образ:** `postgres:16-alpine`
 - **Порт:** `5432` проброшен на хост `localhost:5432`.
-- **Первоначальная инициализация (Bootstrap):** Монтирует [../src/backend_core/db/init.sql](../src/backend_core/db/init.sql) в `/docker-entrypoint-initdb.d/init.sql:ro`. На чистом томе скрипт создает расширение `pgcrypto`, таблицы и базовые индексы.
 - **Постоянное хранение:** Использует именованный том `postgres_data`, примонтированный в `/var/lib/postgresql/data`.
 - **Проверка готовности (Healthcheck):** Проверяет готовность БД через утилиту `pg_isready`.
+- **Автономный SQL-скрипт (при необходимости):** В репозитории доступен файл [../src/backend_core/db/init.sql](../src/backend_core/db/init.sql) для ручной инициализации БД вне Compose (выполняется атомарно в одной транзакции с фиксацией версии Alembic в конце).
 
 ### 2.2. `backend_core` (FastAPI-сервис)
 - **Контекст сборки:** [../src/backend_core](../src/backend_core) на базе [Dockerfile](../src/backend_core/Dockerfile).
 - **Порт:** `8000` проброшен на хост `localhost:8000`.
 - **Подключение к БД:** Отдельные параметры (`POSTGRES_SERVER`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`) собираются в безопасный URI через `URL.create()`, что исключает ошибки парсинга спецсимволов в пароле.
 - **Безопасность JWT:** Переменная `SECRET_KEY` строго обязательна (`${SECRET_KEY:?...}`). При её отсутствии запуск завершается с ошибкой.
-- **Миграции (Alembic):** При старте контейнера автоматически выполняется `alembic upgrade head`, гарантируя актуальность схемы базы данных даже на существующих томах.
+- **Управление схемой БД (Alembic + Baseline):** Alembic является единственным источником истины для создания и изменения таблиц. При старте контейнера выполняется процедура `python -m app.db.baseline && alembic upgrade head`. Скрипт `baseline` автоматически определяет существующие неверсионированные тома (созданные ранними версиями Compose) и безопасно ставит метку `0001`, исключая ошибки `DuplicateTable` и рестарт-лупы.
 - **Монтирование каталогов:** Каталоги `./src/backend_core/app` и `./src/backend_core/alembic` монтируются в контейнер для мгновенного применения правок кода (hot-reload через `--reload`).
 
 ---

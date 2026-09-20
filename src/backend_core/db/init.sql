@@ -1,15 +1,7 @@
+BEGIN;
+
 -- Enable pgcrypto for gen_random_uuid() (built-in in PG 16)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- =============================================================================
--- Table: alembic_version (Baseline stamp for Alembic migrations)
--- =============================================================================
-CREATE TABLE IF NOT EXISTS alembic_version (
-    version_num VARCHAR(32) NOT NULL,
-    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
-);
-
-INSERT INTO alembic_version (version_num) VALUES ('0001') ON CONFLICT DO NOTHING;
 
 -- =============================================================================
 -- Table: users
@@ -72,3 +64,16 @@ CREATE TABLE IF NOT EXISTS photos (
 );
 
 CREATE INDEX IF NOT EXISTS ix_photos_album_id ON photos(album_id);
+
+-- =============================================================================
+-- Table: alembic_version (Baseline stamp for Alembic migrations)
+-- Stamped at the end of transaction after all schema elements are established.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS alembic_version (
+    version_num VARCHAR(32) NOT NULL,
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+
+INSERT INTO alembic_version (version_num) VALUES ('0001') ON CONFLICT DO NOTHING;
+
+COMMIT;
