@@ -36,17 +36,16 @@ class PageControlsTests(unittest.TestCase):
         self.assertTrue(button.has_attr("disabled"))
         self.assertEqual(button["form"], "generation-form")
 
-    def test_gallery_filters_are_unavailable_but_album_links_still_work(self):
+    def test_gallery_uses_album_links_and_real_previews(self):
         soup = BeautifulSoup(str(gallery.page()), "html.parser")
-        filters = soup.select(".filter-tab")
-        self.assertEqual(len(filters), 3)
-        self.assertTrue(all(button.has_attr("disabled") for button in filters))
-        self.assertTrue(all(button.get("title") for button in filters))
+        self.assertEqual(soup.select(".filter-tab"), [])
+        self.assertEqual(soup.select_one(".gallery-count").get_text(strip=True), "4 альбома")
         self.assertEqual(
             {link["href"] for link in soup.select(".album-card")},
             {"/album/office", "/album/evening", "/album/street", "/album/study"},
         )
-        self.assertEqual(len(soup.select(".ui-image-placeholder")), 4)
+        self.assertEqual(len(soup.select(".album-image[src]")), 4)
+        self.assertEqual(len(soup.select(".album-image[alt]")), 4)
 
 
 if __name__ == "__main__":

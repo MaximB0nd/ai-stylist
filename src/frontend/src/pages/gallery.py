@@ -2,97 +2,47 @@ from casp.layout import Metadata
 
 from src.components.shared.layout.app_shell import app_shell
 
-metadata = Metadata(
-    title="Галерея",
-    description="Альбомы образов",
+metadata = Metadata(title="Галерея", description="Примеры альбомов образов")
+
+ALBUMS = (
+    ("office", "Офис", "5 сентября 2026", "office.png"),
+    ("evening", "Вечер", "3 сентября 2026", "evening.png"),
+    ("street", "Улица", "1 сентября 2026", "street.png"),
+    ("study", "Учёба", "28 августа 2026", "study.png"),
 )
 
 
 def page():
+    cards = "".join(
+        f"""
+        <a href="/album/{slug}" class="album-card">
+            <div class="album-preview">
+              <img class="album-image" src="/images/gallery/{image}" alt="{name}" width="640" height="640" loading="lazy" decoding="async">
+              <time class="album-date">{date}</time>
+            </div>
+          <div class="album-footer">
+            <div class="album-meta">
+              <h3 class="album-name">{name}</h3>
+            </div>
+            <span class="album-arrow" aria-hidden="true">↗</span>
+          </div>
+        </a>
+        """
+        for slug, name, date, image in ALBUMS
+    )
     return app_shell(
-        r"""
-    <section class="gallery-page">
-        <div class="content-wrapper">
-
-            <header class="gallery-header">
-                <h2 class="gallery-title">Галерея</h2>
-                <a href="/generation" class="btn-new-album ui-button">
-                    <span class="btn-plus">+</span>
-                    Новые образы
-                </a>
-            </header>
-
-            <div class="gallery-filters">
-                <div class="filters-tabs">
-                    <button class="filter-tab active" data-filter="all" type="button" disabled title="Показаны все альбомы">Все <span>4</span></button>
-                    <button class="filter-tab" data-filter="active" type="button" disabled title="Фильтрация пока недоступна">Активные <span>3</span></button>
-                    <button class="filter-tab" data-filter="archive" type="button" disabled title="Фильтрация пока недоступна">Архив <span>1</span></button>
-                </div>
-                <div class="filters-count">4 альбома</div>
-            </div>
-
-            <div class="albums-grid">
-
-                <a href="/album/office" class="album-card">
-                    <div class="album-preview">
-                        <div class="album-image image-office ui-image-placeholder"></div>
-                        <span class="album-badge">10 образов</span>
-                    </div>
-                    <div class="album-footer">
-                        <div class="album-meta">
-                            <div class="album-name">Офис</div>
-                            <div class="album-date">5 сентября 2026</div>
-                        </div>
-                        <div class="album-arrow">→</div>
-                    </div>
-                </a>
-
-                <a href="/album/evening" class="album-card">
-                    <div class="album-preview">
-                        <div class="album-image image-evening ui-image-placeholder"></div>
-                        <span class="album-badge">10 образов</span>
-                    </div>
-                    <div class="album-footer">
-                        <div class="album-meta">
-                            <div class="album-name">Вечер</div>
-                            <div class="album-date">3 сентября 2026</div>
-                        </div>
-                        <div class="album-arrow">→</div>
-                    </div>
-                </a>
-
-                <a href="/album/street" class="album-card active">
-                    <div class="album-preview">
-                        <div class="album-image image-street ui-image-placeholder"></div>
-                        <span class="album-badge">10 образов</span>
-                    </div>
-                    <div class="album-footer">
-                        <div class="album-meta">
-                            <div class="album-name">Улица</div>
-                            <div class="album-date">1 сентября 2026</div>
-                        </div>
-                        <div class="album-arrow filled">→</div>
-                    </div>
-                </a>
-
-                <a href="/album/study" class="album-card archived">
-                    <div class="album-preview">
-                        <div class="album-image image-study ui-image-placeholder"></div>
-                        <span class="album-badge">10 образов</span>
-                        <span class="album-archive-label">В архиве</span>
-                    </div>
-                    <div class="album-footer">
-                        <div class="album-meta">
-                            <div class="album-name">Учёба</div>
-                            <div class="album-date">28 августа 2026</div>
-                        </div>
-                        <div class="album-arrow">→</div>
-                    </div>
-                </a>
-
-            </div>
-
-        </div>
+        f"""
+<section class="gallery-page" aria-labelledby="gallery-title">
+  <div class="content-wrapper">
+    <header class="gallery-header">
+      <div>
+        <h1 class="gallery-title" id="gallery-title">Галерея</h1>
+      </div>
+      <a href="/generation" class="btn-new-album ui-button"><span class="btn-plus" aria-hidden="true">+</span>Новые образы</a>
+    </header>
+    <div class="gallery-summary" aria-live="polite"><span class="gallery-count">{len(ALBUMS)} альбома</span></div>
+    <div class="albums-grid">{cards}</div>
+  </div>
 </section>
 """,
         title="Галерея",
