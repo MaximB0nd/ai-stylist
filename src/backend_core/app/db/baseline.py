@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 import logging
 import sys
 from typing import List, Optional, Set
@@ -18,47 +19,161 @@ logger = logging.getLogger("db.baseline")
 MAX_RETRIES = 10
 RETRY_DELAY_SECONDS = 2
 
-EXPECTED_TABLES: Set[str] = {"users", "albums", "photos"}
 
-EXPECTED_COLUMNS = {
-    "users": {
-        "id",
-        "email",
-        "password_hash",
-        "name",
-        "is_active",
-        "created_at",
-        "updated_at",
-    },
-    "albums": {
-        "id",
-        "user_id",
-        "generation_id",
-        "title",
-        "situation",
-        "styles",
-        "shoes",
-        "impressions",
-        "user_age",
-        "user_height",
-        "user_weight",
-        "source_face_key",
-        "source_body_key",
-        "total_photos",
-        "is_archived",
-        "created_at",
-        "updated_at",
-    },
-    "photos": {
-        "id",
-        "album_id",
-        "order_index",
-        "object_key",
-        "is_cover",
-        "is_favorite",
-        "created_at",
-        "updated_at",
-    },
+@dataclass(frozen=True)
+class ExpectedColumn:
+    name: str
+    type_name: str
+    length: Optional[int] = None
+    nullable: bool = False
+    server_default: Optional[str] = None
+
+
+EXPECTED_METADATA = {
+    "users": [
+        ExpectedColumn(
+            "id", "UUID", nullable=False, server_default="gen_random_uuid()"
+        ),
+        ExpectedColumn(
+            "email",
+            "VARCHAR",
+            length=255,
+            nullable=False,
+            server_default=None,
+        ),
+        ExpectedColumn(
+            "password_hash",
+            "VARCHAR",
+            length=255,
+            nullable=False,
+            server_default=None,
+        ),
+        ExpectedColumn(
+            "name", "VARCHAR", length=100, nullable=False, server_default=None
+        ),
+        ExpectedColumn(
+            "is_active", "BOOLEAN", nullable=False, server_default="true"
+        ),
+        ExpectedColumn(
+            "created_at", "TIMESTAMP", nullable=False, server_default="now()"
+        ),
+        ExpectedColumn(
+            "updated_at", "TIMESTAMP", nullable=False, server_default="now()"
+        ),
+    ],
+    "albums": [
+        ExpectedColumn(
+            "id", "UUID", nullable=False, server_default="gen_random_uuid()"
+        ),
+        ExpectedColumn(
+            "user_id", "UUID", nullable=False, server_default=None
+        ),
+        ExpectedColumn(
+            "generation_id", "UUID", nullable=False, server_default=None
+        ),
+        ExpectedColumn(
+            "title", "VARCHAR", length=100, nullable=False, server_default=None
+        ),
+        ExpectedColumn(
+            "situation",
+            "VARCHAR",
+            length=50,
+            nullable=False,
+            server_default=None,
+        ),
+        ExpectedColumn(
+            "styles", "JSONB", nullable=False, server_default="'[]'::jsonb"
+        ),
+        ExpectedColumn(
+            "shoes", "JSONB", nullable=False, server_default="'[]'::jsonb"
+        ),
+        ExpectedColumn(
+            "impressions",
+            "JSONB",
+            nullable=False,
+            server_default="'[]'::jsonb",
+        ),
+        ExpectedColumn(
+            "user_age", "SMALLINT", nullable=True, server_default=None
+        ),
+        ExpectedColumn(
+            "user_height", "SMALLINT", nullable=True, server_default=None
+        ),
+        ExpectedColumn(
+            "user_weight", "SMALLINT", nullable=True, server_default=None
+        ),
+        ExpectedColumn(
+            "source_face_key",
+            "VARCHAR",
+            length=512,
+            nullable=True,
+            server_default=None,
+        ),
+        ExpectedColumn(
+            "source_body_key",
+            "VARCHAR",
+            length=512,
+            nullable=True,
+            server_default=None,
+        ),
+        ExpectedColumn(
+            "total_photos", "INTEGER", nullable=False, server_default="10"
+        ),
+        ExpectedColumn(
+            "is_archived", "BOOLEAN", nullable=False, server_default="false"
+        ),
+        ExpectedColumn(
+            "created_at", "TIMESTAMP", nullable=False, server_default="now()"
+        ),
+        ExpectedColumn(
+            "updated_at", "TIMESTAMP", nullable=False, server_default="now()"
+        ),
+    ],
+    "photos": [
+        ExpectedColumn(
+            "id", "UUID", nullable=False, server_default="gen_random_uuid()"
+        ),
+        ExpectedColumn(
+            "album_id", "UUID", nullable=False, server_default=None
+        ),
+        ExpectedColumn(
+            "order_index", "SMALLINT", nullable=False, server_default=None
+        ),
+        ExpectedColumn(
+            "object_key",
+            "VARCHAR",
+            length=512,
+            nullable=False,
+            server_default=None,
+        ),
+        ExpectedColumn(
+            "is_cover", "BOOLEAN", nullable=False, server_default="false"
+        ),
+        ExpectedColumn(
+            "is_favorite", "BOOLEAN", nullable=False, server_default="false"
+        ),
+        ExpectedColumn(
+            "created_at", "TIMESTAMP", nullable=False, server_default="now()"
+        ),
+        ExpectedColumn(
+            "updated_at", "TIMESTAMP", nullable=False, server_default="now()"
+        ),
+    ],
+}
+
+EXPECTED_INDEXES = {
+    "users": [
+        ("ix_users_email", ["email"], True),
+    ],
+    "albums": [
+        ("idx_albums_user_created", ["user_id", "created_at"], False),
+        ("ix_albums_generation_id", ["generation_id"], True),
+        ("ix_albums_user_id", ["user_id"], False),
+    ],
+    "photos": [
+        ("ix_photos_album_id", ["album_id"], False),
+        ("uq_photos_album_order", ["album_id", "order_index"], True),
+    ],
 }
 
 
@@ -68,13 +183,45 @@ class IncompatibleSchemaError(RuntimeError):
     pass
 
 
+def normalize_default(raw: Optional[str]) -> Optional[str]:
+    """Normalize server_default representations across PostgreSQL conventions."""
+    if raw is None:
+        return None
+    val = raw.strip()
+    if len(val) >= 2 and val[0] == "'" and val[-1] == "'":
+        if not val.startswith("'[]'"):
+            val = val[1:-1].strip()
+    val = val.lower()
+    if val in (
+        "now()",
+        "current_timestamp",
+        "now()::timestamp with time zone",
+        "current_timestamp(0)",
+    ):
+        return "now()"
+    if val in ("true", "true::boolean"):
+        return "true"
+    if val in ("false", "false::boolean"):
+        return "false"
+    return val
+
+
+def normalize_check_expr(expr: Optional[str]) -> str:
+    """Normalize SQL check constraint expressions for robust canonical comparison."""
+    if not expr:
+        return ""
+    return expr.lower().replace(" ", "").replace("(", "").replace(")", "")
+
+
 def validate_schema_fingerprint(
     inspector: Inspector, schema: Optional[str] = None
 ) -> List[str]:
     """Validate database schema against the full fingerprint of Alembic revision '0001'.
 
-    Checks required tables, column definitions, primary keys, foreign keys,
-    indexes, unique constraints, and check constraints.
+    Follows a fail-closed principle: validates structured metadata for every column
+    (type/length, nullable, normalized server_default), exact indexes/unique constraints
+    (name, columns, and unique flag), foreign keys (endpoints and ON DELETE CASCADE),
+    and check constraint canonical expressions.
 
     Returns:
         List of error descriptions if any discrepancies are found, empty list otherwise.
@@ -84,33 +231,67 @@ def validate_schema_fingerprint(
     all_tables = set(inspector.get_table_names(schema=schema))
     app_tables = all_tables - {"alembic_version"}
 
-    # 1. Table presence and unexpected tables check
-    missing_tables = EXPECTED_TABLES - app_tables
-    extra_tables = app_tables - EXPECTED_TABLES
+    expected_tables = set(EXPECTED_METADATA.keys())
+    missing_tables = expected_tables - app_tables
+    extra_tables = app_tables - expected_tables
     if missing_tables:
         errors.append(f"Missing required table(s): {sorted(missing_tables)}")
     if extra_tables:
         errors.append(f"Unexpected table(s): {sorted(extra_tables)}")
 
-    # Only inspect tables that are actually present
-    inspectable_tables = EXPECTED_TABLES & app_tables
+    inspectable_tables = expected_tables & app_tables
 
-    # 2. Columns check
+    # 1. Validate Columns (Type, Length, Nullable, Server Default) and Primary Keys
     for table in sorted(inspectable_tables):
-        actual_cols = {
-            col["name"] for col in inspector.get_columns(table, schema=schema)
-        }
-        missing_cols = EXPECTED_COLUMNS[table] - actual_cols
-        extra_cols = actual_cols - EXPECTED_COLUMNS[table]
+        actual_cols_list = inspector.get_columns(table, schema=schema)
+        actual_cols_by_name = {col["name"]: col for col in actual_cols_list}
+
+        expected_cols = EXPECTED_METADATA[table]
+        expected_col_names = {exp.name for exp in expected_cols}
+        actual_col_names = set(actual_cols_by_name.keys())
+
+        missing_cols = expected_col_names - actual_col_names
+        extra_cols = actual_col_names - expected_col_names
         if missing_cols:
-            errors.append(f"Table '{table}' missing column(s): {sorted(missing_cols)}")
+            errors.append(
+                f"Table '{table}' missing column(s): {sorted(missing_cols)}"
+            )
         if extra_cols:
             errors.append(
                 f"Table '{table}' has unexpected column(s): {sorted(extra_cols)}"
             )
 
-    # 3. Primary keys check
-    for table in sorted(inspectable_tables):
+        for exp in expected_cols:
+            if exp.name not in actual_cols_by_name:
+                continue
+            act = actual_cols_by_name[exp.name]
+            col_type = act.get("type")
+            act_type_name = type(col_type).__name__.upper()
+
+            # Handle dialects where type name or representation may differ
+            if act_type_name != exp.type_name:
+                errors.append(
+                    f"Table '{table}', column '{exp.name}' invalid type: expected {exp.type_name}, got {act_type_name}"
+                )
+
+            if exp.length is not None:
+                act_len = getattr(col_type, "length", None)
+                if act_len != exp.length:
+                    errors.append(
+                        f"Table '{table}', column '{exp.name}' invalid length: expected {exp.length}, got {act_len}"
+                    )
+
+            if act.get("nullable") != exp.nullable:
+                errors.append(
+                    f"Table '{table}', column '{exp.name}' invalid nullable: expected {exp.nullable}, got {act.get('nullable')}"
+                )
+
+            norm_default = normalize_default(act.get("default"))
+            if norm_default != exp.server_default:
+                errors.append(
+                    f"Table '{table}', column '{exp.name}' invalid server_default: expected {exp.server_default!r}, got {norm_default!r}"
+                )
+
         pk = inspector.get_pk_constraint(table, schema=schema)
         pk_cols = pk.get("constrained_columns") or []
         if pk_cols != ["id"]:
@@ -118,117 +299,91 @@ def validate_schema_fingerprint(
                 f"Table '{table}' invalid primary key: expected ['id'], got {pk_cols}"
             )
 
-    # Helper functions for index & unique constraint inspection
-    def has_unique_constraint_or_index(
-        table: str, cols: List[str], expected_name: Optional[str] = None
-    ) -> bool:
-        indexes = inspector.get_indexes(table, schema=schema)
-        for idx in indexes:
-            if idx.get("unique"):
-                if idx.get("column_names") == cols:
-                    return True
-                if expected_name and idx.get("name") == expected_name:
-                    return True
-        try:
-            uqs = inspector.get_unique_constraints(table, schema=schema)
-            for uq in uqs:
-                if uq.get("column_names") == cols:
-                    return True
-                if expected_name and uq.get("name") == expected_name:
-                    return True
-        except Exception:
-            pass
-        return False
-
-    def has_index(
-        table: str, cols: List[str], expected_name: Optional[str] = None
-    ) -> bool:
-        indexes = inspector.get_indexes(table, schema=schema)
-        for idx in indexes:
-            if idx.get("column_names") == cols:
-                return True
-            if expected_name and idx.get("name") == expected_name:
-                return True
-        return False
-
-    # 4. Foreign keys check
+    # 2. Validate Foreign Keys (Endpoints and ON DELETE CASCADE)
     if "albums" in inspectable_tables:
         fks = inspector.get_foreign_keys("albums", schema=schema)
-        has_user_fk = any(
-            fk.get("referred_table") == "users"
-            and fk.get("constrained_columns") == ["user_id"]
+        has_fk = any(
+            fk.get("constrained_columns") == ["user_id"]
+            and fk.get("referred_table") == "users"
             and fk.get("referred_columns") == ["id"]
+            and (fk.get("options") or {}).get("ondelete", "").upper()
+            == "CASCADE"
             for fk in fks
         )
-        if not has_user_fk:
+        if not has_fk:
             errors.append(
-                "Table 'albums' missing foreign key on 'user_id' referencing 'users(id)'"
+                "Table 'albums' missing foreign key: 'user_id' -> 'users(id)' ON DELETE CASCADE"
             )
 
     if "photos" in inspectable_tables:
         fks = inspector.get_foreign_keys("photos", schema=schema)
-        has_album_fk = any(
-            fk.get("referred_table") == "albums"
-            and fk.get("constrained_columns") == ["album_id"]
+        has_fk = any(
+            fk.get("constrained_columns") == ["album_id"]
+            and fk.get("referred_table") == "albums"
             and fk.get("referred_columns") == ["id"]
+            and (fk.get("options") or {}).get("ondelete", "").upper()
+            == "CASCADE"
             for fk in fks
         )
-        if not has_album_fk:
+        if not has_fk:
             errors.append(
-                "Table 'photos' missing foreign key on 'album_id' referencing 'albums(id)'"
+                "Table 'photos' missing foreign key: 'album_id' -> 'albums(id)' ON DELETE CASCADE"
             )
 
-    # 5. Indexes and Unique constraints check
-    if "users" in inspectable_tables:
-        if not has_unique_constraint_or_index("users", ["email"], "ix_users_email"):
-            errors.append(
-                "Table 'users' missing unique index/constraint on 'email' ('ix_users_email')"
-            )
+    # 3. Validate Indexes and Unique Constraints (Exact Name, Columns, and Unique Flag)
+    for table in sorted(inspectable_tables):
+        actual_indexes = inspector.get_indexes(table, schema=schema)
+        actual_uqs = inspector.get_unique_constraints(table, schema=schema)
 
-    if "albums" in inspectable_tables:
-        if not has_index("albums", ["user_id"], "ix_albums_user_id"):
-            errors.append(
-                "Table 'albums' missing index on 'user_id' ('ix_albums_user_id')"
-            )
-        if not has_unique_constraint_or_index(
-            "albums", ["generation_id"], "ix_albums_generation_id"
-        ):
-            errors.append(
-                "Table 'albums' missing unique index on 'generation_id' ('ix_albums_generation_id')"
-            )
-        if not has_index(
-            "albums", ["user_id", "created_at"], "idx_albums_user_created"
-        ):
-            errors.append(
-                "Table 'albums' missing index on ['user_id', 'created_at'] ('idx_albums_user_created')"
-            )
+        expected_idx_list = EXPECTED_INDEXES.get(table, [])
+        expected_names = {idx[0] for idx in expected_idx_list}
 
+        for exp_name, exp_cols, exp_unique in expected_idx_list:
+            matched = any(
+                idx.get("name") == exp_name
+                and idx.get("column_names") == exp_cols
+                and bool(idx.get("unique")) == exp_unique
+                for idx in actual_indexes
+            )
+            if not matched and exp_unique:
+                # PostgreSQL unique constraints may be returned by get_unique_constraints
+                matched = any(
+                    uq.get("name") == exp_name
+                    and uq.get("column_names") == exp_cols
+                    for uq in actual_uqs
+                )
+            if not matched:
+                errors.append(
+                    f"Table '{table}' missing expected index/unique constraint '{exp_name}': columns={exp_cols}, unique={exp_unique}"
+                )
+
+        # Fail-closed on unexpected extra indexes
+        for act_idx in actual_indexes:
+            act_name = act_idx.get("name")
+            if (
+                act_name
+                and act_name not in expected_names
+                and not act_name.endswith("_pkey")
+            ):
+                errors.append(
+                    f"Table '{table}' has unexpected index '{act_name}'"
+                )
+
+    # 4. Validate Check Constraints (Canonical Expression)
     if "photos" in inspectable_tables:
-        if not has_index("photos", ["album_id"], "ix_photos_album_id"):
+        chks = inspector.get_check_constraints("photos", schema=schema)
+        expected_canonical = normalize_check_expr(
+            "order_index >= 0 AND order_index < 10"
+        )
+        has_chk = any(
+            chk.get("name") == "chk_photos_order_index"
+            and normalize_check_expr(chk.get("sqltext", ""))
+            == expected_canonical
+            for chk in chks
+        )
+        if not has_chk:
             errors.append(
-                "Table 'photos' missing index on 'album_id' ('ix_photos_album_id')"
-            )
-        if not has_unique_constraint_or_index(
-            "photos", ["album_id", "order_index"], "uq_photos_album_order"
-        ):
-            errors.append(
-                "Table 'photos' missing unique constraint/index on ['album_id', 'order_index'] ('uq_photos_album_order')"
-            )
-
-    # 6. Check constraints check
-    if "photos" in inspectable_tables:
-        try:
-            chks = inspector.get_check_constraints("photos", schema=schema)
-            has_order_chk = any(
-                chk.get("name") == "chk_photos_order_index"
-                or ("order_index" in (chk.get("sqltext") or ""))
-                for chk in chks
-            )
-        except Exception:
-            has_order_chk = True
-        if not has_order_chk:
-            errors.append(
-                "Table 'photos' missing check constraint 'chk_photos_order_index' on 'order_index'"
+                "Table 'photos' missing check constraint 'chk_photos_order_index' with expression 'order_index >= 0 AND order_index < 10'"
             )
 
     return errors
