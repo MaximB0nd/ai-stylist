@@ -2,64 +2,26 @@ from casp.layout import Metadata
 
 from src.components.shared.layout.app_shell import app_shell
 
-metadata = Metadata(
-    title="Альбом образов",
-    description="Фотографии образов из одного альбома",
-)
-
+metadata = Metadata(title="Альбом образов", description="Сохранённые образы")
 
 ALBUMS = {
-    "office": {
-        "name": "Офис",
-        "date": "5 сентября 2026",
-        "tags": ["Минимализм", "Лоферы", "Уверенное"],
-    },
-    "evening": {
-        "name": "Вечер",
-        "date": "3 сентября 2026",
-        "tags": ["Классика", "Каблук", "Элегантное"],
-    },
-    "street": {
-        "name": "Улица",
-        "date": "1 сентября 2026",
-        "tags": ["Casual", "Кроссовки", "Расслабленное"],
-    },
-    "study": {
-        "name": "Учёба",
-        "date": "28 августа 2026",
-        "tags": ["Классика", "Лоферы", "Элегантное"],
-        "archived": True,
-    },
+    "office": ("Офис", "5 сентября 2026"),
+    "evening": ("Вечер", "3 сентября 2026"),
+    "street": ("Улица", "1 сентября 2026"),
+    "study": ("Учёба", "28 августа 2026"),
 }
 
 
 def page(params=None):
     album_id = (params or {}).get("album_id", "street")
-    album = ALBUMS.get(
-        album_id,
-        {
-            "name": "Ваш альбом",
-            "date": "15 сентября 2026",
-            "tags": ["Персональный", "Демо", "5 образов"],
-        },
-    )
-    tags = album.get("tags", [])
-    archived = album.get("archived", False)
-
-    context = "\n".join(
-        f'<span class="context-chip">{tag}</span>'
-        for tag in tags
-    )
-
-    looks = "\n".join(
+    name, date = ALBUMS.get(album_id, ("Ваш альбом", "15 сентября 2026"))
+    looks = "".join(
         f"""
-        <button class="look-button" type="button" disabled title="Просмотр образа пока недоступен" aria-label="Образ {index}">
-          <span class="look-visual look-visual--{index} ui-image-placeholder" role="img" aria-label="Превью образа {index} пока отсутствует">
-          </span>
-          <span class="look-caption">
-            <span>Образ</span>
-            <b>{str(index).zfill(2)}</b>
-          </span>
+        <button class="look-card" type="button" data-look-index="{index - 1}" aria-label="Открыть образ {index}">
+          <div class="look-visual">
+            <img src="/images/album/look{index:02d}.png" alt="Образ {index}" width="640" height="960" loading="lazy" decoding="async">
+            <span class="look-number">{index:02d}</span>
+          </div>
         </button>
         """
         for index in range(1, 6)
@@ -69,38 +31,44 @@ def page(params=None):
         f"""
 <section class="album-page" aria-labelledby="album-title">
   <div class="content-wrapper">
-    <a href="/gallery" class="ui-button ui-button--quiet album-back" aria-label="Вернуться в галерею">← Назад в галерею</a>
-
-    <div class="page-heading album-heading">
+    <a href="/gallery" class="ui-button ui-button--quiet album-back" aria-label="Вернуться в галерею">← Галерея</a>
+    <header class="album-heading">
       <div>
-        <h1 class="album-title" id="album-title">{album["name"]}</h1>
-        <div class="album-meta">
-          <time>{album["date"]}</time>
-          <span class="meta-dot"></span>
-          <span>5 образов</span>
-          <span class="tag">Демоальбом</span>
-          {'<span class="tag">В архиве</span>' if archived else ''}
-        </div>
+        <h1 class="album-title" id="album-title">{name}</h1>
+        <div class="album-meta"><time>{date}</time><span aria-hidden="true">·</span><span>5 образов</span></div>
       </div>
-
-      <div class="album-actions">
-        <button class="ui-button ui-button--secondary" type="button" disabled title="Архивирование пока недоступно">Архивировать</button>
-        <button class="ui-button ui-button--quiet" type="button" disabled title="Удаление пока недоступно">Удалить</button>
-      </div>
-    </div>
-
-    <div class="look-context" aria-label="Параметры альбома">
-      {context}
-    </div>
-
-    <div class="looks-grid" aria-label="Фотографии образов">
-      {looks}
-    </div>
-
-    <p class="album-note">Пять демо-образов из одной генерации</p>
+    </header>
+    <div class="looks-grid" aria-label="Фотографии образов">{looks}</div>
   </div>
 </section>
+<div class="album-lightbox" data-lightbox hidden>
+  <button class="lightbox-close" type="button" data-lightbox-close aria-label="Закрыть">×</button>
+  <button class="lightbox-nav lightbox-prev" type="button" data-lightbox-prev aria-label="Предыдущий образ">←</button>
+  <figure class="lightbox-figure">
+    <img data-lightbox-image alt="">
+    <figcaption><strong>{name}</strong><span class="lightbox-counter" data-lightbox-caption></span></figcaption>
+  </figure>
+  <button class="lightbox-nav lightbox-next" type="button" data-lightbox-next aria-label="Следующий образ">→</button>
+</div>
+<script>
+(() => {{
+  const cards = [...document.querySelectorAll('.look-card')];
+  const box = document.querySelector('[data-lightbox]');
+  if (!cards.length || !box) return;
+  const image = box.querySelector('[data-lightbox-image]');
+  const caption = box.querySelector('[data-lightbox-caption]');
+  let current = 0;
+  const show = (index) => {{ current = (index + cards.length) % cards.length; const source = cards[current].querySelector('img'); image.src = source.src; image.alt = source.alt; caption.textContent = `Образ ${{current + 1}} из ${{cards.length}}`; box.hidden = false; document.body.classList.add('lightbox-open'); }};
+  const close = () => {{ box.hidden = true; document.body.classList.remove('lightbox-open'); }};
+  cards.forEach((card, index) => card.addEventListener('click', () => show(index)));
+  box.querySelector('[data-lightbox-close]').addEventListener('click', close);
+  box.querySelector('[data-lightbox-prev]').addEventListener('click', () => show(current - 1));
+  box.querySelector('[data-lightbox-next]').addEventListener('click', () => show(current + 1));
+  box.addEventListener('click', (event) => {{ if (event.target === box) close(); }});
+  document.addEventListener('keydown', (event) => {{ if (box.hidden) return; if (event.key === 'Escape') close(); if (event.key === 'ArrowLeft') show(current - 1); if (event.key === 'ArrowRight') show(current + 1); }});
+}})();
+</script>
 """,
-        title=album["name"],
+        title=name,
         active_page="gallery",
     )
