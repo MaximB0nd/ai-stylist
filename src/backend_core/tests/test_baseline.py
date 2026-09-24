@@ -1,6 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock
 import os
+import uuid
 import pytest
+from sqlalchemy.engine import URL, make_url
 from app.db.baseline import (
     EXPECTED_INDEXES,
     EXPECTED_METADATA,
@@ -487,209 +489,203 @@ def test_fingerprint_check_constraint_wrong_expression():
 
 
 # ==============================================================================
-# Real PostgreSQL Integration Tests
+# Real PostgreSQL Integration Tests (Strictly Opt-In via TEST_DATABASE_URL)
 # ==============================================================================
-
-
-async def _check_real_postgres_connection():
-    """Verify if PostgreSQL is accessible for integration testing."""
-    import asyncpg
-
-    candidate_passwords = [
-        os.getenv("POSTGRES_PASSWORD", "root"),
-        "root",
-        "postgres",
-        "admin",
-    ]
-    for p in candidate_passwords:
-        try:
-            conn = await asyncpg.connect(
-                user="postgres",
-                password=p,
-                host=os.getenv("POSTGRES_HOST", "localhost"),
-                port=int(os.getenv("POSTGRES_PORT", 5432)),
-                database="postgres",
-            )
-            await conn.close()
-            return p
-        except Exception:
-            continue
-    return None
 
 
 @pytest.mark.asyncio
 async def test_postgres_integration_valid_schema_and_fail_closed_mutations():
-    """Integration test running against a live PostgreSQL 16+ instance.
+    """Integration test running against a dedicated live PostgreSQL 16+ instance.
 
-    Verifies:
-      1. Valid schema 0001 created via init.sql passes baseline validation,
-         is stamped with revision '0001', and populates alembic_version.
-      2. Each fail-closed mutation (wrong type, length, nullable, server_default,
-         index columns, index unique, FK ondelete, check constraint) causes
-         check_and_apply_baseline to fail with IncompatibleSchemaError without
-         creating or stamping alembic_version.
+    Strictly opt-in:
+      - Only runs when TEST_DATABASE_URL is explicitly set.
+      - Skips immediately without any network calls if TEST_DATABASE_URL is missing.
+      - Generates isolated, unique database names via UUID.
+      - Constructs SQLAlchemy URLs via URL.create().
+      - Safely manages creation and teardown in an outer try/finally, verifying
+        that only databases created by the current run are deleted.
     """
+    test_db_url = os.getenv("TEST_DATABASE_URL")
+    if not test_db_url or not test_db_url.strip():
+        pytest.skip(
+            "TEST_DATABASE_URL is not set; skipping live PostgreSQL integration test."
+        )
+
     import asyncpg
     from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy import text
 
-    password = await _check_real_postgres_connection()
-    if not password:
-        pytest.skip("Live PostgreSQL instance not available for integration test.")
+    parsed_url = make_url(test_db_url.strip())
+    admin_db = parsed_url.database or "postgres"
 
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = int(os.getenv("POSTGRES_PORT", 5432))
-    base_url = f"postgresql+asyncpg://postgres:{password}@{host}:{port}"
+    admin_conn_kwargs = {
+        "user": parsed_url.username or "postgres",
+        "password": parsed_url.password or "",
+        "host": parsed_url.host or "localhost",
+        "port": parsed_url.port or 5432,
+        "database": admin_db,
+    }
+
+    def get_sqlalchemy_url(database_name: str) -> URL:
+        return URL.create(
+            drivername=parsed_url.drivername or "postgresql+asyncpg",
+            username=parsed_url.username,
+            password=parsed_url.password,
+            host=parsed_url.host,
+            port=parsed_url.port,
+            database=database_name,
+            query=parsed_url.query,
+        )
 
     # Read standalone init.sql to establish canonical baseline
     repo_root = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "..", "..")
     )
-    init_sql_path = os.path.join(repo_root, "src", "backend_core", "db", "init.sql")
+    init_sql_path = os.path.join(
+        repo_root, "src", "backend_core", "db", "init.sql"
+    )
     with open(init_sql_path, "r", encoding="utf-8") as f:
         full_sql = f.read()
 
     # Isolate schema without alembic_version stamp
     sql_without_alembic = full_sql.split("-- Table: alembic_version")[0] + "COMMIT;"
 
-    sys_conn = await asyncpg.connect(
-        user="postgres", password=password, host=host, port=port, database="postgres"
-    )
+    run_id = uuid.uuid4().hex[:12]
+    canon_db = f"test_integ_canon_{run_id}"
+    mut_db = f"test_integ_mut_{run_id}"
+
+    created_databases: set[str] = set()
+
     try:
-        await sys_conn.execute(
-            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname IN ('test_integ_canonical', 'test_integ_mut') AND pid <> pg_backend_pid();"
-        )
-        await sys_conn.execute("DROP DATABASE IF EXISTS test_integ_canonical;")
-        await sys_conn.execute("DROP DATABASE IF EXISTS test_integ_mut;")
-        await sys_conn.execute("CREATE DATABASE test_integ_canonical;")
-    finally:
-        await sys_conn.close()
-
-    # Populate canonical database
-    canon_conn = await asyncpg.connect(
-        user="postgres",
-        password=password,
-        host=host,
-        port=port,
-        database="test_integ_canonical",
-    )
-    try:
-        await canon_conn.execute(sql_without_alembic)
-    finally:
-        await canon_conn.close()
-
-    # 1. Verify valid schema 0001 passes baseline and stamps alembic_version
-    canon_engine = create_async_engine(f"{base_url}/test_integ_canonical")
-    try:
-        result = await check_and_apply_baseline(canon_engine)
-        assert result == "stamped_0001"
-
-        # Verify alembic_version table exists and contains '0001'
-        async with canon_engine.connect() as conn:
-            stamp = await conn.scalar(
-                text("SELECT version_num FROM alembic_version LIMIT 1")
-            )
-            assert stamp == "0001"
-    finally:
-        await canon_engine.dispose()
-
-    # 2. Verify all mutations fail closed
-    mutations = [
-        (
-            "wrong_column_type",
-            "ALTER TABLE users ALTER COLUMN email TYPE TEXT;",
-        ),
-        (
-            "wrong_column_length",
-            "ALTER TABLE users ALTER COLUMN email TYPE VARCHAR(100);",
-        ),
-        (
-            "wrong_column_nullable",
-            "ALTER TABLE users ALTER COLUMN email DROP NOT NULL;",
-        ),
-        (
-            "wrong_server_default",
-            "ALTER TABLE users ALTER COLUMN is_active DROP DEFAULT;",
-        ),
-        (
-            "wrong_index_columns",
-            "DROP INDEX ix_users_email; CREATE UNIQUE INDEX ix_users_email ON users(name);",
-        ),
-        (
-            "wrong_index_unique",
-            "DROP INDEX ix_users_email; CREATE INDEX ix_users_email ON users(email);",
-        ),
-        (
-            "wrong_fk_ondelete",
-            "ALTER TABLE albums DROP CONSTRAINT fk_albums_user_id; ALTER TABLE albums ADD CONSTRAINT fk_albums_user_id FOREIGN KEY (user_id) REFERENCES users(id);",
-        ),
-        (
-            "wrong_check_constraint",
-            "ALTER TABLE photos DROP CONSTRAINT chk_photos_order_index; ALTER TABLE photos ADD CONSTRAINT chk_photos_order_index CHECK (order_index >= -999);",
-        ),
-    ]
-
-    for name, sql in mutations:
-        sys_conn = await asyncpg.connect(
-            user="postgres",
-            password=password,
-            host=host,
-            port=port,
-            database="postgres",
-        )
+        # Create canonical database
+        sys_conn = await asyncpg.connect(**admin_conn_kwargs)
         try:
-            await sys_conn.execute(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'test_integ_mut' AND pid <> pg_backend_pid();"
-            )
-            await sys_conn.execute("DROP DATABASE IF EXISTS test_integ_mut;")
-            await sys_conn.execute(
-                "CREATE DATABASE test_integ_mut TEMPLATE test_integ_canonical;"
-            )
+            await sys_conn.execute(f'CREATE DATABASE "{canon_db}";')
+            created_databases.add(canon_db)
         finally:
             await sys_conn.close()
 
-        # Remove the alembic_version table stamped earlier to test legacy state with mutation
-        mut_conn = await asyncpg.connect(
-            user="postgres",
-            password=password,
-            host=host,
-            port=port,
-            database="test_integ_mut",
+        # Populate canonical database with baseline schema
+        canon_conn = await asyncpg.connect(
+            **{**admin_conn_kwargs, "database": canon_db}
         )
         try:
-            await mut_conn.execute("DROP TABLE IF EXISTS alembic_version;")
-            await mut_conn.execute(sql)
+            await canon_conn.execute(sql_without_alembic)
         finally:
-            await mut_conn.close()
+            await canon_conn.close()
 
-        # Run check_and_apply_baseline: MUST fail and NOT stamp alembic_version
-        mut_engine = create_async_engine(f"{base_url}/test_integ_mut")
+        # 1. Verify valid schema 0001 passes baseline and stamps alembic_version
+        canon_engine = create_async_engine(get_sqlalchemy_url(canon_db))
         try:
-            with pytest.raises(IncompatibleSchemaError):
-                await check_and_apply_baseline(mut_engine)
+            result = await check_and_apply_baseline(canon_engine)
+            assert result == "stamped_0001"
 
-            # Confirm alembic_version table was NOT created or filled
-            async with mut_engine.connect() as conn:
-                table_exists = await conn.scalar(
-                    text(
-                        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'alembic_version')"
-                    )
+            # Verify alembic_version table exists and contains '0001'
+            async with canon_engine.connect() as conn:
+                stamp = await conn.scalar(
+                    text("SELECT version_num FROM alembic_version LIMIT 1")
                 )
-                assert (
-                    table_exists is False
-                ), f"Mutation {name} unexpectedly created alembic_version table!"
+                assert stamp == "0001"
         finally:
-            await mut_engine.dispose()
+            await canon_engine.dispose()
 
-    # Cleanup test databases
-    sys_conn = await asyncpg.connect(
-        user="postgres", password=password, host=host, port=port, database="postgres"
-    )
-    try:
-        await sys_conn.execute(
-            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname IN ('test_integ_canonical', 'test_integ_mut') AND pid <> pg_backend_pid();"
-        )
-        await sys_conn.execute("DROP DATABASE IF EXISTS test_integ_canonical;")
-        await sys_conn.execute("DROP DATABASE IF EXISTS test_integ_mut;")
+        # 2. Verify all mutations fail closed
+        mutations = [
+            (
+                "wrong_column_type",
+                "ALTER TABLE users ALTER COLUMN email TYPE TEXT;",
+            ),
+            (
+                "wrong_column_length",
+                "ALTER TABLE users ALTER COLUMN email TYPE VARCHAR(100);",
+            ),
+            (
+                "wrong_column_nullable",
+                "ALTER TABLE users ALTER COLUMN email DROP NOT NULL;",
+            ),
+            (
+                "wrong_server_default",
+                "ALTER TABLE users ALTER COLUMN is_active DROP DEFAULT;",
+            ),
+            (
+                "wrong_index_columns",
+                "DROP INDEX ix_users_email; CREATE UNIQUE INDEX ix_users_email ON users(name);",
+            ),
+            (
+                "wrong_index_unique",
+                "DROP INDEX ix_users_email; CREATE INDEX ix_users_email ON users(email);",
+            ),
+            (
+                "wrong_fk_ondelete",
+                "ALTER TABLE albums DROP CONSTRAINT fk_albums_user_id; ALTER TABLE albums ADD CONSTRAINT fk_albums_user_id FOREIGN KEY (user_id) REFERENCES users(id);",
+            ),
+            (
+                "wrong_check_constraint",
+                "ALTER TABLE photos DROP CONSTRAINT chk_photos_order_index; ALTER TABLE photos ADD CONSTRAINT chk_photos_order_index CHECK (order_index >= -999);",
+            ),
+        ]
+
+        for name, sql in mutations:
+            # Create fresh mut_db cloned from canon_db
+            sys_conn = await asyncpg.connect(**admin_conn_kwargs)
+            try:
+                if mut_db in created_databases:
+                    await sys_conn.execute(
+                        f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{mut_db}' AND pid <> pg_backend_pid();"
+                    )
+                    await sys_conn.execute(f'DROP DATABASE IF EXISTS "{mut_db}";')
+                    created_databases.remove(mut_db)
+
+                await sys_conn.execute(
+                    f'CREATE DATABASE "{mut_db}" TEMPLATE "{canon_db}";'
+                )
+                created_databases.add(mut_db)
+            finally:
+                await sys_conn.close()
+
+            # Remove the alembic_version table stamped earlier to test legacy state with mutation
+            mut_conn = await asyncpg.connect(
+                **{**admin_conn_kwargs, "database": mut_db}
+            )
+            try:
+                await mut_conn.execute("DROP TABLE IF EXISTS alembic_version;")
+                await mut_conn.execute(sql)
+            finally:
+                await mut_conn.close()
+
+            # Run check_and_apply_baseline: MUST fail and NOT stamp alembic_version
+            mut_engine = create_async_engine(get_sqlalchemy_url(mut_db))
+            try:
+                with pytest.raises(IncompatibleSchemaError):
+                    await check_and_apply_baseline(mut_engine)
+
+                # Confirm alembic_version table was NOT created or filled
+                async with mut_engine.connect() as conn:
+                    table_exists = await conn.scalar(
+                        text(
+                            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'alembic_version')"
+                        )
+                    )
+                    assert (
+                        table_exists is False
+                    ), f"Mutation {name} unexpectedly created alembic_version table!"
+            finally:
+                await mut_engine.dispose()
+
     finally:
-        await sys_conn.close()
+        # Guaranteed cleanup: only delete resources that were recorded in created_databases
+        try:
+            cleanup_conn = await asyncpg.connect(**admin_conn_kwargs)
+            try:
+                for db_name in list(created_databases):
+                    if db_name in created_databases:
+                        await cleanup_conn.execute(
+                            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();"
+                        )
+                        await cleanup_conn.execute(
+                            f'DROP DATABASE IF EXISTS "{db_name}";'
+                        )
+            finally:
+                await cleanup_conn.close()
+        except Exception:
+            pass
