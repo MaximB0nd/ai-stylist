@@ -14,6 +14,24 @@ from app.db.baseline import (
 )
 
 
+def build_async_database_url(parsed_url: URL, database_name: str) -> URL:
+    """Build an asyncpg SQLAlchemy URL for an isolated integration database."""
+    query = dict(parsed_url.query)
+    sslmode = query.pop("sslmode", None)
+    if sslmode is not None and "ssl" not in query:
+        query["ssl"] = sslmode
+
+    return URL.create(
+        drivername="postgresql+asyncpg",
+        username=parsed_url.username,
+        password=parsed_url.password,
+        host=parsed_url.host,
+        port=parsed_url.port,
+        database=database_name,
+        query=query,
+    )
+
+
 def make_mock_type(type_name: str, length: int = None):
     cls = type(
         type_name,
@@ -488,6 +506,37 @@ def test_fingerprint_check_constraint_wrong_expression():
     )
 
 
+@pytest.mark.parametrize(
+    "raw_url",
+    [
+        "postgresql://reviewer:secret@localhost:5432/postgres",
+        "postgresql+asyncpg://reviewer:secret@localhost:5432/postgres",
+    ],
+)
+def test_build_async_database_url_normalizes_driver(raw_url: str):
+    parsed_url = make_url(raw_url)
+
+    result = build_async_database_url(parsed_url, "isolated_test_db")
+
+    assert result.drivername == "postgresql+asyncpg"
+    assert result.username == "reviewer"
+    assert result.password == "secret"
+    assert result.host == "localhost"
+    assert result.port == 5432
+    assert result.database == "isolated_test_db"
+
+
+def test_build_async_database_url_normalizes_sslmode():
+    parsed_url = make_url(
+        "postgresql://reviewer:secret@localhost:5432/postgres?sslmode=require"
+    )
+
+    result = build_async_database_url(parsed_url, "isolated_test_db")
+
+    assert "sslmode" not in result.query
+    assert result.query["ssl"] == "require"
+
+
 # ==============================================================================
 # Real PostgreSQL Integration Tests (Strictly Opt-In via TEST_DATABASE_URL)
 # ==============================================================================
@@ -525,17 +574,9 @@ async def test_postgres_integration_valid_schema_and_fail_closed_mutations():
         "port": parsed_url.port or 5432,
         "database": admin_db,
     }
-
-    def get_sqlalchemy_url(database_name: str) -> URL:
-        return URL.create(
-            drivername=parsed_url.drivername or "postgresql+asyncpg",
-            username=parsed_url.username,
-            password=parsed_url.password,
-            host=parsed_url.host,
-            port=parsed_url.port,
-            database=database_name,
-            query=parsed_url.query,
-        )
+    ssl_option = parsed_url.query.get("ssl") or parsed_url.query.get("sslmode")
+    if ssl_option is not None:
+        admin_conn_kwargs["ssl"] = ssl_option
 
     # Read standalone init.sql to establish canonical baseline
     repo_root = os.path.abspath(
@@ -575,7 +616,9 @@ async def test_postgres_integration_valid_schema_and_fail_closed_mutations():
             await canon_conn.close()
 
         # 1. Verify valid schema 0001 passes baseline and stamps alembic_version
-        canon_engine = create_async_engine(get_sqlalchemy_url(canon_db))
+        canon_engine = create_async_engine(
+            build_async_database_url(parsed_url, canon_db)
+        )
         try:
             result = await check_and_apply_baseline(canon_engine)
             assert result == "stamped_0001"
@@ -654,7 +697,9 @@ async def test_postgres_integration_valid_schema_and_fail_closed_mutations():
                 await mut_conn.close()
 
             # Run check_and_apply_baseline: MUST fail and NOT stamp alembic_version
-            mut_engine = create_async_engine(get_sqlalchemy_url(mut_db))
+            mut_engine = create_async_engine(
+                build_async_database_url(parsed_url, mut_db)
+            )
             try:
                 with pytest.raises(IncompatibleSchemaError):
                     await check_and_apply_baseline(mut_engine)
@@ -673,19 +718,15 @@ async def test_postgres_integration_valid_schema_and_fail_closed_mutations():
                 await mut_engine.dispose()
 
     finally:
-        # Guaranteed cleanup: only delete resources that were recorded in created_databases
+        # Fail the test if cleanup cannot remove a database created by this run.
+        cleanup_conn = await asyncpg.connect(**admin_conn_kwargs)
         try:
-            cleanup_conn = await asyncpg.connect(**admin_conn_kwargs)
-            try:
-                for db_name in list(created_databases):
-                    if db_name in created_databases:
-                        await cleanup_conn.execute(
-                            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();"
-                        )
-                        await cleanup_conn.execute(
-                            f'DROP DATABASE IF EXISTS "{db_name}";'
-                        )
-            finally:
-                await cleanup_conn.close()
-        except Exception:
-            pass
+            for db_name in list(created_databases):
+                await cleanup_conn.execute(
+                    f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();"
+                )
+                await cleanup_conn.execute(
+                    f'DROP DATABASE IF EXISTS "{db_name}";'
+                )
+        finally:
+            await cleanup_conn.close()
