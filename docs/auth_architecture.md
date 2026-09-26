@@ -1,69 +1,69 @@
-# Authentication & Authorization Architecture (`backend_core`)
+# Архитектура аутентификации и авторизации (`backend_core`)
 
-## Overview
+## Обзор
 
-This document describes the architectural decisions, layer separation, database modeling, and authentication mechanisms implemented for the **AI Stylist** `backend_core` service.
+В этом документе описываются архитектурные решения, разделение слоёв, моделирование базы данных и механизмы аутентификации, реализованные для сервиса **AI Stylist** `backend_core`.
 
 ---
 
-## 1. Architectural Layers & Separation of Concerns
+## 1. Архитектурные слои и разделение ответственности
 
-The service strictly adheres to layered architecture and the KISS principle:
+Сервис строго придерживается слоистой архитектуры и принципа KISS:
 
 ```text
-HTTP Request
+HTTP-запрос
      │
      ▼
-[Controller Layer] (app/api/v1/endpoints/auth.py)
-  - HTTP routing, request deserialization, status codes (201, 200)
-  - Depends on AuthService via FastAPI dependency injection
+[Слой контроллеров] (app/api/v1/endpoints/auth.py)
+  - HTTP-маршрутизация, десериализация запросов, коды состояния (201, 200)
+  - Зависит от AuthService через внедрение зависимостей FastAPI
      │
      ▼
-[Service Layer] (app/services/auth_service.py)
-  - Pure domain business logic
-  - Conflict checking (409 on duplicate email)
-  - Password hashing & verification
-  - JWT generation & credential verification
-  - No direct SQL queries
+[Сервисный слой] (app/services/auth_service.py)
+  - Чистая бизнес-логика предметной области
+  - Проверка конфликтов (409 при дублировании электронной почты)
+  - Хеширование и проверка паролей
+  - Создание JWT и проверка учётных данных
+  - Без прямых SQL-запросов
      │
      ▼
-[Database / Repository Layer] (app/db/repositories/user_repository.py)
-  - Direct database queries via SQLAlchemy 2.0 AsyncSession
-  - User retrieval by ID and by normalized email
-  - User persistence
+[Слой базы данных / репозитория] (app/db/repositories/user_repository.py)
+  - Прямые запросы к базе данных через SQLAlchemy 2.0 AsyncSession
+  - Получение пользователя по ID и нормализованной электронной почте
+  - Сохранение пользователя
      │
      ▼
-[Database Engine] (PostgreSQL 16 via asyncpg)
+[Движок базы данных] (PostgreSQL 16 через asyncpg)
 ```
 
 ---
 
-## 2. Component Breakdown
+## 2. Разбор компонентов
 
-| Directory / File | Layer | Responsibility |
+| Каталог / файл | Слой | Ответственность |
 |---|---|---|
-| `app/core/config.py` | Core | Centralized application settings (`pydantic-settings`) loaded from environment variables (`SECRET_KEY`, `ALGORITHM`, `DATABASE_URL`). |
-| `app/core/security.py` | Core / Security | Password hashing with `bcrypt` (truncated to 72 bytes per spec) and JWT encoding/decoding with `python-jose`. |
-| `app/core/dependencies.py` | Core / DI | FastAPI dependency providers for `AsyncSession`, `UserRepository`, `AuthService`, and `get_current_user` (Bearer token extractor). |
-| `app/models/base.py` | Models | SQLAlchemy 2.0 `DeclarativeBase`. |
-| `app/models/user.py` | Models | ORM model for `users` table per `DB_STRUCTURE.md` specifications. |
-| `app/models/album.py` | Models | ORM model for `albums` table related to `User`. |
-| `app/models/photo.py` | Models | ORM model for `photos` table related to `Album`. |
-| `app/db/session.py` | Database | Asynchronous engine setup (`create_async_engine`) and session generator (`get_db`). |
-| `app/db/repositories/user_repository.py` | Repository | Data access abstraction for `User` entities with asynchronous queries (`select`). |
-| `app/schemas/auth.py` | Schemas (DTO) | Pydantic v2 schemas: `UserRegisterRequest`, `UserLoginRequest`, `TokenResponse`, and `UserResponse`. |
-| `app/services/auth_service.py` | Domain Service | Business logic for registration and authentication workflows. |
-| `app/api/v1/endpoints/auth.py` | Controllers | REST endpoints: `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, and `GET /api/v1/auth/me`. |
-| `app/api/v1/router.py` | Routing | Aggregates all v1 feature routers. |
-| `app/main.py` | Application Entrypoint | FastAPI application instance, CORS middleware, and custom validation error handler (mapping to 400 Bad Request). |
+| `app/core/config.py` | Ядро | Централизованные настройки приложения (`pydantic-settings`), загружаемые из переменных окружения (`SECRET_KEY`, `ALGORITHM`, `DATABASE_URL`). |
+| `app/core/security.py` | Ядро / Безопасность | Хеширование паролей с помощью `bcrypt` (обрезка до 72 байт согласно спецификации) и кодирование/декодирование JWT с помощью `python-jose`. |
+| `app/core/dependencies.py` | Ядро / Внедрение зависимостей | Провайдеры зависимостей FastAPI для `AsyncSession`, `UserRepository`, `AuthService` и `get_current_user` (извлечение Bearer-токена). |
+| `app/models/base.py` | Модели | `DeclarativeBase` SQLAlchemy 2.0. |
+| `app/models/user.py` | Модели | ORM-модель для таблицы `users` согласно спецификациям `DB_STRUCTURE.md`. |
+| `app/models/album.py` | Модели | ORM-модель для таблицы `albums`, связанной с `User`. |
+| `app/models/photo.py` | Модели | ORM-модель для таблицы `photos`, связанной с `Album`. |
+| `app/db/session.py` | База данных | Настройка асинхронного движка (`create_async_engine`) и генератор сессий (`get_db`). |
+| `app/db/repositories/user_repository.py` | Репозиторий | Абстракция доступа к данным для сущностей `User` с асинхронными запросами (`select`). |
+| `app/schemas/auth.py` | Схемы (DTO) | Схемы Pydantic v2: `UserRegisterRequest`, `UserLoginRequest`, `TokenResponse` и `UserResponse`. |
+| `app/services/auth_service.py` | Сервис предметной области | Бизнес-логика процессов регистрации и аутентификации. |
+| `app/api/v1/endpoints/auth.py` | Контроллеры | REST-эндпоинты: `POST /api/v1/auth/register`, `POST /api/v1/auth/login` и `GET /api/v1/auth/me`. |
+| `app/api/v1/router.py` | Маршрутизация | Объединяет все маршрутизаторы функций v1. |
+| `app/main.py` | Точка входа приложения | Экземпляр приложения FastAPI, промежуточное ПО CORS и пользовательский обработчик ошибок валидации (преобразующий их в 400 Bad Request). |
 
 ---
 
-## 3. Endpoints & API Contracts
+## 3. Эндпоинты и API-контракты
 
-### 3.1. Registration (`POST /api/v1/auth/register`)
-- **Input:** `{"name": "Anna", "email": "user@example.com", "password": "SecurePassword123!"}`
-- **Success Response (201 Created):**
+### 3.1. Регистрация (`POST /api/v1/auth/register`)
+- **Входные данные:** `{"name": "Anna", "email": "user@example.com", "password": "SecurePassword123!"}`
+- **Успешный ответ (201 Created):**
   ```json
   {
     "access_token": "<jwt_string>",
@@ -71,13 +71,13 @@ HTTP Request
     "id": "<user_uuid>"
   }
   ```
-- **Errors:**
-  - `400 Bad Request`: Invalid email format or password shorter than 8 characters.
-  - `409 Conflict`: An account with this email address already exists.
+- **Ошибки:**
+  - `400 Bad Request`: Недопустимый формат электронной почты или пароль короче 8 символов.
+  - `409 Conflict`: Учётная запись с таким адресом электронной почты уже существует.
 
-### 3.2. Login (`POST /api/v1/auth/login`)
-- **Input:** `{"email": "user@example.com", "password": "SecurePassword123!"}`
-- **Success Response (200 OK):**
+### 3.2. Вход (`POST /api/v1/auth/login`)
+- **Входные данные:** `{"email": "user@example.com", "password": "SecurePassword123!"}`
+- **Успешный ответ (200 OK):**
   ```json
   {
     "access_token": "<jwt_string>",
@@ -85,12 +85,12 @@ HTTP Request
     "id": "<user_uuid>"
   }
   ```
-- **Errors:**
-  - `401 Unauthorized`: Invalid email or password.
+- **Ошибки:**
+  - `401 Unauthorized`: Недопустимый адрес электронной почты или пароль.
 
-### 3.3. Current User (`GET /api/v1/auth/me`)
-- **Headers:** `Authorization: Bearer <access_token>`
-- **Success Response (200 OK):**
+### 3.3. Текущий пользователь (`GET /api/v1/auth/me`)
+- **Заголовки:** `Authorization: Bearer <access_token>`
+- **Успешный ответ (200 OK):**
   ```json
   {
     "id": "<user_uuid>",
@@ -100,16 +100,16 @@ HTTP Request
     "created_at": "2026-09-10T12:00:00Z"
   }
   ```
-- **Errors:**
-  - `401 Unauthorized`: Missing, invalid, or expired token.
+- **Ошибки:**
+  - `401 Unauthorized`: Отсутствующий, недопустимый или истёкший токен.
 
 ---
 
-## 4. Key Technical Decisions
+## 4. Ключевые технические решения
 
-1. **Native `bcrypt` instead of `passlib`:**
-   - In Python 3.12+, `passlib 1.7.4` has known incompatibility bugs with `bcrypt >= 4.0.0` (accessing removed attribute `__about__` and failing on 72-byte passwords). Using the `bcrypt` library directly eliminates external monkeypatching, adheres to KISS, and provides fast, secure password hashing.
-2. **Strict Validation Error Status (HTTP 400):**
-   - By default, FastAPI/Starlette returns `422 Unprocessable Entity` on Pydantic validation errors. A custom exception handler for `RequestValidationError` was registered for `/api/v1/auth/*` to return `400 Bad Request` in strict compliance with `REGISTRATION.md`.
-3. **Database Independence for Service & Controller Layers:**
-   - Endpoints depend only on `AuthService`. `AuthService` depends only on `UserRepository`. `UserRepository` handles SQL operations. This allows unit testing via mocks or fake in-memory repositories without requiring an active PostgreSQL instance during lightweight test runs.
+1. **Нативный `bcrypt` вместо `passlib`:**
+   - В Python 3.12+ у `passlib 1.7.4` есть известные ошибки несовместимости с `bcrypt >= 4.0.0` (обращение к удалённому атрибуту `__about__` и сбой на паролях длиной 72 байта). Непосредственное использование библиотеки `bcrypt` устраняет необходимость во внешнем monkeypatching, соответствует KISS и обеспечивает быстрое и безопасное хеширование паролей.
+2. **Строгий код состояния ошибки валидации (HTTP 400):**
+   - По умолчанию FastAPI/Starlette возвращает `422 Unprocessable Entity` при ошибках валидации Pydantic. Пользовательский обработчик исключений для `RequestValidationError` зарегистрирован для `/api/v1/auth/*`, чтобы возвращать `400 Bad Request` в строгом соответствии с `REGISTRATION.md`.
+3. **Независимость сервисного слоя и слоя контроллеров от базы данных:**
+   - Эндпоинты зависят только от `AuthService`. `AuthService` зависит только от `UserRepository`. `UserRepository` обрабатывает SQL-операции. Это позволяет проводить модульное тестирование с помощью моков или фиктивных репозиториев в памяти без необходимости в активном экземпляре PostgreSQL во время облегчённых запусков тестов.
