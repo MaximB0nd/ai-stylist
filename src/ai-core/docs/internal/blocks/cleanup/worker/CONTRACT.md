@@ -8,12 +8,7 @@
 ```json
 {
   "reason": "RESULTS_ACKNOWLEDGED",
-  "targets": [
-    {
-      "artifact_id": "01J8Z8Y7W6V5T4S3R2Q1P0N9B1",
-      "delete_url": "https://files.example/delete-once/opaque-token"
-    }
-  ]
+  "artifact_ids": ["01J8Z8Y7W6V5T4S3R2Q1P0N9B1"]
 }
 ```
 
@@ -28,6 +23,6 @@
 }
 ```
 
-Отсутствующий файл считается уже удалённым. Воркер не принимает произвольные
-пути или ключи. Окончательная ошибка — `INVALID_DELETE_CAPABILITY`, временная —
-`OUTPUT_UNAVAILABLE`.
+Воркер вызывает внутреннюю службу временных файлов. Отсутствующий файл считается
+уже удалённым. Воркер не принимает произвольные пути или ключи. Окончательная
+ошибка — `INVALID_ARTIFACT_ID`, временная — `ARTIFACT_SERVICE_UNAVAILABLE`.

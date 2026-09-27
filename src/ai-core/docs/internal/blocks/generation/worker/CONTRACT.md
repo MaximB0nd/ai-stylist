@@ -9,12 +9,15 @@
 
 | Поле | Тип |
 | --- | --- |
-| `prepared_inputs` | Успешный результат [воркера подготовки](../../preparation/worker/CONTRACT.md#результат) |
+| `prepared_inputs` | Объект `face` и `body`; каждый содержит `artifact_id`, короткую `read_url`, `expires_at`, контрольную сумму, размер и формат |
 | `outfit_spec` | [`OutfitSpec`](../../../models.md#outfitspec-версии-1) |
-| `output` | Объект с готовыми `write_url`, `read_url`, `delete_url`, `artifact_id` и `expires_at`; отдельный для каждой попытки |
+| `output` | Объект с готовой `write_url`, `artifact_id` и `expires_at`; отдельный для каждой попытки |
 | `model_version` | Строка точной версии |
 | `prompt_version` | Строка точной версии |
 | `seed` | Целое число |
+
+Смысл и срок файловых ссылок определены только в
+[правилах временных файлов](../../../artifacts.md#запись-и-чтение).
 
 ## Результат
 
@@ -22,9 +25,9 @@
 {
   "status": "SUCCEEDED",
   "artifact_id": "01J8Z8Y7W6V5T4S3R2Q1P0N9B1",
-  "read_url": "https://files.example/candidate",
-  "expires_at": "2026-09-27T12:00:00Z",
   "checksum_sha256": "sha256:example",
+  "size_bytes": 1048576,
+  "format": "webp",
   "width": 1024,
   "height": 1536,
   "model_version": "image-model@example",

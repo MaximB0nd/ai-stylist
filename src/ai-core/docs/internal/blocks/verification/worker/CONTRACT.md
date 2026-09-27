@@ -9,10 +9,13 @@
 
 | Поле | Тип |
 | --- | --- |
-| `prepared_inputs` | Успешный результат [воркера подготовки](../../preparation/worker/CONTRACT.md#результат) |
-| `candidate` | Успешный результат [воркера генерации](../../generation/worker/CONTRACT.md#результат) |
+| `prepared_inputs` | Объект `face` и `body` с `artifact_id`, короткой `read_url`, `expires_at` и описанием файла |
+| `candidate` | Объект с `artifact_id`, короткой `read_url`, `expires_at` и описанием результата генерации |
 | `outfit_spec` | [`OutfitSpec`](../../../models.md#outfitspec-версии-1) |
 | `policy_version` | Строка точной версии политики |
+
+Смысл и срок файловых ссылок определены только в
+[правилах временных файлов](../../../artifacts.md#запись-и-чтение).
 
 ## Результат
 

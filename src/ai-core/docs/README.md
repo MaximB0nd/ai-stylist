@@ -2,17 +2,19 @@
 
 Документы разделены по границе доступа:
 
-- [public](public/README.md) — всё, что должен знать основной сервер;
+- [public/ai-core-api](public/ai-core-api/README.md) — внешний интерфейс и всё,
+  что должен знать основной сервер;
 - [internal](internal/README.md) — устройство и реализация AI Core.
 
 ## Единственные источники истины
 
 | Сведения | Главный документ |
 | --- | --- |
-| Внешние запросы, ответы, состояния и уведомления | [public/CONTRACT.md](public/CONTRACT.md) |
+| Внешние запросы, ответы, состояния и уведомления | [public/ai-core-api/CONTRACT.md](public/ai-core-api/CONTRACT.md) |
 | Общая внутренняя архитектура | [internal/architecture.md](internal/architecture.md) |
 | Очереди, оболочка сообщений и доставка | [internal/messaging.md](internal/messaging.md) |
 | Владение состоянием, таблицы и восстановление | [internal/state.md](internal/state.md) |
+| Временные файлы и передача результата | [internal/artifacts.md](internal/artifacts.md) |
 | Переменные окружения | [internal/configuration.md](internal/configuration.md) |
 | Работа с чувствительными и временными данными | [internal/data-policy.md](internal/data-policy.md) |
 | Журналы, показатели и готовность служб | [internal/operations.md](internal/operations.md) |
