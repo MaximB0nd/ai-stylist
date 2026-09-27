@@ -17,17 +17,8 @@
 GET /v1/capabilities
 ```
 
-```json
-{
-  "api_version": "1",
-  "min_image_count": 1,
-  "max_image_count": 10,
-  "min_input_url_ttl_seconds": 1500,
-  "result_download_ttl_seconds": 86400
-}
-```
-
-Значения: [configuration.md](../../internal/configuration.md).
+Ответ содержит версию интерфейса, допустимое количество изображений и требования
+к сроку действия ссылок. Конкретные значения фиксируются при реализации внешнего интерфейса.
 
 ## Создание задания
 

@@ -6,7 +6,7 @@
 
 ## Схема
 
-![Архитектура AI Core](images/ai-system-architecture.png)
+![Архитектура AI Core](ai-system-architecture.png)
 
 ## Компоненты
 
@@ -23,13 +23,13 @@
 
 ## Службы
 
-- [Главный оркестратор](services/main-orchestrator/README.md)
-- [Служба временных файлов](services/artifact-service/README.md)
-- [Воркер подготовки](services/preparation-worker/README.md)
-- [Воркер-стилист](services/styling-worker/README.md)
-- [Воркер генерации](services/generation-worker/README.md)
-- [Воркер проверки](services/verification-worker/README.md)
-- [Воркер уведомлений](services/notification-worker/README.md)
+- [Главный оркестратор](../services/main-orchestrator/README.md)
+- [Служба временных файлов](../services/artifact-service/README.md)
+- [Воркер подготовки](../services/preparation-worker/README.md)
+- [Воркер-стилист](../services/styling-worker/README.md)
+- [Воркер генерации](../services/generation-worker/README.md)
+- [Воркер проверки](../services/verification-worker/README.md)
+- [Воркер уведомлений](../services/notification-worker/README.md)
 
 ## Порядок этапов
 

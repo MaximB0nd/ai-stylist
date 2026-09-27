@@ -2,18 +2,16 @@
 
 | Раздел | Документ |
 | --- | --- |
-| Архитектура | [architecture.md](architecture.md) |
-| Сообщения | [messaging.md](messaging.md) |
-| Состояние | [state.md](state.md) |
-| Временные файлы | [artifacts.md](artifacts.md) |
-| Настройки | [configuration.md](configuration.md) |
-| Данные | [data-policy.md](data-policy.md) |
-| Эксплуатация | [operations.md](operations.md) |
-| Модели | [models.md](models.md) |
-| Проверка моделей | [model-benchmark.md](model-benchmark.md) |
-| Порядок реализации | [roadmap.md](roadmap.md) |
+| Архитектура | [architecture/README.md](architecture/README.md) |
+| Порядок реализации | [architecture/roadmap.md](architecture/roadmap.md) |
+| Сообщения | [runtime/messaging.md](runtime/messaging.md) |
+| Состояние | [runtime/state.md](runtime/state.md) |
+| Временные файлы | [runtime/artifacts.md](runtime/artifacts.md) |
+| Данные | [runtime/data-policy.md](runtime/data-policy.md) |
+| Эксплуатация | [runtime/operations.md](runtime/operations.md) |
+| Модели | [models/README.md](models/README.md) |
+| Проверка моделей | [models/benchmark.md](models/benchmark.md) |
 | Службы | [services/README.md](services/README.md) |
-| Договор `OutfitSpec` | [contracts/outfit/schema-v1.json](contracts/outfit/schema-v1.json) |
 
 ## Правила
 
