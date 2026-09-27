@@ -1,22 +1,21 @@
-6. Retrieve Album (Frontend $\rightarrow$ Core Backend)
+# 6. Получение альбома (Frontend $\rightarrow$ Core Backend)
 
-Fetches album details and dynamically generated presigned URLs for viewing and downloading all 10 images.
+Возвращает детальную информацию об альбоме и динамически сгенерированные presigned-ссылки для просмотра и скачивания всех 10 изображений образов.
 
-Method: GET
+- **Метод:** `GET`
+- **URL:** `/api/v1/albums/{album_id}`
+- **Заголовки:**
+  - `Authorization: Bearer <access_token>`
 
-URL: /api/v1/albums/{album_id}
+## Ответы (Responses)
 
-Headers:
-- Authorization: Bearer <access_token>
+### `200 OK`
+Альбом успешно найден:
 
-Responses
-
-200 OK
-
-```JSON
+```json
 {
   "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "title": "Office",
+  "title": "Офис",
   "situation": "office",
   "styles": ["minimalism", "classic"],
   "shoes": ["loafers"],
@@ -39,6 +38,7 @@ Responses
 }
 ```
 
-403 Forbidden — Accessing an album owned by another user.
-
-404 Not Found — Album not found or permanently deleted.
+### Ошибки:
+- `401 Unauthorized` — Отсутствует или недействителен токен доступа.
+- `403 Forbidden` — Попытка доступа к альбому другого пользователя.
+- `404 Not Found` — Альбом не найден или удален.

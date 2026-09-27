@@ -1,32 +1,33 @@
-3. Generation Request (Frontend $\rightarrow$ Core Backend)
+# 3. Запрос на генерацию (Frontend $\rightarrow$ Core Backend)
 
-Accepts two source photographs along with transient metrics and questionnaire selections. 
-Returns an asynchronous acceptance status (202 Accepted) since generation takes time.  
+Принимает две исходные фотографии вместе с параметрами пользователя и ответами на опросник.
+Возвращает асинхронный статус принятия задачи (`202 Accepted`), так как процесс генерации занимает время.
 
-Method: POST
+- **Метод:** `POST`
+- **URL:** `/api/v1/generations`
+- **Заголовки:**
+  - `Authorization: Bearer <access_token>`
+  - `Content-Type: multipart/form-data`
 
-URL: /api/v1/generations
+## Поля Form-Data
 
-Headers:
-- Authorization: Bearer <access_token>
-- Content-Type: multipart/form-data
+- `face_photo`: бинарный файл (портрет крупным планом, webp/jpeg/png)
+- `body_photo`: бинарный файл (фото в полный рост, webp/jpeg/png)
+- `age`: `26` (целое число)
+- `height`: `172` (целое число, в см)
+- `weight`: `58` (целое число, в кг)
+- `situation`: `"office"` (ровно 1 значение: `"street"`, `"study"`, `"office"`, `"evening"`)
+- `styles`: `["minimalism", "classic"]` (от 1 до 2 значений: `"minimalism"`, `"classic"`, `"casual"`, `"romantic"`)
+- `shoes`: `["loafers"]` (от 1 до 2 значений: `"sneakers"`, `"loafers"`, `"heels"`, `"boots"`)
+- `impressions`: `["confident", "elegant"]` (от 1 до 2 значений: `"confident"`, `"elegant"`, `"relaxed"`, `"bright"`)
 
-Form-Data Fields
+## Ответы (Responses)
 
-- face_photo: binary file (close-up portrait, webp/jpeg/png)  
-- body_photo: binary file (full-length body photo, webp/jpeg/png)  
-- age: 26 (integer)  
-- height: 172 (integer, in cm)  
-- weight: 58 (integer, in kg)  
-- situation: "office" (exact 1 value: "street", "study", "office", "evening")  
-- styles: ["minimalism", "classic"] (1 to 2 values: "minimalism", "classic", "casual", "romantic")  
-- shoes: ["loafers"] (1 to 2 values: "sneakers", "loafers", "heels", "boots")  
-- impressions: ["confident", "elegant"] (1 to 2 values: "confident", "elegant", "relaxed", "bright")  
+### `202 Accepted`
+Задача успешно поставлена в очередь:
 
-Responses
-
-202 Accepted — Task queued successfully:  
-```JSON{
+```json
+{
   "generation_id": "c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
   "status": "VALIDATING",
   "message": "Generation request accepted for processing",
@@ -34,8 +35,6 @@ Responses
 }
 ```
 
-400 Bad Request — Missing required fields or invalid enum selection. 
-
-422 Unprocessable Entity — Both mandatory images were not provided.
-
-
+### Ошибки:
+- `400 Bad Request` — Отсутствуют обязательные поля или передано недопустимое значение из перечисления.
+- `422 Unprocessable Entity` — Не предоставлены обе обязательные фотографии.

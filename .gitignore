@@ -24,3 +24,9 @@ logs/
 !.env.example
 *.pem
 *.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/

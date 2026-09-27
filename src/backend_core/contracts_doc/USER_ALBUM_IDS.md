@@ -1,19 +1,18 @@
-7. Retrieve User Album IDs (Frontend $\rightarrow$ Core Backend)
+# 7. Получение списка идентификаторов альбомов пользователя (Frontend $\rightarrow$ Core Backend)
 
-Retrieves all album IDs belonging to the authenticated user. Typically called by the frontend immediately after registration or login to discover existing user albums and load their identifiers into state.
+Возвращает список идентификаторов всех альбомов, принадлежащих текущему авторизованному пользователю. Обычно вызывается фронтендом сразу после регистрации или входа для загрузки существующих альбомов в состояние приложения.
 
-Method: GET
+- **Метод:** `GET`
+- **URL:** `/api/v1/albums`
+- **Заголовки:**
+  - `Authorization: Bearer <access_token>`
 
-URL: /api/v1/albums
+## Ответы (Responses)
 
-Headers:
-- Authorization: Bearer <access_token>
+### `200 OK`
+Список альбомов успешно получен:
 
-Responses
-
-200 OK
-
-```JSON
+```json
 {
   "album_ids": [
     "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -23,12 +22,13 @@ Responses
 }
 ```
 
-For newly registered users without any generated albums yet:
-```JSON
+Для новых пользователей без созданных альбомов:
+```json
 {
   "album_ids": [],
   "total": 0
 }
 ```
 
-401 Unauthorized — Missing, expired or invalid access token.
+### Ошибки:
+- `401 Unauthorized` — Отсутствует, истек или недействителен токен доступа.
