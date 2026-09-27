@@ -63,8 +63,7 @@
 | `AI_CORE_WORKER_RESULT_QUEUE` | обязательно | Очередь результатов |
 | `AI_CORE_WORKER_CONCURRENCY` | `1` | Параллельные команды |
 
-Воркер очистки также использует `AI_CORE_ARTIFACT_SERVICE_URL` и
-`AI_CORE_ARTIFACT_SERVICE_TOKEN`. Ключи S3 воркерам не выдаются.
+Ключи S3 воркерам не выдаются.
 
 ## Воркер модели
 

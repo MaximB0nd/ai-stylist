@@ -29,14 +29,13 @@
 - [Воркер-стилист](services/styling-worker/README.md)
 - [Воркер генерации](services/generation-worker/README.md)
 - [Воркер проверки](services/verification-worker/README.md)
-- [Воркер очистки](services/cleanup-worker/README.md)
 - [Воркер уведомлений](services/notification-worker/README.md)
 
 ## Порядок этапов
 
 ```text
 создание → подготовка → стилист → резерв комплекта → генерация → проверка
-         → повтор или принятие → N результатов → скачивание → ACK → очистка
+         → повтор или принятие → N результатов → скачивание → ACK → удаление файлов
 ```
 
 ## Инварианты

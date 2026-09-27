@@ -8,7 +8,6 @@
 | Стилист | `ai.outfit.style.commands` | `ai.outfit.style.results` |
 | Генерация | `ai.image.generate.commands` | `ai.image.generate.results` |
 | Проверка | `ai.image.verify.commands` | `ai.image.verify.results` |
-| Очистка | `ai.temporary.cleanup.commands` | `ai.temporary.cleanup.results` |
 | Уведомления | `ai.status.notify.commands` | `ai.status.notify.results` |
 
 У каждой очереди команд есть отдельная очередь окончательных ошибок.
@@ -39,7 +38,7 @@
 | `schema_version` | Версия оболочки и `payload` |
 | `job_id` | Задание |
 | `worker_run_id` | Запуск воркера |
-| `result_index` | Номер изображения `0..N-1`; отсутствует для подготовки, очистки и уведомлений |
+| `result_index` | Номер изображения `0..N-1`; отсутствует для подготовки и уведомлений |
 | `attempt` | Номер попытки |
 | `lease_token` | Защита от устаревшего результата |
 | `lease_expires_at` | Конец аренды |
@@ -94,7 +93,7 @@
 - Повторная доставка сохраняет `message_id`, `worker_run_id`, `lease_token`, `attempt`.
 - Новая попытка получает новые идентификаторы.
 - Повторный `message_id` не применяется.
-- Запись файла, уведомление и удаление идемпотентны.
+- Запись файла и уведомление идемпотентны.
 - Неверная схема отправляется в очередь окончательных ошибок.
 
 ## Версии
