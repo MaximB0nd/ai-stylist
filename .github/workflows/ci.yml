@@ -60,6 +60,9 @@ jobs:
   docker-check:
     runs-on: ubuntu-latest
     needs: test
+    
+    env:
+      SECRET_KEY: "ci-dummy-secret-key-for-build-check"
 
     steps:
       - name: Checkout code
