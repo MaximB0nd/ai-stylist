@@ -1,0 +1,31 @@
+name: Docker Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docker-compose*'
+      - 'src/backend_core/Dockerfile*'
+      - 'src/backend_core/.dockerignore'
+      - 'src/backend_core/requirements.txt'
+      - '.github/workflows/docker-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-check:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: "ci-dummy-secret-key-for-build-check"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Validate Compose Config
+        run: docker compose config
+
+      - name: Build Backend Core Container
+        run: docker compose build backend_core
