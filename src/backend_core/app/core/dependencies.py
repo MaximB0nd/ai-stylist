@@ -6,10 +6,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_access_token
+from app.db.repositories.album_repository import AlbumRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import get_db
 from app.models.user import User
+from app.services.album_service import AlbumService
 from app.services.auth_service import AuthService
+from app.services.generation_service import GenerationService
+from app.services.storage_service import StorageService
 
 http_bearer = HTTPBearer(auto_error=False)
 
@@ -19,11 +23,37 @@ def get_user_repository(session: AsyncSession = Depends(get_db)) -> UserReposito
     return UserRepository(session=session)
 
 
+def get_album_repository(session: AsyncSession = Depends(get_db)) -> AlbumRepository:
+    """Dependency provider for AlbumRepository."""
+    return AlbumRepository(session=session)
+
+
+def get_storage_service() -> StorageService:
+    """Dependency provider for StorageService (MinIO)."""
+    return StorageService()
+
+
 def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> AuthService:
     """Dependency provider for AuthService."""
     return AuthService(user_repo=user_repo)
+
+
+def get_generation_service(
+    album_repo: AlbumRepository = Depends(get_album_repository),
+    storage: StorageService = Depends(get_storage_service),
+) -> GenerationService:
+    """Dependency provider for GenerationService."""
+    return GenerationService(album_repo=album_repo, storage=storage)
+
+
+def get_album_service(
+    album_repo: AlbumRepository = Depends(get_album_repository),
+    storage: StorageService = Depends(get_storage_service),
+) -> AlbumService:
+    """Dependency provider for AlbumService."""
+    return AlbumService(album_repo=album_repo, storage=storage)
 
 
 async def get_current_user(

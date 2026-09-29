@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     # Optional explicit database URL (if not provided, assembled safely via URL.create)
     DATABASE_URL: Optional[str] = None
 
+    # MinIO / S3-compatible storage
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_BUCKET: str = "stylist"
+    MINIO_SECURE: bool = False
+    MINIO_PRESIGNED_TTL: int = 3600  # presigned URL lifetime in seconds
+
     @model_validator(mode="after")
     def assemble_database_url(self) -> "Settings":
         if not self.DATABASE_URL:

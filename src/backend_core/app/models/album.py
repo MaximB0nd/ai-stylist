@@ -32,7 +32,7 @@ class Album(Base):
     impressions: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False)
     user_age: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     user_height: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
-    user_weight: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    user_weight: Mapped[Optional[str]] = mapped_column(String(1), nullable=True)
     source_face_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     source_body_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     total_photos: Mapped[int] = mapped_column(Integer, server_default=text("10"), default=10, nullable=False)
