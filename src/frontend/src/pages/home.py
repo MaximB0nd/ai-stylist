@@ -13,48 +13,6 @@ def page():
         r"""
 <section class="home-page" aria-labelledby="page-title">
   <div class="content-wrapper">
-    <div class="greeting">
-      <button class="home-avatar" id="avatarButton" type="button" onclick="document.getElementById('authModal').style.display='flex'">
-        A
-      </button>
-      <div class="greeting-text">Добрый день, Анна</div>
-    </div>
-
-    <div id="authModal" class="modal">
-      <button class="modal-backdrop" type="button" aria-label="Закрыть окно входа" onclick="document.getElementById('authModal').style.display='none'"></button>
-
-      <div class="modal-content">
-        <button class="close" id="closeModal" type="button" onclick="document.getElementById('authModal').style.display='none'">
-          &times;
-        </button>
-
-        <h2 class="modal-title">Вход в аккаунт</h2>
-        <p class="modal-subtitle">Добро пожаловать обратно</p>
-
-        <form id="loginForm" class="auth-form">
-          <div class="form-group">
-            <label for="loginEmail">Почта</label>
-            <input class="ui-input" type="email" id="loginEmail" placeholder="you@example.com" required>
-          </div>
-
-          <div class="form-group">
-            <label for="loginPassword">Пароль</label>
-            <input class="ui-input" type="password" id="loginPassword" placeholder="Ваш пароль" required>
-          </div>
-
-          <button type="submit" class="btn-submit ui-button" disabled title="Вход пока недоступен">Войти →</button>
-        </form>
-
-        <div class="form-footer">
-          Пока нет аккаунта? <button type="button" class="auth-switch" id="switchToRegister" disabled title="Регистрация пока недоступна">Зарегистрироваться</button>
-        </div>
-
-        <div class="demo-hint">
-          Вход и регистрация пока недоступны.
-        </div>
-      </div>
-    </div>
-
     <section class="hero">
       <div class="hero-content">
         <h2 class="hero-title" id="page-title">
