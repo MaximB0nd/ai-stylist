@@ -72,6 +72,27 @@ def _measurements():
     )
 
 
+def _gender_field():
+    options = (
+        ("male", "Мужской"),
+        ("female", "Женский"),
+    )
+    choices = "".join(
+        f"""
+<label class="generation-gender-option">
+  <input type="radio" name="gender" value="{value}" required />
+  <span>{label}</span>
+</label>"""
+        for value, label in options
+    )
+    return f"""
+<fieldset class="generation-gender" data-personal-question="gender" aria-describedby="gender-error">
+  <legend>Пол</legend>
+  <div class="generation-gender-options">{choices}</div>
+  <p class="generation-error" id="gender-error" hidden></p>
+</fieldset>"""
+
+
 def _uploads():
     return "".join(
         f"""
@@ -172,7 +193,7 @@ def page():
       <section class="generation-section generation-about" aria-labelledby="generation-data-title">
         <h3 id="generation-data-title">О вас</h3>
         <div class="generation-about-layout">
-          <div class="generation-measurements">{_measurements()}</div>
+          <div class="generation-measurements">{_measurements()}{_gender_field()}</div>
           <div class="generation-photos">
             <div class="generation-uploads">{_uploads()}</div>
             <p class="generation-note" id="photo-formats">JPG, PNG, WebP · до 10 МБ на фото</p>
@@ -182,8 +203,8 @@ def page():
     </form>
     <aside class="generation-summary" aria-labelledby="generation-summary-title">
       <h3 id="generation-summary-title">Ваш выбор</h3>
-      <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 8</span></div>
-      <progress id="generation-progress" value="0" max="8">0 из 8</progress>
+      <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
+      <progress id="generation-progress" value="0" max="9">0 из 9</progress>
       <button class="generation-submit ui-button" type="submit" form="generation-form" disabled>
         Проверить анкету
       </button>

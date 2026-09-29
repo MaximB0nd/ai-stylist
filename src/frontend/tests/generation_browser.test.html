@@ -92,7 +92,7 @@ try {
     }
     query('[name="occasion"][value="office"]').click();
     assert(query("progress").value === 3, "Wrong progress");
-    assert(query('[data-count="total"]').textContent === "3 / 8", "Wrong total count");
+    assert(query('[data-count="total"]').textContent === "3 / 9", "Wrong total count");
     assert(!query(".generation-checklist"), "Duplicate section counts remain");
     assert(!query(".generation-selections").hidden, "Selection remains hidden");
     assert(query('[data-selection="occasion"]').textContent === "Офис", "Wrong selection");
@@ -162,12 +162,13 @@ try {
   });
   await test("Complete form intercepts submission and reports readiness", async ({ query, drop }) => {
     for (const [name, value] of [["age", "28"], ["height", "168"]]) query(`[name="${name}"]`).value = value;
+    query('[name="gender"][value="female"]').click();
     for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();
     drop("body", [photo]); drop("face", [photo]);
     decodes.forEach(item => item.resolve()); await tick();
     const event = new Event("submit", { bubbles: true, cancelable: true });
     query("form").dispatchEvent(event);
-    assert(event.defaultPrevented && query("progress").value === 8 && query("progress").max === 8, "Form is not complete");
+    assert(event.defaultPrevented && query("progress").value === 9 && query("progress").max === 9, "Form is not complete");
     assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
   });
   await test("Summary selections align with the submit button and each other", async ({ query }) => {
