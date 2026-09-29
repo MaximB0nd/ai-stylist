@@ -32,7 +32,7 @@ class GenerationLayoutTests(unittest.TestCase):
                 )
 
     def test_each_question_has_four_exclusive_options(self):
-        self.assertEqual(len(self.soup.select("fieldset")), 4)
+        self.assertEqual(len(self.soup.select(".generation-question")), 4)
         for key, title, options in CHOICES:
             with self.subTest(question=key):
                 group = self.soup.select_one(f'[data-question="{key}"]')
@@ -91,11 +91,11 @@ class GenerationLayoutTests(unittest.TestCase):
         for element in self.soup.select("[aria-describedby]"):
             for reference in element["aria-describedby"].split():
                 self.assertIsNotNone(self.soup.find(id=reference))
-        self.assertEqual(len(self.soup.select(".generation-error[hidden]")), 8)
+        self.assertEqual(len(self.soup.select(".generation-error[hidden]")), 9)
 
     def test_summary_has_no_fake_progress_or_generation(self):
         progress = self.soup.select_one("progress")
-        self.assertEqual((progress["value"], progress["max"]), ("0", "8"))
+        self.assertEqual((progress["value"], progress["max"]), ("0", "9"))
         self.assertEqual(len(self.soup.select("[data-selection]")), 4)
         button = self.soup.select_one(".generation-submit")
         self.assertEqual(button.get_text(strip=True), "Проверить анкету")
@@ -144,6 +144,16 @@ class GenerationLayoutTests(unittest.TestCase):
         )
         self.assertFalse(self.soup.select(".generation-section h3 span"))
         self.assertEqual(len(about.select('input[type="number"]')), 2)
+        self.assertEqual(
+            {field["value"] for field in about.select('input[name="gender"]')},
+            {"male", "female"},
+        )
+        self.assertTrue(
+            all(field["type"] == "radio" for field in about.select('input[name="gender"]'))
+        )
+        self.assertTrue(
+            all(field.has_attr("required") for field in about.select('input[name="gender"]'))
+        )
         self.assertEqual(len(about.select('input[type="file"]')), 2)
         self.assertIsNotNone(about.select_one("#photo-formats"))
 

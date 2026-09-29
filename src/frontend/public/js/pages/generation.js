@@ -32,6 +32,7 @@ export function mountGeneration(form) {
   const status = page.querySelector(".generation-status");
   const numbers = [...form.querySelectorAll('input[type="number"]')];
   const groups = [...form.querySelectorAll("[data-question]")];
+  const personalGroups = [...form.querySelectorAll("[data-personal-question]")];
   const events = new AbortController();
   const photos = [...form.querySelectorAll("[data-photo]")].map((element) => ({
     element,
@@ -65,6 +66,7 @@ export function mountGeneration(form) {
 
   function updateSummary() {
     const measurements = numbers.filter((input) => input.validity.valid).length;
+    const personalChoices = personalGroups.filter((group) => group.querySelector("input:checked")).length;
     const photoCount = photos.filter((photo) => photo.url && !photo.pending).length;
     let choices = 0;
     for (const group of groups) {
@@ -80,9 +82,9 @@ export function mountGeneration(form) {
       else image.removeAttribute("src");
       if (selected) choices++;
     }
-    const total = measurements + photoCount + choices;
+    const total = measurements + personalChoices + photoCount + choices;
     page.querySelector(".generation-selections").hidden = !choices;
-    const maximum = numbers.length + photos.length + groups.length;
+    const maximum = numbers.length + personalGroups.length + photos.length + groups.length;
     page.querySelector('[data-count="total"]').textContent = `${total} / ${maximum}`;
     const progress = page.querySelector("progress");
     progress.max = maximum;
@@ -204,6 +206,8 @@ export function mountGeneration(form) {
   form.addEventListener("change", (event) => {
     const group = event.target.closest("[data-question]");
     if (group) error(group, group.dataset.question, "");
+    const personalGroup = event.target.closest("[data-personal-question]");
+    if (personalGroup) error(personalGroup, personalGroup.dataset.personalQuestion, "");
     updateSummary();
   }, { signal: events.signal });
   form.addEventListener("blur", (event) => {
@@ -221,6 +225,11 @@ export function mountGeneration(form) {
     for (const photo of photos) {
       error(photo.input, photo.input.name, photo.url ? "" : "Добавьте фотографию.");
       if (!photo.url) invalid.push(photo.input);
+    }
+    for (const group of personalGroups) {
+      const selected = group.querySelector("input:checked");
+      error(group, group.dataset.personalQuestion, selected ? "" : "Выберите один вариант.");
+      if (!selected) invalid.push(group.querySelector("input"));
     }
     for (const group of groups) {
       const selected = group.querySelector("input:checked");

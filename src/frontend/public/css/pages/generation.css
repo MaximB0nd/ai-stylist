@@ -22,7 +22,24 @@
 .generation-field { min-width: 0; }
 .generation-field .ui-input { min-height: 48px; border-color: var(--color-muted); color: var(--color-ink); font-size: var(--text-body); font-weight: 400; }
 .generation-field .ui-input:is(:focus, [aria-invalid="true"]) { border-color: var(--color-accent); }
-.generation-field label, .generation-upload > label:first-child { display: block; margin-bottom: 10px; color: var(--color-ink); font-size: var(--text-body); font-weight: 400; }
+.generation-field label, .generation-gender legend, .generation-upload > label:first-child { display: block; margin-bottom: 10px; color: var(--color-ink); font-size: var(--text-body); font-weight: 400; }
+.generation-gender { min-width: 0; margin: 0; padding: 0; border: 0; }
+.generation-gender-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.generation-gender-option { display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
+.generation-gender-option input { flex: 0 0 auto; width: 16px; height: 16px; margin: 0; accent-color: var(--color-accent); cursor: pointer; }
+.generation-gender-option span {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0;
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  font-weight: 400;
+  transition: color 160ms;
+}
+.generation-gender-option:hover span,
+.generation-gender-option input:checked + span { color: var(--color-accent); }
+.generation-gender-option input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
 .generation-photos { min-width: 0; }
 .generation-uploads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .generation-upload { min-width: 0; font-size: var(--text-small); }
