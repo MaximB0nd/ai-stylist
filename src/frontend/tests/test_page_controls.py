@@ -9,22 +9,25 @@ class PageControlsTests(unittest.TestCase):
     def test_home_keeps_navigation_and_dialog_controls_available(self):
         soup = BeautifulSoup(str(home.page()), "html.parser")
         self.assertEqual(soup.select_one(".generate-button")["href"], "/generation")
-        for selector in ("#avatarButton", "#closeModal", ".modal-backdrop"):
+        for selector in ("#authTrigger", "[data-auth-close]", ".auth-modal__backdrop"):
             with self.subTest(selector=selector):
                 button = soup.select_one(selector)
                 self.assertFalse(button.has_attr("disabled"))
-                self.assertTrue(button.get("onclick"))
+                self.assertFalse(button.get("onclick"))
+        self.assertIsNotNone(soup.select_one(".site-header #authModal"))
+        self.assertIsNone(soup.select_one(".home-page #authModal"))
         self.assertEqual(len(soup.select(".ui-image-placeholder")), 5)
 
-    def test_auth_does_not_offer_an_unimplemented_submission(self):
+    def test_auth_offers_login_and_registration_controls(self):
         soup = BeautifulSoup(str(home.page()), "html.parser")
         submit = soup.select_one('#loginForm button[type="submit"]')
-        self.assertTrue(submit.has_attr("disabled"))
-        self.assertTrue(submit.get("title"))
+        self.assertEqual(submit["id"], "authSubmit")
+        self.assertFalse(submit.has_attr("disabled"))
         switch = soup.select_one("#switchToRegister")
         self.assertEqual(switch.name, "button")
         self.assertEqual(switch["type"], "button")
-        self.assertTrue(switch.has_attr("disabled"))
+        self.assertFalse(switch.has_attr("disabled"))
+        self.assertIsNotNone(soup.select_one("#registerName"))
 
     def test_generation_check_stays_disabled_until_javascript_initializes(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")

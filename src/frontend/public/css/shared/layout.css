@@ -200,7 +200,136 @@
   text-decoration: none;
 }
 
-.site-header a:hover { color: var(--color-accent); }
+.site-header__profile-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.site-header a:hover,
+.site-header__profile-button:hover {
+  color: var(--color-accent);
+}
+
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: var(--color-overlay);
+}
+
+.auth-modal[hidden] {
+  display: none;
+}
+
+.auth-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.auth-modal__content {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 48px 40px 40px;
+}
+
+.auth-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.auth-modal__title {
+  margin: 0 0 8px;
+  color: var(--color-ink);
+  font: var(--font-weight-display) var(--text-dialog)/1.2 var(--font-display);
+}
+
+.auth-modal__subtitle {
+  margin: 0 0 28px;
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.auth-form__group label {
+  color: var(--color-ink);
+  font-size: var(--text-small);
+  font-weight: var(--font-weight-body);
+}
+
+.auth-form__submit {
+  margin-top: 8px;
+}
+
+.auth-modal__footer {
+  margin-top: 20px;
+  color: var(--color-muted);
+  font-size: var(--text-small);
+  text-align: center;
+}
+
+.auth-switch {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-status {
+  margin-top: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  color: var(--color-ink);
+  font-size: var(--text-small);
+  line-height: 1.5;
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.auth-status[data-tone="error"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.auth-status[data-tone="success"] {
+  border-color: var(--color-ink);
+}
 
 .site-main {
   flex: 1;
