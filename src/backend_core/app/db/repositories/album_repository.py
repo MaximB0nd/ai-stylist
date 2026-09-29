@@ -46,7 +46,7 @@ class AlbumRepository:
         impressions: list,
         user_age: Optional[int] = None,
         user_height: Optional[int] = None,
-        user_weight: Optional[int] = None,
+        gender: Optional[str] = None,
         source_face_key: Optional[str] = None,
         source_body_key: Optional[str] = None,
     ) -> Album:
@@ -61,7 +61,7 @@ class AlbumRepository:
             impressions=impressions,
             user_age=user_age,
             user_height=user_height,
-            user_weight=user_weight,
+            gender=gender,
             source_face_key=source_face_key,
             source_body_key=source_body_key,
         )

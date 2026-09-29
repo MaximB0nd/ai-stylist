@@ -69,6 +69,7 @@ class GenerationService:
             impressions=[i.value for i in form.impressions],
             user_age=form.age,
             user_height=form.height,
+            gender=form.gender.value,
             source_face_key=face_key,
             source_body_key=body_key,
         )
