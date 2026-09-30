@@ -169,6 +169,11 @@ function closeModal(elements) {
 	setStatus(elements, "");
 }
 
+function toggleMode(elements) {
+	setStatus(elements, "");
+	setMode(elements, elements.form.dataset.mode === "register" ? "login" : "register");
+}
+
 async function submitAuth(elements) {
 	if (!elements.form.reportValidity()) {
 		return;
@@ -223,8 +228,7 @@ function handleAuthAction(target) {
 	}
 
 	if (target.closest("#switchToRegister")) {
-		setStatus(elements, "");
-		setMode(elements, elements.form.dataset.mode === "register" ? "login" : "register");
+		toggleMode(elements);
 		return true;
 	}
 
@@ -232,6 +236,10 @@ function handleAuthAction(target) {
 }
 
 function handleClick(event) {
+	if (event.defaultPrevented) {
+		return;
+	}
+
 	const target = event.target;
 	if (!(target instanceof Element)) {
 		return;
@@ -241,6 +249,10 @@ function handleClick(event) {
 }
 
 function handleSubmit(event) {
+	if (event.defaultPrevented) {
+		return;
+	}
+
 	if (!(event.target instanceof HTMLFormElement) || event.target.id !== "loginForm") {
 		return;
 	}
@@ -253,6 +265,10 @@ function handleSubmit(event) {
 }
 
 function handleKeydown(event) {
+	if (event.defaultPrevented) {
+		return;
+	}
+
 	const target = event.target;
 	if ((event.key === "Enter" || event.key === " ") && target instanceof Element && handleAuthAction(target)) {
 		event.preventDefault();
@@ -275,16 +291,26 @@ function bindCurrentElements(elements) {
 	}
 
 	elements.form.dataset.authBound = "true";
-	elements.trigger?.addEventListener("click", () => openModal(elements));
+	elements.trigger?.addEventListener("click", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		openModal(elements);
+	});
 	elements.modal.querySelectorAll("[data-auth-close]").forEach((node) => {
-		node.addEventListener("click", () => closeModal(elements));
+		node.addEventListener("click", (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			closeModal(elements);
+		});
 	});
-	elements.switchButton.addEventListener("click", () => {
-		setStatus(elements, "");
-		setMode(elements, elements.form.dataset.mode === "register" ? "login" : "register");
-	});
+	elements.switchButton.addEventListener("click", (event) => {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		toggleMode(elements);
+	}, { capture: true });
 	elements.form.addEventListener("submit", (event) => {
 		event.preventDefault();
+		event.stopPropagation();
 		void submitAuth(elements);
 	});
 }

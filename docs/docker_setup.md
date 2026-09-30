@@ -6,22 +6,31 @@
 
 ## 1. Архитектурная схема
 
-Проект использует Docker Compose для запуска инфраструктуры и бэкенда в изолированных контейнерах, объединенных внутренней bridge-сетью (`stylist-net`):
+Проект использует Docker Compose для запуска инфраструктуры, frontend, backend и nginx-gateway в изолированных контейнерах, объединенных внутренней bridge-сетью (`stylist-net`):
 
 ```text
 [Клиент / Браузер]
        │
-       │ :8000 (HTTP / Swagger)
+       │ :8080 (HTTP)
        ▼
 ┌──────────────────────────────────────┐
-│ stylist-backend-core (FastAPI)       │
-│  - Python 3.12-slim                  │
-│  - Alembic (авто-миграции)           │
-│  - SQLAlchemy 2.0 + asyncpg          │
-└──────────────────┬───────────────────┘
-                   │
-                   │ :5432 (внутренняя сеть: db:5432)
-                   ▼
+│ stylist-nginx (Reverse Proxy)        │
+│  - /api/* -> backend_core:8000       │
+│  - /docs, /redoc, /health -> backend │
+│  - /* -> frontend:5091               │
+└───────────────┬──────────────────────┘
+                │
+                ├──────────┐
+                ▼          ▼
+┌──────────────────────┐  ┌──────────────────────────────────────┐
+│ stylist-frontend     │  │ stylist-backend-core (FastAPI)       │
+│  - Caspian/FastAPI   │  │  - Python 3.12-slim                  │
+│  - Port 5091         │  │  - Alembic (авто-миграции)           │
+└──────────────────────┘  │  - SQLAlchemy 2.0 + asyncpg          │
+                          └──────────────────┬───────────────────┘
+                                             │
+                                             │ :5432 (db:5432)
+                                             ▼
 ┌──────────────────────────────────────┐
 │ stylist-db (PostgreSQL 16)           │
 │  - postgres:16-alpine                │
@@ -52,6 +61,16 @@
   - При обнаружении существующей неверсионированной схемы скрипт валидирует полный fingerprint схемы: типы и длины всех колонок, nullability, нормализованные `server_default`, точные первичные ключи `['id']`, внешние ключи с `ON DELETE CASCADE`, уникальные и обычные индексы с точными именами и наборами колонок, а также каноническое выражение check constraint `chk_photos_order_index`. При малейшем несовпадении или ошибках интроспекции запуск немедленно прерывается с ошибкой, а метка версии не выставляется.
   - В качестве альтернативы оператор может в любой момент выполнить явную проверку и однократный ручной stamp: `docker compose exec backend_core alembic stamp 0001`.
 - **Монтирование каталогов:** Каталоги `./src/backend_core/app` и `./src/backend_core/alembic` монтируются в контейнер для мгновенного применения правок кода (hot-reload через `--reload`).
+
+### 2.3. `frontend` (Caspian/FastAPI frontend)
+- **Контекст сборки:** [../src/frontend](../src/frontend) на базе [Dockerfile](../src/frontend/Dockerfile).
+- **Внутренний порт:** `5091`. Наружу напрямую не публикуется; доступен через nginx.
+- **Авторизация:** Браузерный код вызывает backend по относительному префиксу `/api/v1`, поэтому в Docker-развертывании не требуется отдельная настройка CORS или внешнего API URL.
+
+### 2.4. `nginx` (Reverse Proxy)
+- **Образ:** `nginx:1.27-alpine`.
+- **Порт:** По умолчанию публикуется на [http://localhost:8080](http://localhost:8080). Значение можно изменить переменной `NGINX_PORT`.
+- **Маршрутизация:** Конфигурация [../nginx/default.conf](../nginx/default.conf) отправляет `/api/*`, `/docs`, `/redoc`, `/openapi.json` и `/health` в backend, а остальные запросы во frontend.
 
 ---
 
@@ -86,9 +105,11 @@ docker compose logs -f db
   ```
 
 ### Доступ к приложению и документации
-- **Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- **Healthcheck:** [http://localhost:8000/health](http://localhost:8000/health)
+- **Frontend через nginx:** [http://localhost:8080](http://localhost:8080)
+- **Swagger UI через nginx:** [http://localhost:8080/docs](http://localhost:8080/docs)
+- **ReDoc через nginx:** [http://localhost:8080/redoc](http://localhost:8080/redoc)
+- **Healthcheck через nginx:** [http://localhost:8080/health](http://localhost:8080/health)
+- **Прямой backend-доступ для отладки:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ### Остановка сервисов
 ```bash

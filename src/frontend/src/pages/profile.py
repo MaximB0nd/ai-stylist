@@ -21,23 +21,23 @@ def page():
         f"""
 <section class="profile-page" lang="ru" aria-labelledby="profile-account-title">
   <div class="profile-intro">
-    <div class="profile-avatar" role="img" aria-label="Аватар: {safe_name}">
+    <div class="profile-avatar" role="img" aria-label="Аватар: {safe_name}" data-profile-avatar>
       {escape(initials)}
     </div>
     <div class="profile-identity">
       <p class="profile-caption">Личный аккаунт</p>
-      <h2 id="profile-account-title">{safe_name}</h2>
+      <h2 id="profile-account-title" data-profile-name>{safe_name}</h2>
     </div>
   </div>
 
   <dl class="profile-fields">
     <div class="profile-field">
       <dt>Имя пользователя</dt>
-      <dd>{safe_name}</dd>
+      <dd data-profile-name>{safe_name}</dd>
     </div>
     <div class="profile-field">
       <dt>Электронная почта</dt>
-      <dd>{safe_email}</dd>
+      <dd data-profile-email>{safe_email}</dd>
     </div>
   </dl>
 </section>
