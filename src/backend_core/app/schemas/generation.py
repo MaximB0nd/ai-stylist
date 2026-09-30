@@ -61,17 +61,21 @@ class GenerationRequestForm(BaseModel):
     @field_validator("styles", "shoes", "impressions", mode="before")
     @classmethod
     def parse_json_string(cls, v: object) -> object:
-        """Accept both JSON array strings and plain lists from form-data."""
+        """Accept JSON array strings, comma-separated strings, or single values from form-data."""
         if isinstance(v, str):
             import json
 
-            try:
-                parsed = json.loads(v)
-            except (json.JSONDecodeError, ValueError):
-                raise ValueError("Must be a valid JSON array")
-            if not isinstance(parsed, list):
-                raise ValueError("Must be a JSON array")
-            return parsed
+            # Try JSON array first: '["classic", "romantic"]'
+            if v.startswith("["):
+                try:
+                    parsed = json.loads(v)
+                except (json.JSONDecodeError, ValueError):
+                    raise ValueError("Must be a valid JSON array")
+                if not isinstance(parsed, list):
+                    raise ValueError("Must be a JSON array")
+                return parsed
+            # Fallback: comma-separated or single value: 'classic,romantic' or 'classic'
+            return [item.strip() for item in v.split(",") if item.strip()]
         return v
 
 

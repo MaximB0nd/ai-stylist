@@ -393,6 +393,60 @@ async def test_generation_uploads_correct_keys(
     assert body_key.endswith(".webp")
 
 
+async def test_generation_plain_string_input(
+    client: httpx.AsyncClient,
+    album_repo: InMemoryAlbumRepository,
+):
+    """Single plain string values (Swagger-friendly) are accepted as one-element arrays."""
+    form = {
+        **VALID_FORM,
+        "styles": "minimalism",
+        "shoes": "loafers",
+        "impressions": "confident",
+    }
+    resp = await client.post(
+        "/api/v1/generations",
+        data=form,
+        files={
+            "face_photo": _fake_image(),
+            "body_photo": _fake_image(filename="body.jpg"),
+        },
+        headers=_auth_header(),
+    )
+    assert resp.status_code == 202
+    album = list(album_repo.albums.values())[0]
+    assert album.styles == ["minimalism"]
+    assert album.shoes == ["loafers"]
+    assert album.impressions == ["confident"]
+
+
+async def test_generation_comma_separated_input(
+    client: httpx.AsyncClient,
+    album_repo: InMemoryAlbumRepository,
+):
+    """Comma-separated values are accepted as multi-element arrays."""
+    form = {
+        **VALID_FORM,
+        "styles": "minimalism,classic",
+        "shoes": "sneakers,boots",
+        "impressions": "confident,elegant",
+    }
+    resp = await client.post(
+        "/api/v1/generations",
+        data=form,
+        files={
+            "face_photo": _fake_image(),
+            "body_photo": _fake_image(filename="body.jpg"),
+        },
+        headers=_auth_header(),
+    )
+    assert resp.status_code == 202
+    album = list(album_repo.albums.values())[0]
+    assert album.styles == ["minimalism", "classic"]
+    assert album.shoes == ["sneakers", "boots"]
+    assert album.impressions == ["confident", "elegant"]
+
+
 # =============================================================================
 # 2. Validation errors — form data
 # =============================================================================

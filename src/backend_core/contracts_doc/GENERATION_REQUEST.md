@@ -15,7 +15,7 @@
 - `body_photo`: бинарный файл (фото в полный рост, webp/jpeg/png)
 - `age`: `26` (целое число)
 - `height`: `172` (целое число, в см)
-- `weight`: `58` (целое число, в кг)
+- `gender`: `"f"` или `"m"` (пол: female / male)
 - `situation`: `"office"` (ровно 1 значение: `"street"`, `"study"`, `"office"`, `"evening"`)
 - `styles`: `["minimalism", "classic"]` (от 1 до 2 значений: `"minimalism"`, `"classic"`, `"casual"`, `"romantic"`)
 - `shoes`: `["loafers"]` (от 1 до 2 значений: `"sneakers"`, `"loafers"`, `"heels"`, `"boots"`)
