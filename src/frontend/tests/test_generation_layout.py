@@ -93,14 +93,26 @@ class GenerationLayoutTests(unittest.TestCase):
                 self.assertIsNotNone(self.soup.find(id=reference))
         self.assertEqual(len(self.soup.select(".generation-error[hidden]")), 9)
 
-    def test_summary_has_no_fake_progress_or_generation(self):
+    def test_summary_separates_validation_from_future_generation(self):
         progress = self.soup.select_one("progress")
         self.assertEqual((progress["value"], progress["max"]), ("0", "9"))
         self.assertEqual(len(self.soup.select("[data-selection]")), 4)
-        button = self.soup.select_one(".generation-submit")
-        self.assertEqual(button.get_text(strip=True), "Сгенерировать")
-        self.assertTrue(button.has_attr("disabled"))
-        self.assertEqual(button["form"], "generation-form")
+        check_button = self.soup.select_one(".generation-submit")
+        self.assertEqual(check_button.get_text(strip=True), "Проверить анкету")
+        self.assertTrue(check_button.has_attr("disabled"))
+        self.assertEqual(check_button["form"], "generation-form")
+        generation_button = self.soup.select_one(".generation-generate")
+        self.assertEqual(
+            generation_button.get_text(strip=True), "Сгенерировать 5 образов"
+        )
+        self.assertTrue(generation_button.has_attr("disabled"))
+        self.assertEqual(
+            generation_button["aria-describedby"], "generation-availability"
+        )
+        self.assertIn(
+            "после подключения сервиса",
+            self.soup.select_one("#generation-availability").get_text(strip=True),
+        )
         self.assertEqual(
             self.soup.select_one(".generation-status")["aria-live"], "polite"
         )

@@ -225,9 +225,16 @@ def page():
       <p class="generation-status" role="status" aria-live="polite"></p>
       <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
       <progress id="generation-progress" value="0" max="9">0 из 9</progress>
-      <button class="generation-submit ui-button" type="submit" form="generation-form" disabled>
-        Сгенерировать
+      <button class="generation-submit ui-button ui-button--secondary" type="submit" form="generation-form" disabled>
+        Проверить анкету
       </button>
+      <button class="generation-generate ui-button" type="button" disabled
+        aria-describedby="generation-availability">
+        Сгенерировать 5 образов
+      </button>
+      <p class="generation-availability-note" id="generation-availability">
+        Генерация станет доступна после подключения сервиса.
+      </p>
     </aside>
   </div>
 </section>

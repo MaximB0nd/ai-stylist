@@ -117,8 +117,8 @@
 .site-sidebar__account-copy small {
   display: block;
   color: var(--color-muted);
-  font-size: 14px;
-  font-weight: 400;
+  font-size: var(--text-small);
+  font-weight: var(--font-weight-body);
 }
 
 .site-avatar {

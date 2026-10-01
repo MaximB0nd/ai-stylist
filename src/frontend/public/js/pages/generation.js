@@ -28,7 +28,8 @@ export function photoSelectionError(files) {
 
 export function mountGeneration(form) {
   const page = form.closest(".generation-page");
-  const button = page.querySelector(".generation-submit");
+  const checkButton = page.querySelector(".generation-submit");
+  const generationButton = page.querySelector(".generation-generate");
   const status = page.querySelector(".generation-status");
   const numbers = [...form.querySelectorAll('input[type="number"]')];
   const groups = [...form.querySelectorAll("[data-question]")];
@@ -90,7 +91,8 @@ export function mountGeneration(form) {
     progress.max = maximum;
     progress.value = total;
     progress.textContent = `${total} из ${maximum}`;
-    button.disabled = photos.some((photo) => photo.pending);
+    checkButton.disabled = photos.some((photo) => photo.pending);
+    generationButton.disabled = true;
     status.textContent = "";
     delete status.dataset.state;
   }
@@ -104,13 +106,32 @@ export function mountGeneration(form) {
     }, { signal: events.signal });
   }
 
-  for (const option of form.querySelectorAll(".generation-choice, .generation-gender-option")) {
-    option.addEventListener("click", (event) => {
-      const radio = option.querySelector('input[type="radio"]');
-      if (!radio) return;
+  const toggleRadios = [...form.querySelectorAll(
+    '.generation-choice input[type="radio"], .generation-gender-option input[type="radio"]',
+  )];
+  const checkedBeforeActivation = new WeakMap(
+    toggleRadios.map((radio) => [radio, radio.checked]),
+  );
+  const syncRadioGroup = (radio) => {
+    for (const candidate of toggleRadios) {
+      if (candidate.name === radio.name) checkedBeforeActivation.set(candidate, candidate.checked);
+    }
+  };
+  for (const radio of toggleRadios) {
+    radio.addEventListener("keydown", (event) => {
+      if (event.key !== " " || !radio.checked) return;
       event.preventDefault();
-      radio.checked = !radio.checked;
+      radio.checked = false;
       radio.dispatchEvent(new Event("change", { bubbles: true }));
+    }, { signal: events.signal });
+    radio.addEventListener("click", (event) => {
+      if (!checkedBeforeActivation.get(radio)) return;
+      event.preventDefault();
+      setTimeout(() => {
+        if (disposed) return;
+        radio.checked = false;
+        radio.dispatchEvent(new Event("change", { bubbles: true }));
+      }, 0);
     }, { capture: true, signal: events.signal });
   }
 
@@ -215,6 +236,7 @@ export function mountGeneration(form) {
     updateSummary();
   }, { signal: events.signal });
   form.addEventListener("change", (event) => {
+    if (toggleRadios.includes(event.target)) syncRadioGroup(event.target);
     const group = event.target.closest("[data-question]");
     if (group) error(group, group.dataset.question,
       submitted && !group.querySelector("input:checked") ? "Выберите один вариант." : "");
@@ -252,7 +274,7 @@ export function mountGeneration(form) {
     }
     status.textContent = invalid.length
       ? "Заполните подсвеченные блоки."
-      : "Анкета заполнена. Генерация будет доступна после подключения сервиса.";
+      : "Анкета заполнена. Сгенерировать 5 образов можно будет после подключения сервиса.";
     status.dataset.state = invalid.length ? "error" : "success";
     // Follow the visible form order when sections are rearranged.
     [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
@@ -264,7 +286,8 @@ export function mountGeneration(form) {
   return () => {
     disposed = true;
     events.abort();
-    button.disabled = true;
+    checkButton.disabled = true;
+    generationButton.disabled = true;
     photos.forEach((photo) => {
       photo.request++;
       photo.pending = false;

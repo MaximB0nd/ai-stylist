@@ -12,7 +12,7 @@
 .gallery-page .album-preview::after { position: absolute; right: 0; bottom: 0; left: 0; height: 35%; background: linear-gradient(to top, rgb(92 59 42 / 72%), rgb(116 79 56 / 0%)); content: ""; opacity: 1; pointer-events: none; }
 .gallery-page .album-image { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 220ms ease; }
 .gallery-page .album-card:hover .album-image { transform: scale(1.025); }
-.gallery-page .album-date { position: absolute; z-index: 1; right: 18px; bottom: 16px; left: 18px; color: #fff; font-size: var(--text-small); font-weight: var(--font-weight-body); letter-spacing: .01em; }
+.gallery-page .album-date { position: absolute; z-index: 1; right: 18px; bottom: 16px; left: 18px; color: #fff; font-size: var(--text-small); font-weight: 300; letter-spacing: .01em; }
 .gallery-page .album-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; }
 .gallery-page .album-meta { min-width: 0; }
 .gallery-page .album-name { margin: 0 0 5px; color: var(--color-ink); font: var(--font-weight-display) var(--text-card) / 1.1 var(--font-display); }

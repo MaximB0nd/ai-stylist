@@ -12,8 +12,8 @@ def layout():
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ page_title }}</title>
     <meta name="description" content="{{ page_description }}" />
-    <link href="/css/index.css?v=front4-24" rel="stylesheet" />
-    <script type="module" src="/js/main.js?v=front4-18"></script>
+    <link href="/css/index.css?v=front4-27" rel="stylesheet" />
+    <script type="module" src="/js/main.js?v=front4-21"></script>
   </head>
   <body>
     <slot />

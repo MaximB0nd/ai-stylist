@@ -29,7 +29,7 @@ class PageControlsTests(unittest.TestCase):
         self.assertFalse(switch.has_attr("disabled"))
         self.assertIsNotNone(soup.select_one("#registerName"))
 
-    def test_generation_check_stays_disabled_until_javascript_initializes(self):
+    def test_generation_actions_stay_disabled_until_javascript_initializes(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")
         fields = soup.select('.generation-form input[type="number"]')
         self.assertEqual(len(fields), 2)
@@ -38,6 +38,9 @@ class PageControlsTests(unittest.TestCase):
         self.assertEqual(button["type"], "submit")
         self.assertTrue(button.has_attr("disabled"))
         self.assertEqual(button["form"], "generation-form")
+        generation_button = soup.select_one(".generation-generate")
+        self.assertEqual(generation_button["type"], "button")
+        self.assertTrue(generation_button.has_attr("disabled"))
 
     def test_gallery_uses_album_links_and_real_previews(self):
         soup = BeautifulSoup(str(gallery.page()), "html.parser")

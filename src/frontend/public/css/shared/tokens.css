@@ -1,11 +1,11 @@
 :root {
   --color-canvas: #fdfcfb;
   --color-surface: #fffefd;
-  --color-sidebar: #eee5d8;
-  --color-soft: #f6d2ce;
-  --color-line: #ded8cf;
+  --color-sidebar: #eee8df;
+  --color-soft: #f2ede5;
+  --color-line: #e3ddd4;
   --color-control-line: #9b9087;
-  --color-placeholder: #f6d2ce;
+  --color-placeholder: #efeeec;
   --color-ink: #352e2a;
   --color-muted: #74695f;
   --color-accent: #a33e4b;
@@ -18,9 +18,9 @@
   --font-accent: "Literata", serif;
   --font-weight-display: 400;
   --font-weight-accent: 300;
-  --font-weight-body: 500;
-  --text-body: 17px;
-  --text-small: 17px;
+  --font-weight-body: 300;
+  --text-body: 16px;
+  --text-small: 14px;
   --text-hero: 60px;
   --text-page: 52px;
   --text-section: 30px;
