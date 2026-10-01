@@ -1,8 +1,7 @@
 import uuid
 from enum import Enum
-from typing import List
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class GenderEnum(str, Enum):
@@ -54,29 +53,9 @@ class GenerationRequestForm(BaseModel):
     height: int = Field(..., ge=50, le=300, description="Height in cm")
     gender: GenderEnum = Field(..., description="Gender: 'f' or 'm'")
     situation: SituationEnum
-    styles: List[StyleEnum] = Field(..., min_length=1, max_length=2)
-    shoes: List[ShoesEnum] = Field(..., min_length=1, max_length=2)
-    impressions: List[ImpressionEnum] = Field(..., min_length=1, max_length=2)
-
-    @field_validator("styles", "shoes", "impressions", mode="before")
-    @classmethod
-    def parse_json_string(cls, v: object) -> object:
-        """Accept JSON array strings, comma-separated strings, or single values from form-data."""
-        if isinstance(v, str):
-            import json
-
-            # Try JSON array first: '["classic", "romantic"]'
-            if v.startswith("["):
-                try:
-                    parsed = json.loads(v)
-                except (json.JSONDecodeError, ValueError):
-                    raise ValueError("Must be a valid JSON array")
-                if not isinstance(parsed, list):
-                    raise ValueError("Must be a JSON array")
-                return parsed
-            # Fallback: comma-separated or single value: 'classic,romantic' or 'classic'
-            return [item.strip() for item in v.split(",") if item.strip()]
-        return v
+    styles: StyleEnum = Field(..., description="Exactly one style")
+    shoes: ShoesEnum = Field(..., description="Exactly one shoe type")
+    impressions: ImpressionEnum = Field(..., description="Exactly one impression")
 
 
 class GenerationAcceptedResponse(BaseModel):

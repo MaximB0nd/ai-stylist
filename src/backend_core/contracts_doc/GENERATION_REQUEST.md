@@ -17,9 +17,9 @@
 - `height`: `172` (целое число, в см)
 - `gender`: `"f"` или `"m"` (пол: female / male)
 - `situation`: `"office"` (ровно 1 значение: `"street"`, `"study"`, `"office"`, `"evening"`)
-- `styles`: `["minimalism", "classic"]` (от 1 до 2 значений: `"minimalism"`, `"classic"`, `"casual"`, `"romantic"`)
-- `shoes`: `["loafers"]` (от 1 до 2 значений: `"sneakers"`, `"loafers"`, `"heels"`, `"boots"`)
-- `impressions`: `["confident", "elegant"]` (от 1 до 2 значений: `"confident"`, `"elegant"`, `"relaxed"`, `"bright"`)
+- `styles`: `"minimalism"` (ровно 1 значение: `"minimalism"`, `"classic"`, `"casual"`, `"romantic"`)
+- `shoes`: `"loafers"` (ровно 1 значение: `"sneakers"`, `"loafers"`, `"heels"`, `"boots"`)
+- `impressions`: `"confident"` (ровно 1 значение: `"confident"`, `"elegant"`, `"relaxed"`, `"bright"`)
 
 ## Ответы (Responses)
 

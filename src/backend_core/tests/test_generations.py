@@ -182,9 +182,9 @@ VALID_FORM = {
     "height": "175",
     "gender": "m",
     "situation": "office",
-    "styles": '["minimalism"]',
-    "shoes": '["loafers"]',
-    "impressions": '["confident"]',
+    "styles": "minimalism",
+    "shoes": "loafers",
+    "impressions": "confident",
 }
 
 
@@ -341,16 +341,16 @@ async def test_generation_stores_age_and_height(
     assert album.user_height == 180
 
 
-async def test_generation_stores_multi_select_fields(
+async def test_generation_stores_selection_fields(
     client: httpx.AsyncClient,
     album_repo: InMemoryAlbumRepository,
 ):
-    """Verify that multi-select fields (styles, shoes, impressions) are stored."""
+    """Verify that single-value selection fields are stored as single-element arrays."""
     form = {
         **VALID_FORM,
-        "styles": '["minimalism", "classic"]',
-        "shoes": '["sneakers", "boots"]',
-        "impressions": '["confident", "elegant"]',
+        "styles": "classic",
+        "shoes": "boots",
+        "impressions": "elegant",
     }
     resp = await client.post(
         "/api/v1/generations",
@@ -363,9 +363,9 @@ async def test_generation_stores_multi_select_fields(
     )
     assert resp.status_code == 202
     album = list(album_repo.albums.values())[0]
-    assert album.styles == ["minimalism", "classic"]
-    assert album.shoes == ["sneakers", "boots"]
-    assert album.impressions == ["confident", "elegant"]
+    assert album.styles == ["classic"]
+    assert album.shoes == ["boots"]
+    assert album.impressions == ["elegant"]
 
 
 async def test_generation_uploads_correct_keys(
@@ -393,60 +393,6 @@ async def test_generation_uploads_correct_keys(
     assert body_key.endswith(".webp")
 
 
-async def test_generation_plain_string_input(
-    client: httpx.AsyncClient,
-    album_repo: InMemoryAlbumRepository,
-):
-    """Single plain string values (Swagger-friendly) are accepted as one-element arrays."""
-    form = {
-        **VALID_FORM,
-        "styles": "minimalism",
-        "shoes": "loafers",
-        "impressions": "confident",
-    }
-    resp = await client.post(
-        "/api/v1/generations",
-        data=form,
-        files={
-            "face_photo": _fake_image(),
-            "body_photo": _fake_image(filename="body.jpg"),
-        },
-        headers=_auth_header(),
-    )
-    assert resp.status_code == 202
-    album = list(album_repo.albums.values())[0]
-    assert album.styles == ["minimalism"]
-    assert album.shoes == ["loafers"]
-    assert album.impressions == ["confident"]
-
-
-async def test_generation_comma_separated_input(
-    client: httpx.AsyncClient,
-    album_repo: InMemoryAlbumRepository,
-):
-    """Comma-separated values are accepted as multi-element arrays."""
-    form = {
-        **VALID_FORM,
-        "styles": "minimalism,classic",
-        "shoes": "sneakers,boots",
-        "impressions": "confident,elegant",
-    }
-    resp = await client.post(
-        "/api/v1/generations",
-        data=form,
-        files={
-            "face_photo": _fake_image(),
-            "body_photo": _fake_image(filename="body.jpg"),
-        },
-        headers=_auth_header(),
-    )
-    assert resp.status_code == 202
-    album = list(album_repo.albums.values())[0]
-    assert album.styles == ["minimalism", "classic"]
-    assert album.shoes == ["sneakers", "boots"]
-    assert album.impressions == ["confident", "elegant"]
-
-
 # =============================================================================
 # 2. Validation errors — form data
 # =============================================================================
@@ -462,12 +408,9 @@ async def test_generation_comma_separated_input(
         ("gender", "x", "invalid_gender"),
         ("gender", "male", "gender_full_word"),
         ("situation", "beach", "invalid_situation"),
-        ("styles", '[]', "styles_empty"),
-        ("styles", '["minimalism","classic","casual"]', "styles_too_many"),
-        ("styles", '["unknown_style"]', "styles_invalid_value"),
-        ("shoes", '["sandals"]', "shoes_invalid_value"),
-        ("impressions", '["boring"]', "impressions_invalid_value"),
-        ("styles", "not-json", "styles_invalid_json"),
+        ("styles", "unknown_style", "styles_invalid_value"),
+        ("shoes", "sandals", "shoes_invalid_value"),
+        ("impressions", "boring", "impressions_invalid_value"),
     ],
     ids=lambda x: x if isinstance(x, str) else None,
 )
