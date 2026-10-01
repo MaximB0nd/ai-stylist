@@ -74,16 +74,16 @@ export function mountGeneration(form) {
       const value = selected?.closest("label").querySelector(".generation-choice-card > span").textContent;
       const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
       const image = page.querySelector(`[data-selection-image="${group.dataset.question}"]`);
-      output.textContent = value || "";
+      const item = output.closest("dl > div");
+      output.textContent = value || "Не выбрано";
       output.closest("button").setAttribute("aria-label", `Изменить: ${group.querySelector("legend").textContent}${value ? `, ${value}` : ""}`);
-      output.closest("dl > div").hidden = !selected;
+      item.classList.toggle("is-empty", !selected);
       image.hidden = !selected;
       if (selected) image.src = selected.closest("label").querySelector("img").src;
       else image.removeAttribute("src");
       if (selected) choices++;
     }
     const total = measurements + personalChoices + photoCount + choices;
-    page.querySelector(".generation-selections").hidden = !choices;
     const maximum = numbers.length + personalGroups.length + photos.length + groups.length;
     page.querySelector('[data-count="total"]').textContent = `${total} / ${maximum}`;
     const progress = page.querySelector("progress");
@@ -92,6 +92,7 @@ export function mountGeneration(form) {
     progress.textContent = `${total} из ${maximum}`;
     button.disabled = photos.some((photo) => photo.pending);
     status.textContent = "";
+    delete status.dataset.state;
   }
 
   for (const edit of page.querySelectorAll("[data-edit-question]")) {
@@ -101,6 +102,16 @@ export function mountGeneration(form) {
       input.focus({ preventScroll: true });
       group.scrollIntoView({ block: "center", behavior: "instant" });
     }, { signal: events.signal });
+  }
+
+  for (const option of form.querySelectorAll(".generation-choice, .generation-gender-option")) {
+    option.addEventListener("click", (event) => {
+      const radio = option.querySelector('input[type="radio"]');
+      if (!radio) return;
+      event.preventDefault();
+      radio.checked = !radio.checked;
+      radio.dispatchEvent(new Event("change", { bubbles: true }));
+    }, { capture: true, signal: events.signal });
   }
 
   function renderPhoto(photo) {
@@ -205,9 +216,11 @@ export function mountGeneration(form) {
   }, { signal: events.signal });
   form.addEventListener("change", (event) => {
     const group = event.target.closest("[data-question]");
-    if (group) error(group, group.dataset.question, "");
+    if (group) error(group, group.dataset.question,
+      submitted && !group.querySelector("input:checked") ? "Выберите один вариант." : "");
     const personalGroup = event.target.closest("[data-personal-question]");
-    if (personalGroup) error(personalGroup, personalGroup.dataset.personalQuestion, "");
+    if (personalGroup) error(personalGroup, personalGroup.dataset.personalQuestion,
+      submitted && !personalGroup.querySelector("input:checked") ? "Выберите один вариант." : "");
     updateSummary();
   }, { signal: events.signal });
   form.addEventListener("blur", (event) => {
@@ -219,6 +232,7 @@ export function mountGeneration(form) {
     submitted = true;
     if (photos.some((photo) => photo.pending)) {
       status.textContent = "Подождите, фотографии ещё открываются.";
+      status.dataset.state = "error";
       return;
     }
     const invalid = numbers.filter((input) => !validateNumber(input, true));
@@ -237,8 +251,9 @@ export function mountGeneration(form) {
       if (!selected) invalid.push(group.querySelector("input"));
     }
     status.textContent = invalid.length
-      ? "Проверьте отмеченные поля."
+      ? "Заполните подсвеченные блоки."
       : "Анкета заполнена. Генерация будет доступна после подключения сервиса.";
+    status.dataset.state = invalid.length ? "error" : "success";
     // Follow the visible form order when sections are rearranged.
     [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
   }, { signal: events.signal });

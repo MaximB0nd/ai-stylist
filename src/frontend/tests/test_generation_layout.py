@@ -98,7 +98,7 @@ class GenerationLayoutTests(unittest.TestCase):
         self.assertEqual((progress["value"], progress["max"]), ("0", "9"))
         self.assertEqual(len(self.soup.select("[data-selection]")), 4)
         button = self.soup.select_one(".generation-submit")
-        self.assertEqual(button.get_text(strip=True), "Проверить анкету")
+        self.assertEqual(button.get_text(strip=True), "Сгенерировать")
         self.assertTrue(button.has_attr("disabled"))
         self.assertEqual(button["form"], "generation-form")
         self.assertEqual(
@@ -107,7 +107,7 @@ class GenerationLayoutTests(unittest.TestCase):
 
     def test_all_generation_images_are_local_and_present(self):
         images = self.soup.select(".generation-page img[src]")
-        self.assertEqual(len(images), 18)
+        self.assertEqual(len(images), 21)
         for image in images:
             with self.subTest(src=image["src"]):
                 self.assertTrue(image["src"].startswith("/images/generation/"))
@@ -117,14 +117,22 @@ class GenerationLayoutTests(unittest.TestCase):
                 self.assertTrue(image.get("width"))
                 self.assertTrue(image.get("height"))
 
-    def test_compact_summary_does_not_repeat_empty_selections(self):
+    def test_summary_reserves_fixed_slots_for_selections(self):
         summary = self.soup.select_one(".generation-summary")
         self.assertEqual(summary.h3.get_text(), "Ваш выбор")
         self.assertIsNone(summary.find("figure"))
         choices = summary.select_one(".generation-selections")
-        self.assertTrue(choices.has_attr("hidden"))
-        self.assertTrue(all(row.has_attr("hidden") for row in choices.select("div")))
-        self.assertTrue(all(not value.get_text(strip=True) for value in choices.select("dd")))
+        self.assertFalse(choices.has_attr("hidden"))
+        self.assertEqual(len(choices.select("[data-summary-item]")), 4)
+        self.assertTrue(
+            all("is-empty" in row.get("class", []) for row in choices.select("div"))
+        )
+        self.assertTrue(
+            all(
+                value.get_text(strip=True) == "Не выбрано"
+                for value in choices.select("[data-selection]")
+            )
+        )
         self.assertEqual(len(summary.select("[data-count]")), 1)
         self.assertIsNone(summary.select_one(".generation-checklist"))
 
@@ -138,7 +146,7 @@ class GenerationLayoutTests(unittest.TestCase):
 
     def test_personal_details_and_photos_share_one_section(self):
         about = self.soup.select_one(".generation-about")
-        self.assertEqual(about.h3.get_text(strip=True), "О вас")
+        self.assertEqual(about.h3.get_text(strip=True), "Данные для образа")
         self.assertEqual(
             self.soup.select_one("#generation-questions-title").get_text(), "Пожелания"
         )
@@ -156,6 +164,22 @@ class GenerationLayoutTests(unittest.TestCase):
         )
         self.assertEqual(len(about.select('input[type="file"]')), 2)
         self.assertIsNotNone(about.select_one("#photo-formats"))
+
+    def test_intro_uses_local_decorative_assets(self):
+        intro = self.soup.select_one(".generation-intro")
+        self.assertEqual(
+            intro.select_one("h3").get_text(" ", strip=True),
+            "Вика поможет собрать образ",
+        )
+        assets = [image["src"] for image in intro.select("img")]
+        self.assertEqual(
+            assets,
+            [
+                "/images/generation/vika-adviser.gif",
+                "/images/generation/intro-street-walk.webp",
+                "/images/generation/intro-conference-women.webp",
+            ],
+        )
 
     def test_photo_examples_are_distinct_from_uploaded_photos(self):
         for key in ("body", "face"):
