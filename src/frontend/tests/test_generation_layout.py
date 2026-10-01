@@ -192,6 +192,14 @@ class GenerationLayoutTests(unittest.TestCase):
                 "/images/generation/intro-conference-women.webp",
             ],
         )
+        animated = intro.select_one('[data-motion-image]')
+        self.assertEqual(
+            animated["data-static-src"],
+            "/images/generation/vika-adviser-static.png",
+        )
+        self.assertTrue(
+            (FRONTEND / "public" / animated["data-static-src"].removeprefix("/")).is_file()
+        )
 
     def test_photo_examples_are_distinct_from_uploaded_photos(self):
         for key in ("body", "face"):

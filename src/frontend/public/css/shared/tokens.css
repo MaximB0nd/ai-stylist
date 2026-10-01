@@ -13,6 +13,7 @@
   --color-accent-soft: #fae9eb;
   --color-gold: #b38d60;
   --color-overlay: rgb(53 46 42 / 65%);
+  --color-sidebar-translucent: rgb(238 232 223 / 52%);
   --font-body: "Manrope", sans-serif;
   --font-display: "EB Garamond", serif;
   --font-accent: "Literata", serif;
@@ -38,4 +39,22 @@
   --sidebar-width: 222px;
   --page-gutter: 40px;
   --content-width: 1320px;
+}
+
+:root[data-dark-theme] {
+  --color-canvas: #1c1917;
+  --color-surface: #25211f;
+  --color-sidebar: #2d2724;
+  --color-soft: #352e2a;
+  --color-line: #4c423c;
+  --color-control-line: #8f8177;
+  --color-placeholder: #312c29;
+  --color-ink: #f7f0e9;
+  --color-muted: #c8bbb0;
+  --color-accent: #d76b78;
+  --color-accent-hover: #e47f8b;
+  --color-accent-soft: #42252b;
+  --color-gold: #d7b17e;
+  --color-overlay: rgb(8 7 6 / 78%);
+  --color-sidebar-translucent: rgb(45 39 36 / 62%);
 }

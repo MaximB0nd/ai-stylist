@@ -20,6 +20,10 @@ class PageControlsTests(unittest.TestCase):
 
     def test_auth_offers_login_and_registration_controls(self):
         soup = BeautifulSoup(str(home.page()), "html.parser")
+        self.assertEqual(
+            [label.get_text(strip=True) for label in soup.select("[data-auth-account-label]")],
+            ["Войти", "Войти"],
+        )
         submit = soup.select_one('#loginForm button[type="submit"]')
         self.assertEqual(submit["id"], "authSubmit")
         self.assertFalse(submit.has_attr("disabled"))

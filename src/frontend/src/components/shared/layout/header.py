@@ -16,7 +16,7 @@ def header(title="Носи Красиво"):
 
   <button class="site-header__profile site-header__profile-button" type="button" id="authTrigger" aria-haspopup="dialog" aria-controls="authModal">
     <span class="site-avatar" aria-hidden="true" data-auth-avatar><span class="site-icon site-icon--user-round"></span></span>
-    <span data-auth-account-label>Мой аккаунт</span>
+    <span data-auth-account-label>Войти</span>
   </button>
 
   <div id="authModal" class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" hidden>
