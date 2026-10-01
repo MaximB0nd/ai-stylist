@@ -201,6 +201,14 @@ class GenerationLayoutTests(unittest.TestCase):
             (FRONTEND / "public" / animated["data-static-src"].removeprefix("/")).is_file()
         )
 
+    def test_generation_has_dark_theme_overrides(self):
+        stylesheet = (FRONTEND / "public" / "css" / "pages" / "generation.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(":root[data-dark-theme] .generation-page", stylesheet)
+        self.assertIn("--generation-intro-background: #2d2724", stylesheet)
+        self.assertIn("var(--generation-intro-background)", stylesheet)
+
     def test_photo_examples_are_distinct_from_uploaded_photos(self):
         for key in ("body", "face"):
             photo = self.soup.select_one(f'[data-photo="{key}"]')

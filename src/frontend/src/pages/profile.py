@@ -20,11 +20,10 @@ def page():
             <p class="profile-caption">Аккаунт</p>
             <h3 id="profile-account-title">Данные профиля</h3>
           </div>
-          <span class="profile-state">Не подключён</span>
         </header>
 
         <div class="profile-account__content">
-          <div class="profile-avatar" aria-hidden="true">
+          <div class="profile-avatar" data-profile-avatar aria-hidden="true">
             <span class="site-icon site-icon--user-round"></span>
           </div>
           <dl class="profile-fields">

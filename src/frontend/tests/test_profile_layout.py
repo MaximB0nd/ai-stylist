@@ -31,6 +31,8 @@ class ProfileLayoutTests(unittest.TestCase):
         self.assertEqual(values, ["Не указано", "Не указана", "—"])
         self.assertNotIn("Анна", self.soup.get_text())
         self.assertNotIn("example.com", self.soup.get_text())
+        self.assertNotIn("Не подключён", self.soup.get_text())
+        self.assertIsNotNone(self.soup.select_one("[data-profile-avatar]"))
 
     def test_profile_contains_frontend_preferences_only(self):
         settings = self.soup.select("[data-profile-preference]")

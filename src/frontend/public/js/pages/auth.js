@@ -64,6 +64,55 @@ function getInitials(name) {
 	return initials || "A";
 }
 
+function formatProfileCreatedAt(value) {
+	if (!value) {
+		return "—";
+	}
+
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		return "—";
+	}
+
+	return new Intl.DateTimeFormat("ru-RU", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+	}).format(date);
+}
+
+export function getProfileViewModel(user) {
+	const name = user?.name?.trim() || "Не указано";
+	const email = user?.email?.trim() || "Не указана";
+
+	return {
+		name,
+		email,
+		createdAt: formatProfileCreatedAt(user?.created_at),
+		initials: user?.name?.trim() ? getInitials(user.name) : "",
+	};
+}
+
+export function updateProfile(user) {
+	const profile = getProfileViewModel(user);
+
+	for (const element of document.querySelectorAll("[data-profile-name]")) {
+		element.textContent = profile.name;
+	}
+	for (const element of document.querySelectorAll("[data-profile-email]")) {
+		element.textContent = profile.email;
+	}
+	for (const element of document.querySelectorAll("[data-profile-created]")) {
+		element.textContent = profile.createdAt;
+	}
+	for (const avatar of document.querySelectorAll("[data-profile-avatar]")) {
+		avatar.textContent = profile.initials;
+		if (!profile.initials) {
+			avatar.innerHTML = '<span class="site-icon site-icon--user-round"></span>';
+		}
+	}
+}
+
 function findElements() {
 	const modal = document.getElementById("authModal");
 	const form = document.getElementById("loginForm");
@@ -105,6 +154,8 @@ function updateChrome(user) {
 			avatar.innerHTML = '<span class="site-icon site-icon--user-round"></span>';
 		}
 	}
+
+	updateProfile(user);
 }
 
 async function loadCurrentUser(session) {
