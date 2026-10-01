@@ -131,8 +131,8 @@ def _uploads():
   <p class="generation-error" id="{key}-error" role="alert" hidden></p>
 </div>"""
         for key, label, example in (
-            ("body", "Фото в полный рост", "Пример: человек целиком, от головы до стоп"),
             ("face", "Фото лица", "Пример: лицо анфас и плечи"),
+            ("body", "Фото в полный рост", "Пример: человек целиком, от головы до стоп"),
         )
     )
 
@@ -163,13 +163,13 @@ def _questions():
 def _selections():
     return "".join(
         f"""
-<div hidden>
+<div class="is-empty" data-summary-item="{key}">
   <dt>{title}</dt>
   <dd>
     <button class="generation-selection" type="button" data-edit-question="{key}"
       aria-label="Изменить: {title}" title="Изменить: {title}">
       <img data-selection-image="{key}" width="80" height="80" alt="" hidden />
-      <span data-selection="{key}"></span>
+      <span data-selection="{key}">Не выбрано</span>
     </button>
   </dd>
 </div>"""
@@ -184,14 +184,30 @@ def page():
   <div class="generation-heading">
     <h2 id="generation-title">Новые образы</h2>
   </div>
+  <section class="generation-intro" aria-labelledby="generation-intro-title">
+    <div class="generation-intro-visual" aria-hidden="true">
+      <img src="/images/generation/vika-adviser.gif" alt="" width="1254" height="1254" />
+    </div>
+    <div class="generation-intro-copy">
+      <h3 id="generation-intro-title"><span>Вика</span> поможет собрать образ</h3>
+      <p>
+        Отметьте настроение, повод и пару деталей о себе — дальше мы аккуратно
+        подготовим основу для будущей генерации.
+      </p>
+    </div>
+    <div class="generation-intro-details" aria-hidden="true">
+      <img src="/images/generation/intro-street-walk.webp" alt="" width="512" height="512" />
+      <img src="/images/generation/intro-conference-women.webp" alt="" width="512" height="512" />
+    </div>
+  </section>
   <div class="generation-layout">
     <form class="generation-form" id="generation-form" novalidate>
       <section class="generation-section" aria-labelledby="generation-questions-title">
-        <h3 id="generation-questions-title">Пожелания</h3>
+        <h3 class="visually-hidden" id="generation-questions-title">Пожелания</h3>
         <div class="generation-questions">{_questions()}</div>
       </section>
       <section class="generation-section generation-about" aria-labelledby="generation-data-title">
-        <h3 id="generation-data-title">О вас</h3>
+        <h3 class="visually-hidden" id="generation-data-title">Данные для образа</h3>
         <div class="generation-about-layout">
           <div class="generation-measurements">{_measurements()}{_gender_field()}</div>
           <div class="generation-photos">
@@ -203,16 +219,22 @@ def page():
     </form>
     <aside class="generation-summary" aria-labelledby="generation-summary-title">
       <h3 id="generation-summary-title">Ваш выбор</h3>
-      <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
-      <progress id="generation-progress" value="0" max="9">0 из 9</progress>
-      <button class="generation-submit ui-button" type="submit" form="generation-form" disabled>
-        Проверить анкету
-      </button>
-      <p class="generation-status" role="status" aria-live="polite"></p>
-      <p class="generation-note">Генерация пока недоступна. Данные не отправляются.</p>
-      <dl class="generation-selections" hidden>
+      <dl class="generation-selections">
         {_selections()}
       </dl>
+      <p class="generation-status" role="status" aria-live="polite"></p>
+      <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
+      <progress id="generation-progress" value="0" max="9">0 из 9</progress>
+      <button class="generation-submit ui-button ui-button--secondary" type="submit" form="generation-form" disabled>
+        Проверить анкету
+      </button>
+      <button class="generation-generate ui-button" type="button" disabled
+        aria-describedby="generation-availability">
+        Сгенерировать 5 образов
+      </button>
+      <p class="generation-availability-note" id="generation-availability">
+        Генерация станет доступна после подключения сервиса.
+      </p>
     </aside>
   </div>
 </section>

@@ -28,7 +28,8 @@ export function photoSelectionError(files) {
 
 export function mountGeneration(form) {
   const page = form.closest(".generation-page");
-  const button = page.querySelector(".generation-submit");
+  const checkButton = page.querySelector(".generation-submit");
+  const generationButton = page.querySelector(".generation-generate");
   const status = page.querySelector(".generation-status");
   const numbers = [...form.querySelectorAll('input[type="number"]')];
   const groups = [...form.querySelectorAll("[data-question]")];
@@ -74,24 +75,26 @@ export function mountGeneration(form) {
       const value = selected?.closest("label").querySelector(".generation-choice-card > span").textContent;
       const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
       const image = page.querySelector(`[data-selection-image="${group.dataset.question}"]`);
-      output.textContent = value || "";
+      const item = output.closest("dl > div");
+      output.textContent = value || "Не выбрано";
       output.closest("button").setAttribute("aria-label", `Изменить: ${group.querySelector("legend").textContent}${value ? `, ${value}` : ""}`);
-      output.closest("dl > div").hidden = !selected;
+      item.classList.toggle("is-empty", !selected);
       image.hidden = !selected;
       if (selected) image.src = selected.closest("label").querySelector("img").src;
       else image.removeAttribute("src");
       if (selected) choices++;
     }
     const total = measurements + personalChoices + photoCount + choices;
-    page.querySelector(".generation-selections").hidden = !choices;
     const maximum = numbers.length + personalGroups.length + photos.length + groups.length;
     page.querySelector('[data-count="total"]').textContent = `${total} / ${maximum}`;
     const progress = page.querySelector("progress");
     progress.max = maximum;
     progress.value = total;
     progress.textContent = `${total} из ${maximum}`;
-    button.disabled = photos.some((photo) => photo.pending);
+    checkButton.disabled = photos.some((photo) => photo.pending);
+    generationButton.disabled = true;
     status.textContent = "";
+    delete status.dataset.state;
   }
 
   for (const edit of page.querySelectorAll("[data-edit-question]")) {
@@ -101,6 +104,35 @@ export function mountGeneration(form) {
       input.focus({ preventScroll: true });
       group.scrollIntoView({ block: "center", behavior: "instant" });
     }, { signal: events.signal });
+  }
+
+  const toggleRadios = [...form.querySelectorAll(
+    '.generation-choice input[type="radio"], .generation-gender-option input[type="radio"]',
+  )];
+  const checkedBeforeActivation = new WeakMap(
+    toggleRadios.map((radio) => [radio, radio.checked]),
+  );
+  const syncRadioGroup = (radio) => {
+    for (const candidate of toggleRadios) {
+      if (candidate.name === radio.name) checkedBeforeActivation.set(candidate, candidate.checked);
+    }
+  };
+  for (const radio of toggleRadios) {
+    radio.addEventListener("keydown", (event) => {
+      if (event.key !== " " || !radio.checked) return;
+      event.preventDefault();
+      radio.checked = false;
+      radio.dispatchEvent(new Event("change", { bubbles: true }));
+    }, { signal: events.signal });
+    radio.addEventListener("click", (event) => {
+      if (!checkedBeforeActivation.get(radio)) return;
+      event.preventDefault();
+      setTimeout(() => {
+        if (disposed) return;
+        radio.checked = false;
+        radio.dispatchEvent(new Event("change", { bubbles: true }));
+      }, 0);
+    }, { capture: true, signal: events.signal });
   }
 
   function renderPhoto(photo) {
@@ -204,10 +236,13 @@ export function mountGeneration(form) {
     updateSummary();
   }, { signal: events.signal });
   form.addEventListener("change", (event) => {
+    if (toggleRadios.includes(event.target)) syncRadioGroup(event.target);
     const group = event.target.closest("[data-question]");
-    if (group) error(group, group.dataset.question, "");
+    if (group) error(group, group.dataset.question,
+      submitted && !group.querySelector("input:checked") ? "Выберите один вариант." : "");
     const personalGroup = event.target.closest("[data-personal-question]");
-    if (personalGroup) error(personalGroup, personalGroup.dataset.personalQuestion, "");
+    if (personalGroup) error(personalGroup, personalGroup.dataset.personalQuestion,
+      submitted && !personalGroup.querySelector("input:checked") ? "Выберите один вариант." : "");
     updateSummary();
   }, { signal: events.signal });
   form.addEventListener("blur", (event) => {
@@ -219,6 +254,7 @@ export function mountGeneration(form) {
     submitted = true;
     if (photos.some((photo) => photo.pending)) {
       status.textContent = "Подождите, фотографии ещё открываются.";
+      status.dataset.state = "error";
       return;
     }
     const invalid = numbers.filter((input) => !validateNumber(input, true));
@@ -237,8 +273,9 @@ export function mountGeneration(form) {
       if (!selected) invalid.push(group.querySelector("input"));
     }
     status.textContent = invalid.length
-      ? "Проверьте отмеченные поля."
-      : "Анкета заполнена. Генерация будет доступна после подключения сервиса.";
+      ? "Заполните подсвеченные блоки."
+      : "Анкета заполнена. Сгенерировать 5 образов можно будет после подключения сервиса.";
+    status.dataset.state = invalid.length ? "error" : "success";
     // Follow the visible form order when sections are rearranged.
     [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
   }, { signal: events.signal });
@@ -249,7 +286,8 @@ export function mountGeneration(form) {
   return () => {
     disposed = true;
     events.abort();
-    button.disabled = true;
+    checkButton.disabled = true;
+    generationButton.disabled = true;
     photos.forEach((photo) => {
       photo.request++;
       photo.pending = false;

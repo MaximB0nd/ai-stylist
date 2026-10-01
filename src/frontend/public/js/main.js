@@ -1,6 +1,6 @@
 import "/js/vendor/pp-reactive-v2.min.js";
 import { initializeAuth } from "/js/pages/auth.js";
-import { initializeGeneration, releaseGeneration } from "/js/pages/generation.js";
+import { initializeGeneration, releaseGeneration } from "/js/pages/generation.js?v=front4-21";
 
 document.addEventListener("pp:navigation:complete", initializeGeneration);
 document.addEventListener("pp:navigation:complete", initializeAuth);
