@@ -14,8 +14,11 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: "ci-dummy-secret-key-for-test-run"
 
     steps:
+
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -51,3 +54,4 @@ jobs:
           name: allure-report
           path: allure-report
           retention-days: 3
+          

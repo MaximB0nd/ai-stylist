@@ -29,3 +29,4 @@ jobs:
 
       - name: Build Backend Core Container
         run: docker compose build backend_core
+        
