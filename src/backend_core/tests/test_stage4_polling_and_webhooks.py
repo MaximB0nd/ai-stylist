@@ -1,16 +1,25 @@
-"""Tests for Stage 4: Polling status endpoint and AI Core webhook handlers."""
-
 from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
+import os
+from pathlib import Path
+
+import sys
 import time
 import uuid
+
+backend_core_dir = Path(__file__).resolve().parent.parent
+if str(backend_core_dir) not in sys.path:
+    sys.path.insert(0, str(backend_core_dir))
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-execution")
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import settings
+
 from app.core.dependencies import (
     get_ai_core_client,
     get_album_repository,

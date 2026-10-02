@@ -9,12 +9,17 @@ import uuid
 import httpx
 import pytest
 
+import os
+
 backend_core_dir = Path(__file__).resolve().parent.parent
 if str(backend_core_dir) not in sys.path:
     sys.path.insert(0, str(backend_core_dir))
 
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-execution")
+
 from app.services.ai_core_client import AICoreClient, AICoreError
 from app.services.generation_service import GenerationService
+
 
 
 @pytest.mark.asyncio
