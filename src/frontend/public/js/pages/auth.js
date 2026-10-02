@@ -64,6 +64,55 @@ function getInitials(name) {
 	return initials || "A";
 }
 
+function formatProfileCreatedAt(value) {
+	if (!value) {
+		return "—";
+	}
+
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		return "—";
+	}
+
+	return new Intl.DateTimeFormat("ru-RU", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+	}).format(date);
+}
+
+export function getProfileViewModel(user) {
+	const name = user?.name?.trim() || "Не указано";
+	const email = user?.email?.trim() || "Не указана";
+
+	return {
+		name,
+		email,
+		createdAt: formatProfileCreatedAt(user?.created_at),
+		initials: user?.name?.trim() ? getInitials(user.name) : "",
+	};
+}
+
+export function updateProfile(user) {
+	const profile = getProfileViewModel(user);
+
+	for (const element of document.querySelectorAll("[data-profile-name]")) {
+		element.textContent = profile.name;
+	}
+	for (const element of document.querySelectorAll("[data-profile-email]")) {
+		element.textContent = profile.email;
+	}
+	for (const element of document.querySelectorAll("[data-profile-created]")) {
+		element.textContent = profile.createdAt;
+	}
+	for (const avatar of document.querySelectorAll("[data-profile-avatar]")) {
+		avatar.textContent = profile.initials;
+		if (!profile.initials) {
+			avatar.innerHTML = '<span class="site-icon site-icon--user-round"></span>';
+		}
+	}
+}
+
 function findElements() {
 	const modal = document.getElementById("authModal");
 	const form = document.getElementById("loginForm");
@@ -85,8 +134,8 @@ function findElements() {
 		emailInput: document.getElementById("loginEmail"),
 		passwordInput: document.getElementById("loginPassword"),
 		status: document.getElementById("authStatus"),
-		accountLabel: document.querySelector("[data-auth-account-label]"),
-		avatar: document.querySelector("[data-auth-avatar]"),
+		accountLabels: document.querySelectorAll("[data-auth-account-label]"),
+		avatars: document.querySelectorAll("[data-auth-avatar]"),
 	};
 }
 
@@ -94,17 +143,19 @@ function updateChrome(user) {
 	const elements = findElements();
 	const name = user?.name?.trim();
 	const email = user?.email?.trim();
-	const label = name || email || "Мой аккаунт";
+	const label = name || email || "Войти";
 
-	if (elements?.accountLabel) {
-		elements.accountLabel.textContent = label;
+	for (const accountLabel of elements?.accountLabels ?? []) {
+		accountLabel.textContent = label;
 	}
-	if (elements?.avatar) {
-		elements.avatar.textContent = name ? getInitials(name) : "";
+	for (const avatar of elements?.avatars ?? []) {
+		avatar.textContent = name ? getInitials(name) : "";
 		if (!name) {
-			elements.avatar.innerHTML = '<span class="site-icon site-icon--user-round"></span>';
+			avatar.innerHTML = '<span class="site-icon site-icon--user-round"></span>';
 		}
 	}
+
+	updateProfile(user);
 }
 
 async function loadCurrentUser(session) {

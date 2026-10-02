@@ -192,6 +192,22 @@ class GenerationLayoutTests(unittest.TestCase):
                 "/images/generation/intro-conference-women.webp",
             ],
         )
+        animated = intro.select_one('[data-motion-image]')
+        self.assertEqual(
+            animated["data-static-src"],
+            "/images/generation/vika-adviser-static.png",
+        )
+        self.assertTrue(
+            (FRONTEND / "public" / animated["data-static-src"].removeprefix("/")).is_file()
+        )
+
+    def test_generation_has_dark_theme_overrides(self):
+        stylesheet = (FRONTEND / "public" / "css" / "pages" / "generation.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(":root[data-dark-theme] .generation-page", stylesheet)
+        self.assertIn("--generation-intro-background: #2d2724", stylesheet)
+        self.assertIn("var(--generation-intro-background)", stylesheet)
 
     def test_photo_examples_are_distinct_from_uploaded_photos(self):
         for key in ("body", "face"):

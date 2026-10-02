@@ -1,11 +1,11 @@
-@import "./shared/tokens.css";
+@import "./shared/tokens.css?v=front7-1";
 @import "./shared/fonts.css";
-@import "./base.css";
-@import "./shared/layout.css";
+@import "./base.css?v=front7-1";
+@import "./shared/layout.css?v=front7-1";
 @import "./shared/controls.css";
 @import "./shared/media.css";
 @import "./pages/home.css";
-@import "./pages/generation.css?v=front4-27";
+@import "./pages/generation.css?v=front7-1";
 @import "./pages/gallery.css";
 @import "./pages/album.css";
-@import "./pages/profile.css";
+@import "./pages/profile.css?v=front7-8";

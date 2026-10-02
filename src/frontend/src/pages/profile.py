@@ -1,45 +1,98 @@
-from html import escape
-
 from casp.layout import Metadata
 
 from src.components.shared.layout.app_shell import app_shell
-from src.shared.profile.demo import DEMO_PROFILE
 
 metadata = Metadata(
     title="Профиль",
-    description="Данные аккаунта Носи Красиво",
+    description="Профиль и настройки Носи Красиво",
 )
 
 
 def page():
-    name = DEMO_PROFILE["name"].strip() or "Пользователь"
-    initials = "".join(part[0] for part in name.split()[:2]).upper()
-    safe_name = escape(name)
-    safe_email = escape(DEMO_PROFILE["email"])
-
     return app_shell(
-        f"""
-<section class="profile-page" lang="ru" aria-labelledby="profile-account-title">
-  <div class="profile-intro">
-    <div class="profile-avatar" role="img" aria-label="Аватар: {safe_name}" data-profile-avatar>
-      {escape(initials)}
-    </div>
-    <div class="profile-identity">
-      <p class="profile-caption">Личный аккаунт</p>
-      <h2 id="profile-account-title" data-profile-name>{safe_name}</h2>
-    </div>
-  </div>
+        """
+<section class="profile-page" lang="ru" aria-label="Профиль и настройки">
+  <div class="profile-layout">
+    <div class="profile-main">
+      <section class="profile-section profile-account" aria-labelledby="profile-account-title">
+        <header class="profile-section__heading">
+          <div>
+            <p class="profile-caption">Аккаунт</p>
+            <h3 id="profile-account-title">Данные профиля</h3>
+          </div>
+        </header>
 
-  <dl class="profile-fields">
-    <div class="profile-field">
-      <dt>Имя пользователя</dt>
-      <dd data-profile-name>{safe_name}</dd>
+        <div class="profile-account__content">
+          <div class="profile-avatar" data-profile-avatar aria-hidden="true">
+            <span class="site-icon site-icon--user-round"></span>
+          </div>
+          <dl class="profile-fields">
+            <div class="profile-field">
+              <dt>Имя</dt>
+              <dd data-profile-name>Не указано</dd>
+            </div>
+            <div class="profile-field">
+              <dt>Электронная почта</dt>
+              <dd data-profile-email>Не указана</dd>
+            </div>
+            <div class="profile-field">
+              <dt>Профиль создан</dt>
+              <dd data-profile-created>—</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="profile-section profile-settings" aria-labelledby="profile-settings-title">
+        <header class="profile-section__heading">
+          <div>
+            <p class="profile-caption">Интерфейс</p>
+            <h3 id="profile-settings-title">Настройки</h3>
+          </div>
+        </header>
+
+        <div class="profile-settings__list">
+          <label class="profile-setting">
+            <span class="profile-setting__copy">
+              <strong>Тёмная тема</strong>
+              <small>Использовать тёмную палитру на всех страницах.</small>
+            </span>
+            <input type="checkbox" data-profile-preference="darkMode" />
+            <span class="profile-toggle" aria-hidden="true"></span>
+          </label>
+          <label class="profile-setting">
+            <span class="profile-setting__copy">
+              <strong>Остановка анимации</strong>
+              <small>Остановить GIF и отключить декоративные движения и переходы.</small>
+            </span>
+            <input type="checkbox" data-profile-preference="reduceMotion" />
+            <span class="profile-toggle" aria-hidden="true"></span>
+          </label>
+        </div>
+      </section>
     </div>
-    <div class="profile-field">
-      <dt>Электронная почта</dt>
-      <dd data-profile-email>{safe_email}</dd>
-    </div>
-  </dl>
+
+    <aside class="profile-guide" aria-labelledby="profile-guide-title">
+      <div class="profile-guide__copy">
+        <p class="profile-caption">Совет Вики</p>
+        <h3 id="profile-guide-title">Начните с главного</h3>
+        <p class="profile-guide__tip" data-vika-tip>
+          Когда профиль будет подключён, имя и почта появятся здесь автоматически.
+        </p>
+      </div>
+      <div class="profile-guide__visual" aria-hidden="true">
+        <img
+          src="/images/profile/vika-profile.gif"
+          data-motion-image
+          data-animated-src="/images/profile/vika-profile.gif"
+          data-static-src="/images/profile/vika-profile-static.png"
+          alt=""
+          width="1254"
+          height="1254"
+        />
+      </div>
+    </aside>
+  </div>
 </section>
 """,
         title="Профиль",

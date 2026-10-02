@@ -37,6 +37,10 @@
   mix-blend-mode: multiply;
 }
 
+:root[data-dark-theme] .site-sidebar__logo {
+  mix-blend-mode: normal;
+}
+
 .site-sidebar__name {
   font: var(--font-weight-display) 26px/1.1 var(--font-display);
 }

@@ -186,7 +186,15 @@ def page():
   </div>
   <section class="generation-intro" aria-labelledby="generation-intro-title">
     <div class="generation-intro-visual" aria-hidden="true">
-      <img src="/images/generation/vika-adviser.gif" alt="" width="1254" height="1254" />
+      <img
+        src="/images/generation/vika-adviser.gif"
+        data-motion-image
+        data-animated-src="/images/generation/vika-adviser.gif"
+        data-static-src="/images/generation/vika-adviser-static.png"
+        alt=""
+        width="1254"
+        height="1254"
+      />
     </div>
     <div class="generation-intro-copy">
       <h3 id="generation-intro-title"><span>Вика</span> поможет собрать образ</h3>
