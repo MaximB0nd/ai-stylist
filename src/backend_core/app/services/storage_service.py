@@ -43,6 +43,16 @@ class StorageService:
         )
         return object_key
 
+    async def upload_bytes(self, object_key: str, data: bytes, content_type: str = "image/webp") -> str:
+        """Upload raw bytes to MinIO. Returns the object key."""
+        import io
+
+        data_stream = io.BytesIO(data)
+        await asyncio.to_thread(
+            self._put_object, object_key, data_stream, len(data), content_type
+        )
+        return object_key
+
     def _put_object(self, key: str, data: BinaryIO, length: int, content_type: str) -> None:
         """Synchronous put_object call for use with asyncio.to_thread."""
         self._ensure_bucket()

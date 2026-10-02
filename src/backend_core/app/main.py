@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,12 +9,30 @@ from fastapi.responses import JSONResponse
 from app.api.v1.router import api_router
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: verify or create MinIO bucket on startup."""
+    try:
+        from app.services.storage_service import StorageService
+
+        storage = StorageService()
+        storage._ensure_bucket()
+        logger.info("MinIO bucket '%s' ready.", storage.bucket)
+    except Exception as e:
+        logger.warning("Could not auto-create MinIO bucket on startup: %s", e)
+    yield
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS configuration

@@ -35,6 +35,7 @@ from app.db.repositories.album_repository import AlbumRepository
 from app.db.repositories.user_repository import UserRepository
 from app.main import app
 from app.models.album import Album
+from app.models.photo import Photo
 from app.models.user import User
 from app.services.generation_service import GenerationService
 from app.services.storage_service import StorageService
@@ -94,8 +95,54 @@ class InMemoryAlbumRepository(AlbumRepository):
             if a.user_id == user_id
         ]
 
+    async def get_by_generation_id(self, generation_id: uuid.UUID) -> Optional[Album]:
+        return next(
+            (a for a in self.albums.values() if a.generation_id == generation_id),
+            None,
+        )
+
+    async def update_status(
+        self,
+        album_id: uuid.UUID,
+        status: str,
+        error_message: Optional[str] = None,
+        ai_job_id: Optional[uuid.UUID] = None,
+    ) -> Optional[Album]:
+        album = self.albums.get(album_id)
+        if not album:
+            return None
+        album.status = status
+        if error_message is not None:
+            album.error_message = error_message
+        if ai_job_id is not None:
+            album.ai_job_id = ai_job_id
+        return album
+
+    async def add_photos(
+        self, album_id: uuid.UUID, photos_data: List[dict]
+    ) -> List[Photo]:
+        album = self.albums.get(album_id)
+        if not album:
+            return []
+        photos = [
+            Photo(
+                id=uuid.uuid4(),
+                album_id=album_id,
+                order_index=item["order_index"],
+                object_key=item["object_key"],
+                is_cover=item.get("is_cover", False),
+                is_favorite=item.get("is_favorite", False),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            for item in photos_data
+        ]
+        album.photos.extend(photos)
+        return photos
+
     async def create_album(self, **kwargs) -> Album:
         now = datetime.now(timezone.utc)
+        kwargs.setdefault("status", "VALIDATING")
         album = Album(
             id=uuid.uuid4(),
             created_at=now,
@@ -114,6 +161,7 @@ class InMemoryStorageService(StorageService):
 
     def __init__(self) -> None:
         self.uploads: Dict[str, bytes] = {}
+        self.presigned_ttl = 3600
 
     async def upload_file(self, object_key: str, file) -> str:
         content = await file.read()
@@ -121,6 +169,10 @@ class InMemoryStorageService(StorageService):
         # Reset file position for potential re-read
         if hasattr(file, "seek"):
             await file.seek(0)
+        return object_key
+
+    async def upload_bytes(self, object_key: str, data: bytes, content_type: str = "image/webp") -> str:
+        self.uploads[object_key] = data
         return object_key
 
     def presigned_url(self, object_key: str) -> str:

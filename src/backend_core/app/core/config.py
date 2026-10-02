@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
     MINIO_PRESIGNED_TTL: int = 3600  # presigned URL lifetime in seconds
 
+    # AI Core Integration
+    AI_CORE_URL: str = "http://localhost:8001"
+    AI_CORE_SERVICE_TOKEN: str = "temporary-ai-core-service-token"
+    AI_CORE_WEBHOOK_SECRET: str = "temporary-ai-core-webhook-secret"
+
     @model_validator(mode="after")
     def assemble_database_url(self) -> "Settings":
         if not self.DATABASE_URL:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import albums, auth, generations
+from app.api.v1.endpoints import albums, auth, generations, internal
 
 api_router = APIRouter()
 
@@ -21,3 +21,10 @@ api_router.include_router(
     prefix="/albums",
     tags=["Albums"],
 )
+
+api_router.include_router(
+    internal.router,
+    prefix="/internal",
+    tags=["Internal"],
+)
+

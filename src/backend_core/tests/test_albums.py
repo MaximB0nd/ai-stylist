@@ -94,8 +94,54 @@ class InMemoryAlbumRepository(AlbumRepository):
             if a.user_id == user_id
         ]
 
+    async def get_by_generation_id(self, generation_id: uuid.UUID) -> Optional[Album]:
+        return next(
+            (a for a in self.albums.values() if a.generation_id == generation_id),
+            None,
+        )
+
+    async def update_status(
+        self,
+        album_id: uuid.UUID,
+        status: str,
+        error_message: Optional[str] = None,
+        ai_job_id: Optional[uuid.UUID] = None,
+    ) -> Optional[Album]:
+        album = self.albums.get(album_id)
+        if not album:
+            return None
+        album.status = status
+        if error_message is not None:
+            album.error_message = error_message
+        if ai_job_id is not None:
+            album.ai_job_id = ai_job_id
+        return album
+
+    async def add_photos(
+        self, album_id: uuid.UUID, photos_data: List[dict]
+    ) -> List[Photo]:
+        album = self.albums.get(album_id)
+        if not album:
+            return []
+        photos = [
+            Photo(
+                id=uuid.uuid4(),
+                album_id=album_id,
+                order_index=item["order_index"],
+                object_key=item["object_key"],
+                is_cover=item.get("is_cover", False),
+                is_favorite=item.get("is_favorite", False),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            for item in photos_data
+        ]
+        album.photos.extend(photos)
+        return photos
+
     async def create_album(self, **kwargs) -> Album:
         now = datetime.now(timezone.utc)
+        kwargs.setdefault("status", "VALIDATING")
         album = Album(
             id=uuid.uuid4(),
             created_at=now,
@@ -162,9 +208,12 @@ class InMemoryStorageService(StorageService):
     """In-memory storage — returns deterministic presigned URLs."""
 
     def __init__(self) -> None:
-        pass
+        self.presigned_ttl = 3600
 
     async def upload_file(self, object_key: str, file) -> str:
+        return object_key
+
+    async def upload_bytes(self, object_key: str, data: bytes, content_type: str = "image/webp") -> str:
         return object_key
 
     def presigned_url(self, object_key: str) -> str:
@@ -556,3 +605,83 @@ async def test_album_different_situations(
         )
         assert resp.status_code == 200
         assert resp.json()["situation"] == situation
+
+
+async def test_album_repo_get_by_generation_id(album_repo: InMemoryAlbumRepository):
+    """Test retrieving album by generation_id."""
+    gen_id = uuid.uuid4()
+    album = await album_repo.create_album(
+        user_id=USER_A_ID,
+        generation_id=gen_id,
+        title="Test",
+        situation="office",
+        styles=["classic"],
+        shoes=["loafers"],
+        impressions=["elegant"],
+    )
+    found = await album_repo.get_by_generation_id(gen_id)
+    assert found is not None
+    assert found.id == album.id
+    assert found.status == "VALIDATING"
+
+    not_found = await album_repo.get_by_generation_id(uuid.uuid4())
+    assert not_found is None
+
+
+async def test_album_repo_update_status(album_repo: InMemoryAlbumRepository):
+    """Test updating album status, error_message and ai_job_id."""
+    gen_id = uuid.uuid4()
+    album = await album_repo.create_album(
+        user_id=USER_A_ID,
+        generation_id=gen_id,
+        title="Test",
+        situation="office",
+        styles=["classic"],
+        shoes=["loafers"],
+        impressions=["elegant"],
+    )
+    job_id = uuid.uuid4()
+    updated = await album_repo.update_status(
+        album_id=album.id,
+        status="PROCESSING",
+        ai_job_id=job_id,
+    )
+    assert updated is not None
+    assert updated.status == "PROCESSING"
+    assert updated.ai_job_id == job_id
+
+    # Test updating to FAILED with error
+    failed = await album_repo.update_status(
+        album_id=album.id,
+        status="FAILED",
+        error_message="AI generation timeout",
+    )
+    assert failed is not None
+    assert failed.status == "FAILED"
+    assert failed.error_message == "AI generation timeout"
+
+
+async def test_album_repo_add_photos(album_repo: InMemoryAlbumRepository):
+    """Test batch adding photos to an album."""
+    gen_id = uuid.uuid4()
+    album = await album_repo.create_album(
+        user_id=USER_A_ID,
+        generation_id=gen_id,
+        title="Test",
+        situation="office",
+        styles=["classic"],
+        shoes=["loafers"],
+        impressions=["elegant"],
+    )
+    photos_data = [
+        {"order_index": 0, "object_key": "albums/test/0.webp", "is_cover": True},
+        {"order_index": 1, "object_key": "albums/test/1.webp", "is_favorite": True},
+    ]
+    added = await album_repo.add_photos(album.id, photos_data)
+    assert len(added) == 2
+    assert added[0].order_index == 0
+    assert added[0].is_cover is True
+    assert added[1].order_index == 1
+    assert added[1].is_favorite is True
+    assert len(album.photos) == 2
+

@@ -1,4 +1,6 @@
+from datetime import datetime, timedelta, timezone
 import logging
+from typing import Optional
 import uuid
 
 from fastapi import HTTPException, UploadFile, status
@@ -10,6 +12,7 @@ from app.schemas.generation import (
     GenerationAcceptedResponse,
     GenerationRequestForm,
 )
+from app.services.ai_core_client import AICoreClient
 from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
@@ -26,9 +29,11 @@ class GenerationService:
         self,
         album_repo: AlbumRepository,
         storage: StorageService,
+        ai_client: Optional[AICoreClient] = None,
     ) -> None:
         self.album_repo = album_repo
         self.storage = storage
+        self.ai_client = ai_client
 
     async def create_generation(
         self,
@@ -37,7 +42,7 @@ class GenerationService:
         body_photo: UploadFile,
         form: GenerationRequestForm,
     ) -> GenerationAcceptedResponse:
-        """Validate photos, upload to storage, create album, return 202 response."""
+        """Validate photos, upload to storage, create album, dispatch to AI Core, return 202 response."""
         self._validate_photo(face_photo, "face_photo")
         self._validate_photo(body_photo, "body_photo")
 
@@ -58,8 +63,8 @@ class GenerationService:
                 detail="Failed to store uploaded photos. Please try again.",
             )
 
-        # Persist album record
-        await self.album_repo.create_album(
+        # Persist album record with initial status VALIDATING
+        album = await self.album_repo.create_album(
             user_id=user_id,
             generation_id=generation_id,
             title=title,
@@ -72,11 +77,50 @@ class GenerationService:
             gender=form.gender.value,
             source_face_key=face_key,
             source_body_key=body_key,
+            status="VALIDATING",
         )
+
+        current_status = "VALIDATING"
+
+        # Dispatch job to AI Core if client is configured
+        if self.ai_client:
+            try:
+                face_url = self.storage.presigned_url(face_key)
+                body_url = self.storage.presigned_url(body_key)
+                ttl = getattr(self.storage, "presigned_ttl", settings.MINIO_PRESIGNED_TTL)
+                expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
+
+                job_data = await self.ai_client.create_job(
+                    generation_id=generation_id,
+                    face_photo_url=face_url,
+                    body_photo_url=body_url,
+                    expires_at=expires_at,
+                    age=form.age,
+                    height_cm=form.height,
+                    gender=form.gender.value,
+                    situation=form.situation.value,
+                    styles=[form.styles.value],
+                    shoes=[form.shoes.value],
+                    impressions=[form.impressions.value],
+                )
+                ai_job_id_raw = job_data.get("job_id")
+                ai_job_id = uuid.UUID(ai_job_id_raw) if ai_job_id_raw else None
+                current_status = job_data.get("status", "QUEUED")
+                await self.album_repo.update_status(
+                    album_id=album.id,
+                    status=current_status,
+                    ai_job_id=ai_job_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Could not dispatch job to AI Core for generation %s: %s",
+                    generation_id,
+                    exc,
+                )
 
         return GenerationAcceptedResponse(
             generation_id=generation_id,
-            status="VALIDATING",
+            status=current_status,
             message="Generation request accepted for processing",
             status_poll_url=f"{settings.API_V1_PREFIX}/generations/{generation_id}/status",
         )

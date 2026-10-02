@@ -1,5 +1,7 @@
-import uuid
+from datetime import datetime
 from enum import Enum
+from typing import Optional
+import uuid
 
 from pydantic import BaseModel, Field
 
@@ -65,3 +67,15 @@ class GenerationAcceptedResponse(BaseModel):
     status: str = "VALIDATING"
     message: str = "Generation request accepted for processing"
     status_poll_url: str
+
+
+class GenerationStatusResponse(BaseModel):
+    """Response model for GET /api/v1/generations/{generation_id}/status."""
+
+    generation_id: uuid.UUID
+    status: str
+    album_id: Optional[uuid.UUID] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+

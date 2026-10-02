@@ -40,12 +40,21 @@ def get_auth_service(
     return AuthService(user_repo=user_repo)
 
 
+from app.services.ai_core_client import AICoreClient
+
+
+def get_ai_core_client() -> AICoreClient:
+    """Dependency provider for AICoreClient."""
+    return AICoreClient()
+
+
 def get_generation_service(
     album_repo: AlbumRepository = Depends(get_album_repository),
     storage: StorageService = Depends(get_storage_service),
+    ai_client: AICoreClient = Depends(get_ai_core_client),
 ) -> GenerationService:
     """Dependency provider for GenerationService."""
-    return GenerationService(album_repo=album_repo, storage=storage)
+    return GenerationService(album_repo=album_repo, storage=storage, ai_client=ai_client)
 
 
 def get_album_service(
