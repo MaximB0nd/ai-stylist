@@ -6,13 +6,7 @@ def header(title="Носи Красиво"):
 
     return f"""
 <header class="site-header">
-  <div>
-    <div class="site-header__breadcrumb">
-      <a href="/">Носи Красиво</a>
-      <span aria-hidden="true">/</span>
-      <h1 class="site-header__title">{safe_title}</h1>
-    </div>
-  </div>
+  <h1 class="site-header__title">{safe_title}</h1>
 
   <button class="site-header__profile site-header__profile-button" type="button" id="authTrigger" aria-haspopup="dialog" aria-controls="authModal">
     <span class="site-avatar" aria-hidden="true" data-auth-avatar><span class="site-icon site-icon--user-round"></span></span>
