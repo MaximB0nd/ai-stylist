@@ -45,6 +45,17 @@ class AlbumRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_by_ai_job_id(self, ai_job_id: uuid.UUID) -> Optional[Album]:
+        """Fetch album by AI Core job ID with photos preloaded."""
+        stmt = (
+            select(Album)
+            .where(Album.ai_job_id == ai_job_id)
+            .options(selectinload(Album.photos))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
     async def update_status(
         self,
         album_id: uuid.UUID,

@@ -20,8 +20,25 @@ class StorageService:
             secret_key=settings.MINIO_SECRET_KEY,
             secure=settings.MINIO_SECURE,
         )
+        # Dedicated client for browser-facing presigned URLs (resolves localhost/public domains)
+        public_endpoint = settings.MINIO_PUBLIC_ENDPOINT or settings.MINIO_ENDPOINT
+        clean_public_endpoint = (
+            public_endpoint.replace("http://", "").replace("https://", "").rstrip("/")
+        )
+        public_secure = (
+            settings.MINIO_PUBLIC_SECURE
+            if settings.MINIO_PUBLIC_SECURE is not None
+            else settings.MINIO_SECURE
+        )
+        self.public_client = Minio(
+            endpoint=clean_public_endpoint,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            secure=public_secure,
+        )
         self.bucket = settings.MINIO_BUCKET
         self.presigned_ttl = settings.MINIO_PRESIGNED_TTL
+
 
     def _ensure_bucket(self) -> None:
         """Create bucket if it does not exist (idempotent)."""
@@ -65,11 +82,12 @@ class StorageService:
         )
 
     def presigned_url(self, object_key: str) -> str:
-        """Generate a presigned GET URL for the given object key."""
+        """Generate a presigned GET URL for the given object key using public endpoint."""
         from datetime import timedelta
 
-        return self.client.presigned_get_object(
+        return self.public_client.presigned_get_object(
             bucket_name=self.bucket,
             object_name=object_key,
             expires=timedelta(seconds=self.presigned_ttl),
         )
+

@@ -43,8 +43,9 @@ class GenerationService:
         form: GenerationRequestForm,
     ) -> GenerationAcceptedResponse:
         """Validate photos, upload to storage, create album, dispatch to AI Core, return 202 response."""
-        self._validate_photo(face_photo, "face_photo")
-        self._validate_photo(body_photo, "body_photo")
+        await self._validate_photo(face_photo, "face_photo")
+        await self._validate_photo(body_photo, "body_photo")
+
 
         generation_id = uuid.uuid4()
         title = SITUATION_TITLES.get(form.situation.value, form.situation.value)
@@ -126,8 +127,8 @@ class GenerationService:
         )
 
     @staticmethod
-    def _validate_photo(file: UploadFile, field_name: str) -> None:
-        """Validate that uploaded file is an allowed image type."""
+    async def _validate_photo(file: UploadFile, field_name: str) -> None:
+        """Validate that uploaded file is an allowed image type and matches magic bytes."""
         if not file or not file.filename:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -139,6 +140,22 @@ class GenerationService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid file type for {field_name}: {content_type}. Allowed: webp, jpeg, png.",
             )
+
+        # Validate magic bytes / file signature
+        header = await file.read(16)
+        await file.seek(0)
+
+        is_jpeg = header.startswith(b"\xff\xd8\xff")
+        is_png = header.startswith(b"\x89PNG\r\n\x1a\n")
+        is_webp = header[:4] == b"RIFF" and header[8:12] == b"WEBP"
+
+        if not (is_jpeg or is_png or is_webp):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file content for {field_name}: file signature (magic bytes) does not match image format (JPEG, PNG, WEBP).",
+            )
+
+
 
 
 def _extension(file: UploadFile) -> str:

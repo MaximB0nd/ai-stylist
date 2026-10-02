@@ -9,7 +9,7 @@ import time
 from typing import Any, Dict, Optional
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 import httpx
 
 from app.core.config import settings
@@ -52,7 +52,8 @@ def _verify_webhook_auth(
                 detail="Webhook timestamp expired (drift > 300s).",
             )
 
-        message = f"{x_ai_core_timestamp}.{raw_body.decode('utf-8')}".encode("utf-8")
+        # Combine timestamp bytes with raw body bytes directly (safe against UnicodeDecodeError)
+        message = f"{x_ai_core_timestamp}.".encode("utf-8") + raw_body
         expected_sig = hmac.new(
             settings.AI_CORE_WEBHOOK_SECRET.encode("utf-8"),
             message,
@@ -81,6 +82,78 @@ def _verify_webhook_auth(
     )
 
 
+async def _download_and_store_results(
+    album_id: uuid.UUID,
+    job_uuid: uuid.UUID,
+    album_repo: AlbumRepository,
+    storage: StorageService,
+    ai_client: AICoreClient,
+) -> None:
+    """Background task to fetch images from AI Core temp S3, upload to permanent S3 and persist to DB."""
+    try:
+        job_details = await ai_client.get_job(job_uuid)
+        results = job_details.get("results", [])
+
+        photos_data = []
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            for item in results:
+                order_index = item["order_index"]
+                download_url = item["download_url"]
+
+                # Download image from temporary S3
+                img_resp = await http_client.get(download_url)
+                if img_resp.status_code != 200:
+                    raise RuntimeError(
+                        f"Failed to download image from AI Core at order {order_index}: HTTP {img_resp.status_code}"
+                    )
+                content = img_resp.content
+
+                # Verify SHA256 checksum if provided
+                if item.get("checksum_sha256"):
+                    expected_sha = item["checksum_sha256"].replace("sha256:", "")
+                    actual_sha = hashlib.sha256(content).hexdigest()
+                    if actual_sha != expected_sha:
+                        logger.warning(
+                            "Checksum mismatch for order %d: expected %s, got %s",
+                            order_index,
+                            expected_sha,
+                            actual_sha,
+                        )
+
+                # Store in Permanent MinIO
+                dest_key = f"albums/{album_id}/look_{order_index:02d}.webp"
+                await storage.upload_bytes(dest_key, content, content_type="image/webp")
+
+                photos_data.append(
+                    {
+                        "order_index": order_index,
+                        "object_key": dest_key,
+                        "is_cover": (order_index == 0),
+                        "is_favorite": False,
+                    }
+                )
+
+        # Batch insert photos in PostgreSQL
+        await album_repo.add_photos(album_id, photos_data)
+
+        # Acknowledge delivery to AI Core so it cleans up temporary S3
+        try:
+            await ai_client.acknowledge_results(job_uuid)
+        except Exception as exc:
+            logger.warning("Could not send ACK to AI Core for job %s: %s", job_uuid, exc)
+
+        # Finalize album status
+        await album_repo.update_status(album_id, status="COMPLETED")
+        logger.info("Successfully processed and saved completed album %s", album_id)
+    except Exception as exc:
+        logger.exception("Failed to process completed job %s for album %s: %s", job_uuid, album_id, exc)
+        await album_repo.update_status(
+            album_id,
+            status="FAILED",
+            error_message=f"Failed to download results: {exc}"[:500],
+        )
+
+
 @router.post(
     "/ai-events",
     status_code=status.HTTP_200_OK,
@@ -89,6 +162,7 @@ def _verify_webhook_auth(
 )
 async def handle_ai_core_event(
     request: Request,
+    background_tasks: BackgroundTasks,
     x_ai_core_timestamp: Optional[str] = Header(None, alias="X-AI-Core-Timestamp"),
     x_ai_core_signature: Optional[str] = Header(None, alias="X-AI-Core-Signature"),
     x_internal_token: Optional[str] = Header(None, alias="X-Internal-Token"),
@@ -130,14 +204,8 @@ async def handle_ai_core_event(
 
     # Find album by generation_id or ai_job_id
     album = await album_repo.get_by_generation_id(job_uuid)
-    if not album:
-        # Check if job_uuid matches an album's ai_job_id
-        # We can search through the repository
-        all_user_albums = list(getattr(album_repo, "albums", {}).values()) if hasattr(album_repo, "albums") else []
-        for a in all_user_albums:
-            if a.ai_job_id == job_uuid:
-                album = a
-                break
+    if not album and hasattr(album_repo, "get_by_ai_job_id"):
+        album = await album_repo.get_by_ai_job_id(job_uuid)
 
     if not album:
         raise HTTPException(
@@ -146,6 +214,10 @@ async def handle_ai_core_event(
         )
 
     event_status = data.get("status", "").upper()
+
+    # Idempotency check: if album is already COMPLETED, avoid duplicate work and constraint violations
+    if album.status == "COMPLETED":
+        return {"status": "already_completed", "album_id": str(album.id), "success": True}
 
     if event_status == "PROCESSING":
         await album_repo.update_status(album.id, status="PROCESSING")
@@ -173,66 +245,19 @@ async def handle_ai_core_event(
             await album_repo.update_status(album.id, status="COMPLETED")
             return {"success": True, "album_id": str(album.id)}
 
-        # Standard AI Core contract: fetch results, download photos, upload to permanent S3
-        try:
-            job_details = await ai_client.get_job(job_uuid)
-            results = job_details.get("results", [])
-        except Exception as exc:
-            logger.exception("Failed to fetch job details from AI Core: %s", exc)
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Failed to fetch results from AI Core: {exc}",
-            )
-
-        photos_data = []
-        async with httpx.AsyncClient(timeout=30.0) as http_client:
-            for item in results:
-                order_index = item["order_index"]
-                download_url = item["download_url"]
-
-                # Download image from temporary S3
-                img_resp = await http_client.get(download_url)
-                if img_resp.status_code != 200:
-                    raise HTTPException(
-                        status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail=f"Failed to download image from AI Core at order {order_index}",
-                    )
-                content = img_resp.content
-
-                # Verify SHA256 checksum if provided
-                if item.get("checksum_sha256"):
-                    expected_sha = item["checksum_sha256"].replace("sha256:", "")
-                    actual_sha = hashlib.sha256(content).hexdigest()
-                    if actual_sha != expected_sha:
-                        logger.warning("Checksum mismatch for order %d: expected %s, got %s", order_index, expected_sha, actual_sha)
-
-                # Store in Permanent MinIO
-                dest_key = f"albums/{album.id}/look_{order_index:02d}.webp"
-                await storage.upload_bytes(dest_key, content, content_type="image/webp")
-
-                photos_data.append(
-                    {
-                        "order_index": order_index,
-                        "object_key": dest_key,
-                        "is_cover": (order_index == 0),
-                        "is_favorite": False,
-                    }
-                )
-
-        # Batch insert photos in PostgreSQL
-        await album_repo.add_photos(album.id, photos_data)
-
-        # Acknowledge delivery to AI Core so it cleans up temporary S3
-        try:
-            await ai_client.acknowledge_results(job_uuid)
-        except Exception as exc:
-            logger.warning("Could not send ACK to AI Core for job %s: %s", job_uuid, exc)
-
-        # Finalize album status
-        await album_repo.update_status(album.id, status="COMPLETED")
+        # Standard AI Core contract: delegate photo downloads and S3 transfer to BackgroundTasks
+        background_tasks.add_task(
+            _download_and_store_results,
+            album_id=album.id,
+            job_uuid=job_uuid,
+            album_repo=album_repo,
+            storage=storage,
+            ai_client=ai_client,
+        )
         return {"success": True, "album_id": str(album.id)}
 
     return {"status": "ignored", "event_status": event_status}
+
 
 
 @router.post(

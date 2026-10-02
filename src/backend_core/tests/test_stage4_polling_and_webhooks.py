@@ -43,6 +43,13 @@ class FakeAlbumRepository:
                 return album
         return None
 
+    async def get_by_ai_job_id(self, ai_job_id: uuid.UUID):
+        for album in self.albums.values():
+            if getattr(album, "ai_job_id", None) == ai_job_id:
+                return album
+        return None
+
+
     async def get_by_id(self, album_id: uuid.UUID):
         return self.albums.get(album_id)
 
@@ -504,3 +511,83 @@ async def test_legacy_complete_webhook(fake_repos, current_user):
             assert len(album.photos) == 2
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_ai_events_webhook_idempotency(fake_repos, current_user):
+    """Calling COMPLETED on an already COMPLETED album should return 200 without error."""
+    album_repo, storage, ai_client = fake_repos
+    gen_id = uuid.uuid4()
+    album_id = uuid.uuid4()
+    album = Album(
+        id=album_id,
+        user_id=current_user.id,
+        title="Офис",
+        generation_id=gen_id,
+        status="COMPLETED",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    album_repo.albums[album_id] = album
+
+    app.dependency_overrides[get_album_repository] = lambda: album_repo
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_ai_core_client] = lambda: ai_client
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            payload = json.dumps({
+                "job_id": str(gen_id),
+                "status": "COMPLETED",
+            }).encode("utf-8")
+            headers = generate_hmac_headers(payload)
+
+            resp = await client.post("/api/v1/internal/ai-events", content=payload, headers=headers)
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "already_completed"
+            assert album.status == "COMPLETED"
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_ai_events_find_by_ai_job_id(fake_repos, current_user):
+    """When webhook uses an external ai_job_id different from generation_id, album is found."""
+    album_repo, storage, ai_client = fake_repos
+    gen_id = uuid.uuid4()
+    ai_job_id = uuid.uuid4()
+    album_id = uuid.uuid4()
+    album = Album(
+        id=album_id,
+        user_id=current_user.id,
+        title="Вечер",
+        generation_id=gen_id,
+        ai_job_id=ai_job_id,
+        status="QUEUED",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    album_repo.albums[album_id] = album
+
+    app.dependency_overrides[get_album_repository] = lambda: album_repo
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_ai_core_client] = lambda: ai_client
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            # Send webhook using ai_job_id
+            payload = json.dumps({
+                "job_id": str(ai_job_id),
+                "status": "PROCESSING",
+            }).encode("utf-8")
+            headers = generate_hmac_headers(payload)
+
+            resp = await client.post("/api/v1/internal/ai-events", content=payload, headers=headers)
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "ok"
+            assert album.status == "PROCESSING"
+    finally:
+        app.dependency_overrides.clear()
+

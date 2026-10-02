@@ -226,7 +226,14 @@ def _auth_header(user_id: uuid.UUID = FAKE_USER_ID) -> Dict[str, str]:
 
 def _fake_image(content_type: str = "image/jpeg", filename: str = "photo.jpg") -> tuple:
     """Return (filename, BytesIO, content_type) tuple suitable for httpx file upload."""
-    return (filename, BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-bytes"), content_type)
+    if "png" in content_type:
+        header = b"\x89PNG\r\n\x1a\nfake-png-bytes"
+    elif "webp" in content_type:
+        header = b"RIFF\x00\x00\x00\x00WEBPfake-webp-bytes"
+    else:
+        header = b"\xff\xd8\xff\xe0fake-jpeg-bytes"
+    return (filename, BytesIO(header), content_type)
+
 
 
 VALID_FORM = {
@@ -568,6 +575,23 @@ async def test_generation_accepted_image_types(
         headers=_auth_header(),
     )
     assert resp.status_code == 202
+
+
+async def test_generation_rejects_invalid_magic_bytes(client: httpx.AsyncClient):
+    """When a file has image/jpeg content_type but raw text content, reject with 400."""
+    fake_text_file = ("photo.jpg", BytesIO(b"this is plain text not an image"), "image/jpeg")
+    resp = await client.post(
+        "/api/v1/generations",
+        data=VALID_FORM,
+        files={
+            "face_photo": fake_text_file,
+            "body_photo": _fake_image(),
+        },
+        headers=_auth_header(),
+    )
+    assert resp.status_code == 400
+    assert "magic bytes" in resp.json()["detail"].lower()
+
 
 
 # =============================================================================

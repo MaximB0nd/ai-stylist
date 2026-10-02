@@ -28,11 +28,14 @@ class Settings(BaseSettings):
 
     # MinIO / S3-compatible storage
     MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_PUBLIC_ENDPOINT: Optional[str] = None
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_BUCKET: str = "stylist"
     MINIO_SECURE: bool = False
+    MINIO_PUBLIC_SECURE: Optional[bool] = None
     MINIO_PRESIGNED_TTL: int = 3600  # presigned URL lifetime in seconds
+
 
     # AI Core Integration
     AI_CORE_URL: str = "http://localhost:8001"
