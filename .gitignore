@@ -1,32 +1,38 @@
-# Operating system files
-.DS_Store
-Thumbs.db
-
-# Editor and IDE settings
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*~
-
-# Logs
-*.log
-logs/
-
-# Local environment and secrets
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# pytest
 .pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Docker volumes
+postgres_data/

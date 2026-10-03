@@ -16,6 +16,17 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
+    # CORS origins
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:8080",
+        "http://localhost:5091",
+        "http://localhost:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:5091",
+        "http://127.0.0.1:3000",
+    ]
+
+
     # Database connection parameters
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
@@ -25,6 +36,22 @@ class Settings(BaseSettings):
 
     # Optional explicit database URL (if not provided, assembled safely via URL.create)
     DATABASE_URL: Optional[str] = None
+
+    # MinIO / S3-compatible storage
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_PUBLIC_ENDPOINT: Optional[str] = None
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_BUCKET: str = "stylist"
+    MINIO_SECURE: bool = False
+    MINIO_PUBLIC_SECURE: Optional[bool] = None
+    MINIO_PRESIGNED_TTL: int = 3600  # presigned URL lifetime in seconds
+
+
+    # AI Core Integration
+    AI_CORE_URL: str = "http://localhost:8001"
+    AI_CORE_SERVICE_TOKEN: str = "temporary-ai-core-service-token"
+    AI_CORE_WEBHOOK_SECRET: str = "temporary-ai-core-webhook-secret"
 
     @model_validator(mode="after")
     def assemble_database_url(self) -> "Settings":

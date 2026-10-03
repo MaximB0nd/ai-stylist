@@ -32,7 +32,7 @@ erDiagram
         jsonb impressions "Массив выбранных впечатлений"
         smallint user_age "Возраст пользователя на момент генерации"
         smallint user_height "Рост в см"
-        smallint user_weight "Вес в кг"
+        varchar gender "Пол: 'f' или 'm'"
         varchar source_face_key "Ключ исходного портрета в MinIO"
         varchar source_body_key "Ключ исходного фото тела в MinIO"
         integer total_photos "По умолчанию 10"
@@ -91,7 +91,7 @@ erDiagram
 | `impressions` | `JSONB` | `NOT NULL`, по умолчанию `'[]'::jsonb` | Массив выбранных впечатлений (например, `["confident", "elegant"]`) |
 | `user_age` | `SMALLINT` | `NULL` | Возраст на момент генерации |
 | `user_height` | `SMALLINT` | `NULL` | Рост (см) на момент генерации |
-| `user_weight` | `SMALLINT` | `NULL` | Вес (кг) на момент генерации |
+| `gender` | `VARCHAR(1)` | `NULL` | Пол: `'f'` (женский) или `'m'` (мужской) |
 | `source_face_key` | `VARCHAR(512)` | `NULL` | Ключ исходного фото лица в MinIO |
 | `source_body_key` | `VARCHAR(512)` | `NULL` | Ключ исходного фото тела в MinIO |
 | `total_photos` | `INTEGER` | `NOT NULL`, по умолчанию `10` | Общее количество фотографий в альбоме |
@@ -176,7 +176,7 @@ CREATE TABLE IF NOT EXISTS albums (
     impressions JSONB NOT NULL DEFAULT '[]'::jsonb,
     user_age SMALLINT NULL,
     user_height SMALLINT NULL,
-    user_weight SMALLINT NULL,
+    gender VARCHAR(1) NULL,
     source_face_key VARCHAR(512) NULL,
     source_body_key VARCHAR(512) NULL,
     total_photos INTEGER NOT NULL DEFAULT 10,
@@ -279,7 +279,7 @@ class Album(Base):
     impressions: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False)
     user_age: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     user_height: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
-    user_weight: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    gender: Mapped[Optional[str]] = mapped_column(String(1), nullable=True)
     source_face_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     source_body_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     total_photos: Mapped[int] = mapped_column(Integer, server_default=text("10"), default=10, nullable=False)

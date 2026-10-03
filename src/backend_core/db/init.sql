@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS albums (
     impressions JSONB NOT NULL DEFAULT '[]'::jsonb,
     user_age SMALLINT NULL,
     user_height SMALLINT NULL,
-    user_weight SMALLINT NULL,
+    gender VARCHAR(1) NULL,
     source_face_key VARCHAR(512) NULL,
     source_body_key VARCHAR(512) NULL,
     total_photos INTEGER NOT NULL DEFAULT 10,
