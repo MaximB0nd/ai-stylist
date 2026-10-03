@@ -20,6 +20,18 @@ class SharedLayoutTests(unittest.TestCase):
                 self.assertEqual(len(soup.select(".site-sidebar")), 1)
                 self.assertEqual(len(soup.select(".site-header")), 1)
                 self.assertEqual(len(soup.select(".site-footer")), 1)
+                footer_brand = soup.select_one(".site-footer__brand")
+                self.assertEqual(footer_brand["href"], "/")
+                self.assertIn("Носи Красиво", footer_brand.get_text(" ", strip=True))
+                self.assertRegex(
+                    footer_brand.select_one(".site-footer__copyright").get_text(),
+                    r"© \d{4}",
+                )
+                self.assertEqual(
+                    footer_brand.select_one("img")["src"],
+                    "/images/brand/logo-mark.png",
+                )
+                self.assertEqual(soup.select(".site-footer__nav"), [])
                 current = soup.select('.site-sidebar [aria-current="page"]')
                 self.assertEqual(len(current), 1)
                 self.assertEqual(current[0]["href"], path)

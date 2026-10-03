@@ -16,7 +16,7 @@ def sidebar(active_page=None):
     return f"""
 <aside class="site-sidebar" aria-label="Навигация по сайту">
   <a class="site-sidebar__brand" href="/">
-    <img class="site-sidebar__logo" src="/images/brand/logo.webp" alt="" width="48" height="64" />
+    <img class="site-sidebar__logo" src="/images/brand/logo-mark.png" alt="" width="70" height="70" />
     <span class="site-sidebar__name">Носи <em>Красиво</em></span>
   </a>
 
