@@ -28,6 +28,6 @@
 
 Endpoint: `POST /v1/validate`.
 
-Служба следует [общему договору](../../CONTRACT.md). Причины отклонения включают
-`FACE_NOT_FOUND`, `MULTIPLE_FACES`, `FACE_TOO_SMALL`, `FACE_TOO_BLURRY`,
-`INVALID_FACE_POSE`, `INVALID_EXPOSURE` и `UNEVEN_LIGHTING`.
+Точные поля и причины отклонения определяет [договор службы](CONTRACT.md).
+Транспорт, авторизация и системные ошибки следуют
+[общему договору](../../CONTRACT.md).

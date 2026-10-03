@@ -9,13 +9,13 @@
 
 ## Службы
 
-| Служба | Ответственность |
-| --- | --- |
-| [Проверка лица](face-validation/README.md) | пригодность фотографии лица |
-| [Проверка полного роста](body-validation/README.md) | пригодность фотографии человека в полный рост |
-| [Проверка личности](identity-verification/README.md) | один ли человек на двух фотографиях |
-| [Нормализация человека](person-normalization/README.md) | удаление фона и нормализация одного изображения |
-| [Определение цветотипа](color-type/README.md) | один из четырёх сезонных цветотипов |
+| Служба | Ответственность | Договор |
+| --- | --- | --- |
+| [Проверка лица](face-validation/README.md) | пригодность фотографии лица | [HTTP](face-validation/CONTRACT.md) |
+| [Проверка полного роста](body-validation/README.md) | пригодность фотографии человека в полный рост | [HTTP](body-validation/CONTRACT.md) |
+| [Проверка личности](identity-verification/README.md) | один ли человек на двух фотографиях | [HTTP](identity-verification/CONTRACT.md) |
+| [Нормализация человека](person-normalization/README.md) | удаление фона и нормализация одного изображения | [HTTP](person-normalization/CONTRACT.md) |
+| [Определение цветотипа](color-type/README.md) | один из четырёх сезонных цветотипов | [HTTP](color-type/CONTRACT.md) |
 
 Все службы следуют [общему HTTP-договору](../CONTRACT.md), независимо
 разворачиваются и не знают о порядке полного процесса.
