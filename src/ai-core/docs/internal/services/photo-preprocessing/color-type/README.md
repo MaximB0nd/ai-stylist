@@ -11,7 +11,7 @@
 - запускает закреплённую версию модели классификации;
 - возвращает `spring`, `summer`, `autumn` или `winter`;
 - применяет внутренний порог качества и при ненадёжном результате возвращает
-  `REJECTED` с причиной `COLOR_TYPE_UNCERTAIN`;
+  ошибку `422 COLOR_TYPE_UNCERTAIN`;
 - возвращает версию модели.
 
 Начальный кандидат: EfficientNet-B0 `jiwoonkim00/personal-color-classifier` с

@@ -28,7 +28,7 @@ Content-Type: application/json
 ```
 
 `width` и `height` — целые числа от `1` до `2048`; это начальный безопасный
-предел для CPU-развёртывания. Превышение возвращает `INVALID_REQUEST`. Служба
+предел для CPU-развёртывания. Превышение возвращает `422 VALIDATION_ERROR`. Служба
 сохраняет пропорции человека, центрирует его и заполняет свободную область
 цветом `#FFFFFF`. Формат результата всегда RGB sRGB PNG; формат, фон и алгоритм
 `contain` не являются параметрами запроса.
@@ -51,20 +51,25 @@ HTTP `200` возвращается только после успешной з�
 }
 ```
 
-## Нормализация невозможна
+## Нормализация невозможна из-за входа
 
-HTTP `200`:
+HTTP `422`, `Content-Type: application/problem+json`:
 
 ```json
 {
+  "type": "urn:ai-core:problem:person-mask-unavailable",
+  "title": "The person cannot be normalized",
+  "status": 422,
+  "detail": "A usable person mask could not be produced from the image.",
+  "instance": "urn:uuid:4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
+  "code": "PERSON_MASK_UNAVAILABLE",
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
-  "decision": "REJECTED",
-  "reasons": ["PERSON_MASK_UNAVAILABLE"],
+  "retryable": false,
   "model_version": "opencv/human_segmentation_pphumanseg@revision"
 }
 ```
 
-Допустимые причины:
+Допустимые коды ошибки `422`:
 
 | Код | Значение |
 | --- | --- |
@@ -72,13 +77,15 @@ HTTP `200`:
 | `MULTIPLE_PEOPLE` | нельзя однозначно выбрать одного человека |
 | `PERSON_MASK_UNAVAILABLE` | модель не построила пригодную маску человека |
 
-При отклонении служба не публикует частичный результат. Ошибка записи по
-`write_url` является системной ошибкой, а не `REJECTED`.
+При ошибке служба не публикует частичный результат. Сбой выполнения модели
+возвращает `500 INFERENCE_FAILED`, а ошибка записи по `write_url` — подходящий
+`502`, `504` или `409` из общего договора.
 
 ## Инварианты
 
-- Успех содержит `artifact` и не содержит `decision` или `reasons`.
+- Только HTTP `200` содержит `artifact`; без артефакта успешного ответа нет.
+- Ошибка `422` содержит `model_version`, использованную при анализе входа.
 - `artifact.width` и `artifact.height` равны запрошенным значениям.
 - `artifact.checksum_sha256` вычисляется по записанным байтам PNG.
 - Ответ не содержит исходную или промежуточную маску.
-- Системные ошибки используют HTTP-коды и форму ошибки общего договора.
+- Остальные ошибки используют HTTP-коды и Problem Details из общего договора.

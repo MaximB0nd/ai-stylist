@@ -37,7 +37,6 @@ HTTP `200`:
 {
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
   "decision": "SAME_PERSON",
-  "reasons": [],
   "model_version": "opencv/face_recognition_sface@revision"
 }
 ```
@@ -45,20 +44,25 @@ HTTP `200`:
 `decision` равен `SAME_PERSON` или `DIFFERENT_PERSON`. Оба значения являются
 завершённым результатом сравнения, а не ошибкой.
 
-## Сравнение невозможно
+## Сравнение невозможно из-за входа
 
-HTTP `200`:
+HTTP `422`, `Content-Type: application/problem+json`:
 
 ```json
 {
+  "type": "urn:ai-core:problem:body-image-face-not-found",
+  "title": "A comparable face was not found",
+  "status": 422,
+  "detail": "The body image does not contain a usable face.",
+  "instance": "urn:uuid:4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
+  "code": "BODY_IMAGE_FACE_NOT_FOUND",
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
-  "decision": "REJECTED",
-  "reasons": ["BODY_IMAGE_FACE_NOT_FOUND"],
+  "retryable": false,
   "model_version": "opencv/face_recognition_sface@revision"
 }
 ```
 
-Допустимые причины:
+Допустимые коды ошибки `422`:
 
 | Код | Значение |
 | --- | --- |
@@ -73,8 +77,9 @@ HTTP `200`:
 
 ## Инварианты
 
-- `decision` принимает только `SAME_PERSON`, `DIFFERENT_PERSON` или `REJECTED`.
-- Для результата сравнения массив `reasons` пуст.
-- Для `REJECTED` массив `reasons` непустой.
+- Успешный `decision` принимает только `SAME_PERSON` или `DIFFERENT_PERSON`.
+- HTTP `200` означает, что сравнение выполнено и содержит `decision`.
+- Если сравнение невозможно, служба возвращает `422`, а не `REJECTED`.
+- Ошибка `422` содержит `model_version`, использованную при анализе входов.
 - Similarity score, embedding и применённый порог не возвращаются.
-- Системные ошибки используют HTTP-коды и форму ошибки общего договора.
+- Остальные ошибки используют HTTP-коды и Problem Details из общего договора.
