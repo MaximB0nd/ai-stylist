@@ -86,8 +86,13 @@ class GenerationService:
         # Dispatch job to AI Core if client is configured
         if self.ai_client:
             try:
-                face_url = self.storage.presigned_url(face_key)
-                body_url = self.storage.presigned_url(body_key)
+                get_url = (
+                    self.storage.presigned_internal_url
+                    if hasattr(self.storage, "presigned_internal_url")
+                    else self.storage.presigned_url
+                )
+                face_url = get_url(face_key)
+                body_url = get_url(body_key)
                 ttl = getattr(self.storage, "presigned_ttl", settings.MINIO_PRESIGNED_TTL)
                 expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
 
@@ -113,11 +118,21 @@ class GenerationService:
                     ai_job_id=ai_job_id,
                 )
             except Exception as exc:
-                logger.warning(
+                logger.error(
                     "Could not dispatch job to AI Core for generation %s: %s",
                     generation_id,
                     exc,
                 )
+                await self.album_repo.update_status(
+                    album_id=album.id,
+                    status="FAILED",
+                    error_message=f"Failed to dispatch job to AI Core: {exc}"[:500],
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Failed to dispatch generation task to AI cluster: {exc}",
+                )
+
 
         return GenerationAcceptedResponse(
             generation_id=generation_id,

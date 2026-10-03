@@ -237,3 +237,59 @@ async def test_generation_service_dispatches_job_to_ai_core():
         assert album.status == "QUEUED"
         assert album.ai_job_id == ai_job_uuid
 
+
+@pytest.mark.asyncio
+async def test_generation_service_dispatch_failure_marks_failed_and_raises_502():
+    """Verify that when AI Core dispatch fails, album is updated to FAILED and 502 is raised."""
+    from io import BytesIO
+    from fastapi import HTTPException, UploadFile
+    from app.schemas.generation import GenerationRequestForm
+    from tests.test_generations import InMemoryAlbumRepository, InMemoryStorageService, FAKE_USER_ID
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"error": "AI cluster internal error"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        ai_client = AICoreClient(
+            base_url="http://fake-ai-core",
+            service_token="secret",
+            client=http_client,
+        )
+        album_repo = InMemoryAlbumRepository()
+        storage = InMemoryStorageService()
+        service = GenerationService(
+            album_repo=album_repo,
+            storage=storage,
+            ai_client=ai_client,
+        )
+
+        form = GenerationRequestForm(
+            age=25,
+            height=175,
+            gender="m",
+            situation="office",
+            styles="minimalism",
+            shoes="loafers",
+            impressions="confident",
+        )
+        face_file = UploadFile(filename="face.jpg", file=BytesIO(b"\xff\xd8\xff\xe0fake-jpeg"))
+        face_file.headers = {"content-type": "image/jpeg"}
+        body_file = UploadFile(filename="body.jpg", file=BytesIO(b"\xff\xd8\xff\xe0fake-jpeg"))
+        body_file.headers = {"content-type": "image/jpeg"}
+
+        with pytest.raises(HTTPException) as exc_info:
+            await service.create_generation(
+                user_id=FAKE_USER_ID,
+                face_photo=face_file,
+                body_photo=body_file,
+                form=form,
+            )
+
+        assert exc_info.value.status_code == 502
+        assert len(album_repo.albums) == 1
+        album = list(album_repo.albums.values())[0]
+        assert album.status == "FAILED"
+        assert "Failed to dispatch job to AI Core" in album.error_message
+
+

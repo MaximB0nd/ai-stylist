@@ -16,6 +16,17 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
+    # CORS origins
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:8080",
+        "http://localhost:5091",
+        "http://localhost:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:5091",
+        "http://127.0.0.1:3000",
+    ]
+
+
     # Database connection parameters
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432

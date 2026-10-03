@@ -1,5 +1,4 @@
-"""Internal API endpoints for AI Core callbacks and webhook events."""
-
+import asyncio
 from datetime import datetime, timezone
 import hashlib
 import hmac
@@ -8,6 +7,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 import uuid
+
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 import httpx
@@ -89,18 +89,16 @@ async def _download_and_store_results(
     storage: StorageService,
     ai_client: AICoreClient,
 ) -> None:
-    """Background task to fetch images from AI Core temp S3, upload to permanent S3 and persist to DB."""
+    """Background task to fetch images from AI Core temp S3 in parallel, upload to permanent S3 and persist to DB."""
     try:
         job_details = await ai_client.get_job(job_uuid)
         results = job_details.get("results", [])
 
-        photos_data = []
         async with httpx.AsyncClient(timeout=60.0) as http_client:
-            for item in results:
+            async def _download_and_upload_single(item: dict) -> dict:
                 order_index = item["order_index"]
                 download_url = item["download_url"]
 
-                # Download image from temporary S3
                 img_resp = await http_client.get(download_url)
                 if img_resp.status_code != 200:
                     raise RuntimeError(
@@ -124,17 +122,27 @@ async def _download_and_store_results(
                 dest_key = f"albums/{album_id}/look_{order_index:02d}.webp"
                 await storage.upload_bytes(dest_key, content, content_type="image/webp")
 
-                photos_data.append(
-                    {
-                        "order_index": order_index,
-                        "object_key": dest_key,
-                        "is_cover": (order_index == 0),
-                        "is_favorite": False,
-                    }
-                )
+                return {
+                    "order_index": order_index,
+                    "object_key": dest_key,
+                    "is_cover": (order_index == 0),
+                    "is_favorite": False,
+                }
 
-        # Batch insert photos in PostgreSQL
-        await album_repo.add_photos(album_id, photos_data)
+            # Download and upload all 10 images concurrently (asyncio.gather)
+            photos_data = await asyncio.gather(*[_download_and_upload_single(item) for item in results])
+            photos_data.sort(key=lambda p: p["order_index"])
+
+        # Persist photos to DB (using isolated session in production to prevent connection pool exhaustion)
+        if hasattr(album_repo, "session") and album_repo.session is not None:
+            from app.db.session import AsyncSessionLocal
+            async with AsyncSessionLocal() as session:
+                repo = AlbumRepository(session=session)
+                await repo.add_photos(album_id, photos_data)
+                await repo.update_status(album_id, status="COMPLETED")
+        else:
+            await album_repo.add_photos(album_id, photos_data)
+            await album_repo.update_status(album_id, status="COMPLETED")
 
         # Acknowledge delivery to AI Core so it cleans up temporary S3
         try:
@@ -142,16 +150,25 @@ async def _download_and_store_results(
         except Exception as exc:
             logger.warning("Could not send ACK to AI Core for job %s: %s", job_uuid, exc)
 
-        # Finalize album status
-        await album_repo.update_status(album_id, status="COMPLETED")
-        logger.info("Successfully processed and saved completed album %s", album_id)
+        logger.info("Successfully processed and saved completed album %s in parallel", album_id)
     except Exception as exc:
         logger.exception("Failed to process completed job %s for album %s: %s", job_uuid, album_id, exc)
-        await album_repo.update_status(
-            album_id,
-            status="FAILED",
-            error_message=f"Failed to download results: {exc}"[:500],
-        )
+        if hasattr(album_repo, "session") and album_repo.session is not None:
+            from app.db.session import AsyncSessionLocal
+            async with AsyncSessionLocal() as session:
+                repo = AlbumRepository(session=session)
+                await repo.update_status(
+                    album_id,
+                    status="FAILED",
+                    error_message=f"Failed to download results: {exc}"[:500],
+                )
+        else:
+            await album_repo.update_status(
+                album_id,
+                status="FAILED",
+                error_message=f"Failed to download results: {exc}"[:500],
+            )
+
 
 
 @router.post(

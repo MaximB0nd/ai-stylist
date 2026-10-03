@@ -39,8 +39,14 @@ class AlbumService:
 
         # Generate presigned URLs for each photo
         photos: List[PhotoResponse] = []
+        get_url = (
+            self.storage.presigned_public_url
+            if hasattr(self.storage, "presigned_public_url")
+            else self.storage.presigned_url
+        )
         for photo in album.photos:
-            url = self.storage.presigned_url(photo.object_key)
+            url = get_url(photo.object_key)
+
             photos.append(
                 PhotoResponse(
                     id=photo.id,

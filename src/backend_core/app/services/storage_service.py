@@ -81,13 +81,40 @@ class StorageService:
             content_type=content_type,
         )
 
-    def presigned_url(self, object_key: str) -> str:
-        """Generate a presigned GET URL for the given object key using public endpoint."""
+    def presigned_public_url(self, object_key: str) -> str:
+        """Generate a presigned GET URL using public endpoint for browser/client consumption."""
         from datetime import timedelta
 
-        return self.public_client.presigned_get_object(
+        client = getattr(self, "public_client", getattr(self, "client", None))
+        if client is None or not hasattr(client, "presigned_get_object"):
+            return getattr(self, "presigned_url", lambda k: f"http://localhost:9000/{getattr(self, 'bucket', 'stylist')}/{k}")(object_key)
+
+        return client.presigned_get_object(
             bucket_name=self.bucket,
             object_name=object_key,
             expires=timedelta(seconds=self.presigned_ttl),
         )
+
+    def presigned_internal_url(self, object_key: str) -> str:
+        """Generate a presigned GET URL using internal endpoint for backend/AI Core consumption."""
+        from datetime import timedelta
+
+        client = getattr(self, "client", None)
+        if client is None or not hasattr(client, "presigned_get_object"):
+            return getattr(self, "presigned_url", lambda k: f"http://minio:9000/{getattr(self, 'bucket', 'stylist')}/{k}")(object_key)
+
+        return client.presigned_get_object(
+            bucket_name=self.bucket,
+            object_name=object_key,
+            expires=timedelta(seconds=self.presigned_ttl),
+        )
+
+    def presigned_url(self, object_key: str) -> str:
+        """Generate a presigned GET URL (defaults to public URL for client compatibility)."""
+        client = getattr(self, "public_client", getattr(self, "client", None))
+        if client is None or not hasattr(client, "presigned_get_object"):
+            return f"http://localhost:9000/{getattr(self, 'bucket', 'stylist')}/{object_key}"
+        return self.presigned_public_url(object_key)
+
+
 
