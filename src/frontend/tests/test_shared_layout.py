@@ -22,7 +22,11 @@ class SharedLayoutTests(unittest.TestCase):
                 self.assertEqual(len(soup.select(".site-footer")), 1)
                 footer_brand = soup.select_one(".site-footer__brand")
                 self.assertEqual(footer_brand["href"], "/")
-                self.assertEqual(footer_brand.get_text(strip=True), "Носи Красиво")
+                self.assertIn("Носи Красиво", footer_brand.get_text(" ", strip=True))
+                self.assertRegex(
+                    footer_brand.select_one(".site-footer__copyright").get_text(),
+                    r"© \d{4}",
+                )
                 self.assertEqual(
                     footer_brand.select_one("img")["src"],
                     "/images/brand/logo-mark.png",
