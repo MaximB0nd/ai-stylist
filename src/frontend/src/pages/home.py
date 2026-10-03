@@ -33,8 +33,9 @@ def page():
   <section class="hero" aria-labelledby="page-title">
     <div class="hero-content">
       <h2 class="hero-title" id="page-title">Ваш <span>стиль</span><br>начинается здесь</h2>
+      <p class="hero-description">Персональный стилист для образов под ваш повод, настроение и особенности.</p>
       <div class="hero-actions">
-        <a class="generate-button home-button" href="/generation">Найти свой образ</a>
+        <a class="ui-button generate-button home-button" href="/generation">Найти свой образ</a>
       </div>
     </div>
     <figure class="hero-visual" aria-hidden="true">

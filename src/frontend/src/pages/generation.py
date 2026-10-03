@@ -28,7 +28,7 @@ CHOICES = (
             ("minimal", "Минимализм"),
             ("classic", "Классика"),
             ("casual", "Casual"),
-            ("romantic", "Романтичный"),
+            ("romantic", "Романтика"),
         ),
     ),
     (
@@ -47,7 +47,7 @@ CHOICES = (
         (
             ("confident", "Уверенное"),
             ("elegant", "Элегантное"),
-            ("relaxed", "Расслабленное"),
+            ("relaxed", "Уютное"),
             ("bright", "Яркое"),
         ),
     ),
@@ -164,13 +164,12 @@ def _selections():
     return "".join(
         f"""
 <div class="is-empty" data-summary-item="{key}">
-  <dt>{title}</dt>
+  <dt class="visually-hidden">{title}</dt>
   <dd>
-    <button class="generation-selection" type="button" data-edit-question="{key}"
-      aria-label="Изменить: {title}" title="Изменить: {title}">
+    <div class="generation-selection" aria-hidden="true">
       <img data-selection-image="{key}" width="80" height="80" alt="" hidden />
-      <span data-selection="{key}">Не выбрано</span>
-    </button>
+      <span class="visually-hidden" data-selection="{key}"></span>
+    </div>
   </dd>
 </div>"""
         for key, title, _ in CHOICES
@@ -199,8 +198,8 @@ def page():
     <div class="generation-intro-copy">
       <h3 id="generation-intro-title"><span>Вика</span> поможет собрать образ</h3>
       <p>
-        Отметьте настроение, повод и пару деталей о себе — дальше мы аккуратно
-        подготовим основу для будущей генерации.
+        Расскажите, куда вы собираетесь и что вам нравится — Вика подберёт
+        образ именно для вас.
       </p>
     </div>
     <div class="generation-intro-details" aria-hidden="true">
@@ -233,16 +232,9 @@ def page():
       <p class="generation-status" role="status" aria-live="polite"></p>
       <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
       <progress id="generation-progress" value="0" max="9">0 из 9</progress>
-      <button class="generation-submit ui-button ui-button--secondary" type="submit" form="generation-form" disabled>
-        Проверить анкету
+      <button class="generation-submit generation-generate ui-button" type="submit" form="generation-form">
+        Сгенерировать
       </button>
-      <button class="generation-generate ui-button" type="button" disabled
-        aria-describedby="generation-availability">
-        Сгенерировать 5 образов
-      </button>
-      <p class="generation-availability-note" id="generation-availability">
-        Генерация станет доступна после подключения сервиса.
-      </p>
     </aside>
   </div>
 </section>

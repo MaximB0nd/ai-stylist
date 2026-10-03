@@ -28,7 +28,6 @@ export function photoSelectionError(files) {
 
 export function mountGeneration(form) {
   const page = form.closest(".generation-page");
-  const checkButton = page.querySelector(".generation-submit");
   const generationButton = page.querySelector(".generation-generate");
   const status = page.querySelector(".generation-status");
   const numbers = [...form.querySelectorAll('input[type="number"]')];
@@ -76,8 +75,7 @@ export function mountGeneration(form) {
       const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
       const image = page.querySelector(`[data-selection-image="${group.dataset.question}"]`);
       const item = output.closest("dl > div");
-      output.textContent = value || "Не выбрано";
-      output.closest("button").setAttribute("aria-label", `Изменить: ${group.querySelector("legend").textContent}${value ? `, ${value}` : ""}`);
+      output.textContent = value || "";
       item.classList.toggle("is-empty", !selected);
       image.hidden = !selected;
       if (selected) image.src = selected.closest("label").querySelector("img").src;
@@ -91,19 +89,8 @@ export function mountGeneration(form) {
     progress.max = maximum;
     progress.value = total;
     progress.textContent = `${total} из ${maximum}`;
-    checkButton.disabled = photos.some((photo) => photo.pending);
-    generationButton.disabled = true;
     status.textContent = "";
     delete status.dataset.state;
-  }
-
-  for (const edit of page.querySelectorAll("[data-edit-question]")) {
-    edit.addEventListener("click", () => {
-      const group = groups.find((item) => item.dataset.question === edit.dataset.editQuestion);
-      const input = group.querySelector("input:checked") || group.querySelector("input");
-      input.focus({ preventScroll: true });
-      group.scrollIntoView({ block: "center", behavior: "instant" });
-    }, { signal: events.signal });
   }
 
   const toggleRadios = [...form.querySelectorAll(
@@ -286,8 +273,6 @@ export function mountGeneration(form) {
   return () => {
     disposed = true;
     events.abort();
-    checkButton.disabled = true;
-    generationButton.disabled = true;
     photos.forEach((photo) => {
       photo.request++;
       photo.pending = false;

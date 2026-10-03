@@ -1,5 +1,5 @@
 .profile-page {
-  --profile-text-section: 28px;
+  --profile-text-section: var(--text-body);
   --profile-text-body: var(--text-body);
   width: 100%;
   max-width: var(--content-width);
