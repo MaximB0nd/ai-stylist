@@ -24,7 +24,7 @@ function writeProfilePreferences(preferences) {
 	localStorage.setItem(PROFILE_PREFERENCES_KEY, JSON.stringify(preferences));
 }
 
-function applyProfilePreferences(preferences) {
+export function applyProfilePreferences(preferences = readProfilePreferences()) {
 	document.documentElement.toggleAttribute("data-dark-theme", preferences.darkMode);
 	document.documentElement.toggleAttribute("data-reduce-motion", preferences.reduceMotion);
 
@@ -32,7 +32,9 @@ function applyProfilePreferences(preferences) {
 		const source = preferences.reduceMotion
 			? image.dataset.staticSrc
 			: image.dataset.animatedSrc;
-		if (source && image.getAttribute("src") !== source) image.setAttribute("src", source);
+		if (!source) continue;
+		if (image.getAttribute("src") !== source) image.setAttribute("src", source);
+		if (image.currentSrc && image.currentSrc !== source) image.removeAttribute("srcset");
 	}
 }
 
