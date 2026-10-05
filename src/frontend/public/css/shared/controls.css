@@ -7,7 +7,7 @@
   max-width: 100%;
   padding: 12px 24px;
   border: 1px solid var(--color-accent);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-button);
   background: var(--color-accent);
   color: var(--color-surface);
   font: var(--font-weight-body) var(--text-small)/1.4 var(--font-body);
@@ -15,23 +15,25 @@
   text-decoration: none;
   overflow-wrap: anywhere;
   cursor: pointer;
-  transition: background 160ms, border-color 160ms;
+  transition: background 160ms, border-color 160ms, color 160ms;
 }
 
 .ui-button:hover:not(:disabled) {
-  border-color: var(--color-accent-hover);
-  background: var(--color-accent-hover);
+  border-color: var(--color-accent);
+  background: transparent;
+  color: var(--color-accent);
 }
 
 .ui-button--secondary {
-  border-color: var(--color-control-line);
-  background: var(--color-surface);
-  color: var(--color-ink);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-surface);
 }
 
 .ui-button--secondary:hover:not(:disabled) {
-  border-color: var(--color-muted);
-  background: var(--color-soft);
+  border-color: var(--color-accent);
+  background: transparent;
+  color: var(--color-accent);
 }
 
 .ui-button--quiet {

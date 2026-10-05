@@ -23,6 +23,12 @@ body {
   line-height: 1.55;
 }
 
+:where(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  letter-spacing: 0;
+}
+
 html {
   scrollbar-gutter: stable;
 }
