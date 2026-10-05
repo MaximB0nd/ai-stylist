@@ -64,6 +64,7 @@ Idempotency-Key: <уникальный ключ>
 | Поле | Ограничение |
 | --- | --- |
 | `requested_image_count` | диапазон из `/v1/capabilities` |
+| `inputs.face_photo_url`, `inputs.body_photo_url` | `https`, без `userinfo` и fragment, точное совпадение схемы, hostname и порта с origin основного файлового сервиса из конфигурации AI Core |
 | `inputs.expires_at` | остаток не меньше `min_input_url_ttl_seconds` |
 | `age` | целое, `18..100` |
 | `height_cm` | целое, `120..230` |
@@ -71,6 +72,16 @@ Idempotency-Key: <уникальный ключ>
 | списки предпочтений | без повторов, до 20 элементов |
 | `description` | до 1000 знаков |
 | неизвестное поле | `INVALID_REQUEST` |
+
+После создания задания главный оркестратор поручает службе временных файлов
+потоково импортировать оба входа. Только эта служба обращается к исходным URL;
+processing services получают уже внутренние короткие ссылки. Запрещённый origin
+отклоняется как `422 INPUT_URL_NOT_ALLOWED` до запуска обработки.
+
+Внешний интерфейс разбирает URL стандартной библиотекой и сравнивает origin в
+каноническом виде. DNS и адрес соединения здесь не проверяются: эту проверку без
+разрыва между validation и connect повторяет artifact service непосредственно
+при импорте.
 
 ### Повтор запроса
 
@@ -109,6 +120,15 @@ GET /v1/jobs/{job_id}
 Состояния: `QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`, `CANCELLED`.
 
 Конечные: `COMPLETED`, `FAILED`, `CANCELLED`.
+
+При `FAILED` поле `error` содержит безопасные `code`, `message` и `retryable`.
+Для отклонённой фотографии оно дополнительно содержит массив `reasons` из
+стабильных кодов проверки лица или полного роста; элементы уникальны, их порядок
+не задан. При остальных ошибках `reasons` отсутствует. Возможные коды
+предобработки: `FACE_PHOTO_REJECTED`, `BODY_PHOTO_REJECTED`,
+`IDENTITY_MISMATCH`, `PHOTO_UNPROCESSABLE`, `COLOR_TYPE_UNCERTAIN` и
+`PREPROCESSING_UNAVAILABLE`. Точное соответствие внутренним результатам
+определяет [договор оркестратора](../../internal/services/main-orchestrator/CONTRACT.md#решения-предобработки-и-повторы).
 
 ## Завершённое задание
 
@@ -175,6 +195,10 @@ POST /v1/jobs/{job_id}/results/ack
 5. Отправляет ACK.
 
 Байты не проходят через внешний интерфейс и главный оркестратор AI Core.
+`download_url` является короткоживущей capability. Основной сервер дополнительно
+передаёт `Authorization: Bearer <artifact-client-token>` со scope
+`artifact:read`; токен хранится в его локальной конфигурации и не входит в ответ
+AI Core.
 
 ## Отмена
 
@@ -241,6 +265,7 @@ X-AI-Core-Signature: <hex HMAC-SHA256>
 | `409` | `IDEMPOTENCY_CONFLICT` | ключ использован с другим телом |
 | `409` | `INVALID_JOB_STATE` | операция запрещена состоянием |
 | `409` | `RESULTS_EXPIRED` | ACK после срока |
+| `422` | `INPUT_URL_NOT_ALLOWED` | схема или origin входной ссылки запрещены |
 | `422` | `UNSUPPORTED_INPUT` | файл или значение не поддерживается |
 | `429` | `TOO_MANY_REQUESTS` | превышен предел нагрузки |
 | `503` | `SERVICE_UNAVAILABLE` | служба не готова |
