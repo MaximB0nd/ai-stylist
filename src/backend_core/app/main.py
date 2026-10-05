@@ -29,17 +29,20 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    # Swagger UI and OpenAPI schema are disabled in production to avoid leaking internal API details
+    docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
+    redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
+    openapi_url="/openapi.json" if settings.ENVIRONMENT != "production" else None,
     lifespan=lifespan,
 )
 
-# CORS configuration (allow explicit origins + dynamic localhost/127.0.0.1 ports with credentials)
+# CORS configuration:
+# - Explicit origins from config (exact match, safe with allow_credentials=True)
+# - No allow_origin_regex: regex like r"localhost:\d+" would allow any local port
+#   with credentials, creating a security hole for malicious browser extensions.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

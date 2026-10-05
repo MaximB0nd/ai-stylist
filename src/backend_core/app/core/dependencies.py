@@ -1,4 +1,5 @@
 import uuid
+from functools import lru_cache
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -18,6 +19,40 @@ from app.services.storage_service import StorageService
 http_bearer = HTTPBearer(auto_error=False)
 
 
+# ---------------------------------------------------------------------------
+# Singletons — created once per process lifetime
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def get_storage_service() -> StorageService:
+    """Singleton provider for StorageService (MinIO).
+
+    Using lru_cache ensures only one instance (and one pair of MinIO clients)
+    is created for the entire process lifetime, enabling connection reuse.
+    """
+    return StorageService()
+
+
+# AICoreClient is imported lazily to avoid circular imports at module load time
+@lru_cache(maxsize=1)
+def _create_ai_core_client():
+    from app.services.ai_core_client import AICoreClient
+    return AICoreClient()
+
+
+def get_ai_core_client():
+    """Singleton provider for AICoreClient.
+
+    Returns the same AICoreClient instance for every request, so the
+    underlying httpx connection pool is shared and reused.
+    """
+    return _create_ai_core_client()
+
+
+# ---------------------------------------------------------------------------
+# Per-request dependencies (DB session-scoped)
+# ---------------------------------------------------------------------------
+
 def get_user_repository(session: AsyncSession = Depends(get_db)) -> UserRepository:
     """Dependency provider for UserRepository."""
     return UserRepository(session=session)
@@ -28,11 +63,6 @@ def get_album_repository(session: AsyncSession = Depends(get_db)) -> AlbumReposi
     return AlbumRepository(session=session)
 
 
-def get_storage_service() -> StorageService:
-    """Dependency provider for StorageService (MinIO)."""
-    return StorageService()
-
-
 def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> AuthService:
@@ -40,21 +70,17 @@ def get_auth_service(
     return AuthService(user_repo=user_repo)
 
 
-from app.services.ai_core_client import AICoreClient
-
-
-def get_ai_core_client() -> AICoreClient:
-    """Dependency provider for AICoreClient."""
-    return AICoreClient()
-
-
 def get_generation_service(
     album_repo: AlbumRepository = Depends(get_album_repository),
     storage: StorageService = Depends(get_storage_service),
-    ai_client: AICoreClient = Depends(get_ai_core_client),
 ) -> GenerationService:
     """Dependency provider for GenerationService."""
-    return GenerationService(album_repo=album_repo, storage=storage, ai_client=ai_client)
+    from app.services.ai_core_client import AICoreClient
+    return GenerationService(
+        album_repo=album_repo,
+        storage=storage,
+        ai_client=get_ai_core_client(),
+    )
 
 
 def get_album_service(

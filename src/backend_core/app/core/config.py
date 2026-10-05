@@ -1,15 +1,29 @@
 from pathlib import Path
 from typing import Optional
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
 backend_core_env = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
+# Weak/default secrets that must NOT be used in production
+_FORBIDDEN_SECRETS: set[str] = {
+    "temporary-secret-key-for-dev-change-in-prod",
+    "temporary-ai-core-service-token",
+    "temporary-ai-core-webhook-secret",
+    "changeme",
+    "secret",
+    "password",
+}
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Stylist Backend Core"
     API_V1_PREFIX: str = "/api/v1"
+
+    # Runtime environment: "development" | "staging" | "production"
+    ENVIRONMENT: str = "development"
 
     # JWT & Security (loaded from .env or environment variable)
     SECRET_KEY: str
@@ -52,6 +66,27 @@ class Settings(BaseSettings):
     AI_CORE_URL: str = "http://localhost:8001"
     AI_CORE_SERVICE_TOKEN: str = "temporary-ai-core-service-token"
     AI_CORE_WEBHOOK_SECRET: str = "temporary-ai-core-webhook-secret"
+
+    @field_validator("SECRET_KEY", mode="after")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Reject weak/default SECRET_KEY values and enforce minimum length."""
+        if v.lower() in _FORBIDDEN_SECRETS or len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY is insecure: use a strong random value of at least 32 characters. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return v
+
+    @field_validator("AI_CORE_SERVICE_TOKEN", "AI_CORE_WEBHOOK_SECRET", mode="after")
+    @classmethod
+    def validate_ai_secrets(cls, v: str) -> str:
+        """Reject default AI Core tokens."""
+        if v.lower() in _FORBIDDEN_SECRETS:
+            raise ValueError(
+                f"AI Core secret token is insecure — replace the default value in your environment."
+            )
+        return v
 
     @model_validator(mode="after")
     def assemble_database_url(self) -> "Settings":

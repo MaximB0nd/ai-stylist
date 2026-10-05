@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -63,11 +64,14 @@ class AlbumRepository:
         error_message: Optional[str] = None,
         ai_job_id: Optional[uuid.UUID] = None,
     ) -> Optional[Album]:
-        """Update album processing status and optional error/job_id."""
+        """Update album processing status, error message, and optional AI job ID."""
         album = await self.session.get(Album, album_id)
         if not album:
             return None
         album.status = status
+        # Explicitly set updated_at — SQLAlchemy Python-side onupdate is not
+        # reliably triggered for AsyncSession attribute assignments.
+        album.updated_at = datetime.now(timezone.utc)
         if error_message is not None:
             album.error_message = error_message
         if ai_job_id is not None:
@@ -79,6 +83,24 @@ class AlbumRepository:
         except Exception:
             await self.session.rollback()
             raise
+
+    async def atomic_claim_for_download(self, album_id: uuid.UUID) -> bool:
+        """Atomically transition album from PROCESSING → DOWNLOADING.
+
+        Returns True if this caller "won" the race (row was updated),
+        False if another concurrent handler already claimed it.
+        This prevents duplicate background tasks from processing the same webhook.
+        """
+        now = datetime.now(timezone.utc)
+        stmt = (
+            update(Album)
+            .where(Album.id == album_id, Album.status == "PROCESSING")
+            .values(status="DOWNLOADING", updated_at=now)
+            .returning(Album.id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
 
     async def add_photos(
         self,

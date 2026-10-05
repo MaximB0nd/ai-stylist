@@ -26,5 +26,8 @@ api_router.include_router(
     internal.router,
     prefix="/internal",
     tags=["Internal"],
+    # Hidden from public Swagger/OpenAPI docs — internal webhook endpoints
+    # should not be discoverable by clients or attackers via /docs
+    include_in_schema=False,
 )
 
