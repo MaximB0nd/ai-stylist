@@ -64,6 +64,7 @@ Idempotency-Key: <уникальный ключ>
 | Поле | Ограничение |
 | --- | --- |
 | `requested_image_count` | диапазон из `/v1/capabilities` |
+| `inputs.face_photo_url`, `inputs.body_photo_url` | `https`, origin основного файлового сервиса из конфигурации AI Core |
 | `inputs.expires_at` | остаток не меньше `min_input_url_ttl_seconds` |
 | `age` | целое, `18..100` |
 | `height_cm` | целое, `120..230` |
@@ -71,6 +72,11 @@ Idempotency-Key: <уникальный ключ>
 | списки предпочтений | без повторов, до 20 элементов |
 | `description` | до 1000 знаков |
 | неизвестное поле | `INVALID_REQUEST` |
+
+После создания задания главный оркестратор поручает службе временных файлов
+потоково импортировать оба входа. Только эта служба обращается к исходным URL;
+processing services получают уже внутренние короткие ссылки. Запрещённый origin
+отклоняется как `422 INPUT_URL_NOT_ALLOWED` до запуска обработки.
 
 ### Повтор запроса
 
@@ -241,6 +247,7 @@ X-AI-Core-Signature: <hex HMAC-SHA256>
 | `409` | `IDEMPOTENCY_CONFLICT` | ключ использован с другим телом |
 | `409` | `INVALID_JOB_STATE` | операция запрещена состоянием |
 | `409` | `RESULTS_EXPIRED` | ACK после срока |
+| `422` | `INPUT_URL_NOT_ALLOWED` | схема или origin входной ссылки запрещены |
 | `422` | `UNSUPPORTED_INPUT` | файл или значение не поддерживается |
 | `429` | `TOO_MANY_REQUESTS` | превышен предел нагрузки |
 | `503` | `SERVICE_UNAVAILABLE` | служба не готова |
