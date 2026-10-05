@@ -30,7 +30,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      SECRET_KEY: ${SECRET_KEY:-temporary-secret-key-for-dev-change-in-prod}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required. Please set it in .env}
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
