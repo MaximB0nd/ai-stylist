@@ -40,6 +40,21 @@
 
 Каждое изображение: два слепых оценщика; спор — третий оценщик.
 
+Для preprocessing services дополнительно фиксируются:
+
+| Этап | Обязательные показатели |
+| --- | --- |
+| Проверка лица и тела | precision/recall каждого rejection reason, false accept, false reject |
+| Проверка личности | false match, false non-match, качество по размеру лица и освещению |
+| Нормализация | пригодность маски, ошибки границ, волосы и светлая одежда, CPU latency и RAM |
+| Цветотип | per-class precision/recall/F1, confusion matrix, coverage после порога отказа, accepted-only accuracy |
+
+Набор цветотипа сначала проходит те же face-validation и normalization, что и
+production-запрос. Проверяется итоговый inference pipeline целиком: веса,
+tensor transforms и порог отказа. Кандидат не принимается только по метрикам из
+его публичного model card. Порог выбирается на tuning-части, после чего качество
+и доля `COLOR_TYPE_UNCERTAIN` один раз измеряются на закрытой части.
+
 ## Отсечение кандидата
 
 - запрещённое содержимое;

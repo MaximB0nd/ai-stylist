@@ -26,6 +26,13 @@ Content-Type: application/json
 формат возвращает `422 UNSUPPORTED_IMAGE_TYPE`; PNG, нарушающий требования
 нормализации, возвращает `422 INVALID_NORMALIZED_IMAGE`.
 
+Модель и её детерминированные tensor transforms образуют одну версионируемую
+inference-конфигурацию. Служба может читать, декодировать, resize, crop и
+нормализовать tensor в памяти, но не изменяет и не перезаписывает входной
+артефакт. Production-конфигурация не должна зависеть от отдельной detector или
+skin-segmentation модели: классификатор выбирается или дообучается на точном
+выходе normalizer.
+
 ## Определённый цветотип
 
 HTTP `200`:
@@ -39,6 +46,9 @@ HTTP `200`:
 ```
 
 `color_type` принимает только `spring`, `summer`, `autumn` или `winter`.
+Такой ответ допустим только для модели и порога, прошедших закрытый benchmark на
+целевом pipeline. Публичные метрики исходного репозитория модели не заменяют эту
+проверку.
 
 ## Цветотип нельзя определить надёжно
 
@@ -71,4 +81,5 @@ HTTP `422`, `Content-Type: application/problem+json`:
 - Ошибка `COLOR_TYPE_UNCERTAIN` содержит `model_version`, но не содержит
   `color_type` или confidence.
 - Confidence, logits, вероятности классов и внутренний порог не возвращаются.
+- `model_version` однозначно определяет веса, tensor transforms и порог отказа.
 - Остальные ошибки используют HTTP-коды и Problem Details из общего договора.

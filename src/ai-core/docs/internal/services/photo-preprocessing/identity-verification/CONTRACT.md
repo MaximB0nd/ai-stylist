@@ -37,7 +37,10 @@ HTTP `200`:
 {
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
   "decision": "SAME_PERSON",
-  "model_version": "opencv/face_recognition_sface@revision"
+  "model_versions": {
+    "face_detector": "opencv/face_detection_yunet@revision",
+    "face_recognizer": "opencv/face_recognition_sface@revision"
+  }
 }
 ```
 
@@ -58,7 +61,10 @@ HTTP `422`, `Content-Type: application/problem+json`:
   "code": "BODY_IMAGE_FACE_NOT_FOUND",
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
   "retryable": false,
-  "model_version": "opencv/face_recognition_sface@revision"
+  "model_versions": {
+    "face_detector": "opencv/face_detection_yunet@revision",
+    "face_recognizer": "opencv/face_recognition_sface@revision"
+  }
 }
 ```
 
@@ -75,11 +81,16 @@ HTTP `422`, `Content-Type: application/problem+json`:
 | `BODY_IMAGE_FACE_TOO_SMALL` | лицо в `body_image` недостаточно крупное |
 | `BODY_IMAGE_FACE_UNUSABLE` | лицо в `body_image` нельзя корректно выровнять |
 
+Служба сначала применяет YuNet к каждому исходному изображению, отклоняет
+неподходящее количество или размер лиц и выравнивает единственное лицо по пяти
+landmarks. Только после этого SFace строит и сравнивает embeddings. Порядок и
+версии этапов являются частью model bundle и не задаются вызывающей стороной.
+
 ## Инварианты
 
 - Успешный `decision` принимает только `SAME_PERSON` или `DIFFERENT_PERSON`.
 - HTTP `200` означает, что сравнение выполнено и содержит `decision`.
 - Если сравнение невозможно, служба возвращает `422`, а не `REJECTED`.
-- Ошибка `422` содержит `model_version`, использованную при анализе входов.
+- Успех и предметная ошибка `422` содержат обе записи `model_versions`.
 - Similarity score, embedding и применённый порог не возвращаются.
 - Остальные ошибки используют HTTP-коды и Problem Details из общего договора.

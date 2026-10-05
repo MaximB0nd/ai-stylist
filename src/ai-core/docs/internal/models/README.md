@@ -6,13 +6,20 @@
 | --- | --- | --- |
 | Проверка лица | opencv/face_detection_yunet | определяется benchmark |
 | Проверка полного роста | opencv/person_detection_mediapipe + opencv/pose_estimation_mediapipe | определяется benchmark |
-| Проверка личности | opencv/face_recognition_sface | определяется benchmark |
+| Проверка личности | opencv/face_detection_yunet + opencv/face_recognition_sface | определяется benchmark |
 | Нормализация | opencv/human_segmentation_pphumanseg | определяется benchmark |
-| Цветотип | jiwoonkim00/personal-color-classifier | собственная дообученная модель |
+| Цветотип | benchmark jiwoonkim00/personal-color-classifier | собственный компактный классификатор на выходе normalizer |
 | Стилист | Qwen3.5-4B | Qwen3.5-9B |
 | Генерация | FLUX.2-klein-4B | Qwen-Image-Edit-2511 |
 
 Выбор: [benchmark.md](benchmark.md).
+
+`jiwoonkim00/personal-color-classifier` не является выбранной production-моделью
+по умолчанию. Его published pipeline использует подготовку данных, отличную от
+контрактного PNG AI Core. Если кандидат не проходит закрытый benchmark, один
+компактный классификатор дообучается на фактических выходах normalizer и
+публикуется в Hugging Face. Дополнительные detector и skin-segmentation модели
+в color-type service для production не планируются.
 
 ## Описание комплекта
 
