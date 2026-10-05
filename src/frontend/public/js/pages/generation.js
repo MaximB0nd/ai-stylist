@@ -64,6 +64,19 @@ export function mountGeneration(form) {
     return !message;
   }
 
+  function pulseInvalidSections() {
+    const sections = new Set(
+      [...form.querySelectorAll('[aria-invalid="true"]')]
+        .map((control) => control.closest("[data-question], .generation-about"))
+        .filter(Boolean),
+    );
+    for (const section of sections) {
+      section.classList.remove("is-pulsing");
+      void section.offsetWidth;
+      section.classList.add("is-pulsing");
+    }
+  }
+
   function updateSummary() {
     const measurements = numbers.filter((input) => input.validity.valid).length;
     const personalChoices = personalGroups.filter((group) => group.querySelector("input:checked")).length;
@@ -263,6 +276,7 @@ export function mountGeneration(form) {
       ? "Заполните подсвеченные блоки."
       : "Анкета заполнена. Сгенерировать 5 образов можно будет после подключения сервиса.";
     status.dataset.state = invalid.length ? "error" : "success";
+    if (invalid.length) pulseInvalidSections();
     // Follow the visible form order when sections are rearranged.
     [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
   }, { signal: events.signal });

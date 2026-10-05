@@ -262,7 +262,10 @@
 .generation-question[aria-invalid="true"],
 .generation-about:has([aria-invalid="true"]) {
   border-color: var(--color-accent);
-  animation: generation-attention 3.2s ease-in-out infinite;
+}
+.generation-question.is-pulsing,
+.generation-about.is-pulsing {
+  animation: generation-attention 1.2s ease-in-out 5;
 }
 @keyframes generation-attention {
   0%, 100% { box-shadow: 0 0 0 1px rgb(163 62 75 / 28%), 0 0 10px 2px rgb(163 62 75 / 16%); }
