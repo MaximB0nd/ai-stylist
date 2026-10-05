@@ -64,7 +64,7 @@ Idempotency-Key: <уникальный ключ>
 | Поле | Ограничение |
 | --- | --- |
 | `requested_image_count` | диапазон из `/v1/capabilities` |
-| `inputs.face_photo_url`, `inputs.body_photo_url` | `https`, origin основного файлового сервиса из конфигурации AI Core |
+| `inputs.face_photo_url`, `inputs.body_photo_url` | `https`, без `userinfo` и fragment, точное совпадение схемы, hostname и порта с origin основного файлового сервиса из конфигурации AI Core |
 | `inputs.expires_at` | остаток не меньше `min_input_url_ttl_seconds` |
 | `age` | целое, `18..100` |
 | `height_cm` | целое, `120..230` |
@@ -77,6 +77,11 @@ Idempotency-Key: <уникальный ключ>
 потоково импортировать оба входа. Только эта служба обращается к исходным URL;
 processing services получают уже внутренние короткие ссылки. Запрещённый origin
 отклоняется как `422 INPUT_URL_NOT_ALLOWED` до запуска обработки.
+
+Внешний интерфейс разбирает URL стандартной библиотекой и сравнивает origin в
+каноническом виде. DNS и адрес соединения здесь не проверяются: эту проверку без
+разрыва между validation и connect повторяет artifact service непосредственно
+при импорте.
 
 ### Повтор запроса
 
@@ -181,6 +186,10 @@ POST /v1/jobs/{job_id}/results/ack
 5. Отправляет ACK.
 
 Байты не проходят через внешний интерфейс и главный оркестратор AI Core.
+`download_url` является короткоживущей capability. Основной сервер дополнительно
+передаёт `Authorization: Bearer <artifact-client-token>` со scope
+`artifact:read`; токен хранится в его локальной конфигурации и не входит в ответ
+AI Core.
 
 ## Отмена
 
