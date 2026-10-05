@@ -66,7 +66,8 @@
   подготовленное место записи.
 - Оркестратор применяет только результат текущей попытки. Поздний ответ после
   timeout не меняет состояние задания, а связанный с ним output `artifact_id`
-  ставится на удаление.
+  ставится на удаление. Успешный `DELETE` запрещает его позднюю публикацию по
+  [договору artifact service](../artifact-service/CONTRACT.md#удаление).
 - При прямой адресации экземпляров оркестратор рассматривает только status с
   `accepting_requests: true` и положительной `available_capacity`. Status имеет
   короткий срок жизни и не сохраняется как durable state задания.
@@ -79,3 +80,39 @@
 - Timeout, connection refused и отсутствие ответа status означают наблюдаемое
   `UNREACHABLE`. Оркестратор не ожидает, что упавший процесс сообщит `FAILED`.
 - Конечные состояния: [внешний договор](../../../public/ai-core-api/CONTRACT.md#получение-состояния).
+
+## Решения предобработки и повторы
+
+Оркестратор сохраняет решение только текущей попытки. Identity service
+вызывается после `ACCEPTED` обеих проверок; normalizer — после `SAME_PERSON`;
+color-type service — после записи нормализованного PNG лица. Стилист запускается
+после записи обоих PNG и результата color-type service. Завершённые предметные
+отказы не повторяются с теми же входами:
+
+| Результат службы | Действие | Публичная ошибка задания |
+| --- | --- | --- |
+| face-validation `REJECTED` | `FAILED`; сохранить все `reasons` | `FACE_PHOTO_REJECTED` |
+| body-validation `REJECTED` | `FAILED`; сохранить все `reasons` | `BODY_PHOTO_REJECTED` |
+| identity-verification `DIFFERENT_PERSON` | `FAILED` | `IDENTITY_MISMATCH` |
+| предметный `422` identity-verification или normalizer | `FAILED` | `PHOTO_UNPROCESSABLE` |
+| `422 COLOR_TYPE_UNCERTAIN` | `FAILED` | `COLOR_TYPE_UNCERTAIN` |
+| `422 INVALID_NORMALIZED_IMAGE` | `FAILED` | `PREPROCESSING_UNAVAILABLE` |
+
+Если параллельные проверки обе вернули `REJECTED`, оркестратор собирает причины
+обеих и выбирает `FACE_PHOTO_REJECTED` как основной код; порядок элементов
+`reasons` не имеет значения. Предметная ошибка не превращается в повторяемый
+сбой инфраструктуры.
+
+`INPUT_ACCESS_EXPIRED` требует нового `read_url` для новой попытки. При
+`OUTPUT_ACCESS_EXPIRED` и любом другом повторе после принятой попытки записи
+оркестратор выделяет новый output `artifact_id` и `write_url`, а прежний
+закрывает через `DELETE`. Оба случая ограничены общей политикой числа попыток и
+сроком задания. Повтор с прежней истёкшей ссылкой не выполняется.
+
+`INPUT_UNAVAILABLE` и `OUTPUT_UNAVAILABLE` повторяются только при
+`retryable: true`; при `false` или исчерпании попыток задание получает `FAILED`
+с `PREPROCESSING_UNAVAILABLE`. Неподдерживаемый формат, размер или повреждение
+исходной фотографии завершают задание без повтора с `PHOTO_UNPROCESSABLE`.
+Ошибка схемы внутреннего запроса, несовпадение checksum, неверная авторизация,
+отказ записи artifact gateway или неверный нормализованный PNG означают сбой
+внутреннего контракта и не выдаются клиенту как дефект исходной фотографии.

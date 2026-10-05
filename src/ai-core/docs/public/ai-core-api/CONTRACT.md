@@ -121,6 +121,15 @@ GET /v1/jobs/{job_id}
 
 Конечные: `COMPLETED`, `FAILED`, `CANCELLED`.
 
+При `FAILED` поле `error` содержит безопасные `code`, `message` и `retryable`.
+Для отклонённой фотографии оно дополнительно содержит массив `reasons` из
+стабильных кодов проверки лица или полного роста; элементы уникальны, их порядок
+не задан. При остальных ошибках `reasons` отсутствует. Возможные коды
+предобработки: `FACE_PHOTO_REJECTED`, `BODY_PHOTO_REJECTED`,
+`IDENTITY_MISMATCH`, `PHOTO_UNPROCESSABLE`, `COLOR_TYPE_UNCERTAIN` и
+`PREPROCESSING_UNAVAILABLE`. Точное соответствие внутренним результатам
+определяет [договор оркестратора](../../internal/services/main-orchestrator/CONTRACT.md#решения-предобработки-и-повторы).
+
 ## Завершённое задание
 
 ```json
