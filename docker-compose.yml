@@ -30,7 +30,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required. Please set it in .env}
+      SECRET_KEY: ${SECRET_KEY:-temporary-secret-key-for-dev-change-in-prod}
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -57,6 +57,7 @@ services:
     restart: unless-stopped
     environment:
       APP_ENV: ${FRONTEND_APP_ENV:-development}
+      AUTH_SECRET: ${FRONTEND_AUTH_SECRET:-temporary-frontend-auth-secret-for-dev-change-in-prod}
       PORT: 5091
     expose:
       - "5091"
