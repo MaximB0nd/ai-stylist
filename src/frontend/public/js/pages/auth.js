@@ -1,21 +1,47 @@
-const AUTH_STORAGE_KEY = "aiStylistAuth";
+export const AUTH_STORAGE_KEY = "aiStylistAuth";
+const AUTH_CHANGED_EVENT = "ai-stylist-auth:changed";
 const API_BASE = globalThis.AI_STYLIST_API_BASE ?? "/api/v1";
 
-function readSession() {
+function normalizeSession(value) {
+	if (!value || typeof value.access_token !== "string" || !value.access_token.trim()) {
+		return null;
+	}
+
+	return {
+		...value,
+		access_token: value.access_token.trim(),
+		token_type: "Bearer",
+	};
+}
+
+export function readSession() {
 	try {
 		const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-		return raw ? JSON.parse(raw) : null;
+		return normalizeSession(raw ? JSON.parse(raw) : null);
 	} catch {
 		return null;
 	}
 }
 
+function notifySessionChange(session) {
+	window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: { session } }));
+}
+
 function writeSession(session) {
-	localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+	const normalized = normalizeSession(session);
+	if (!normalized) {
+		clearSession();
+		return null;
+	}
+
+	localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(normalized));
+	notifySessionChange(normalized);
+	return normalized;
 }
 
 function clearSession() {
 	localStorage.removeItem(AUTH_STORAGE_KEY);
+	notifySessionChange(null);
 }
 
 function getErrorMessage(error, fallback) {
@@ -93,17 +119,26 @@ export function getProfileViewModel(user) {
 	};
 }
 
+function setProfileFieldValue(element, value) {
+	if ("value" in element && ((typeof HTMLInputElement !== "undefined" && element instanceof HTMLInputElement) || (typeof HTMLTextAreaElement !== "undefined" && element instanceof HTMLTextAreaElement))) {
+		element.value = value;
+		return;
+	}
+
+	element.textContent = value;
+}
+
 export function updateProfile(user) {
 	const profile = getProfileViewModel(user);
 
 	for (const element of document.querySelectorAll("[data-profile-name]")) {
-		element.textContent = profile.name;
+		setProfileFieldValue(element, profile.name);
 	}
 	for (const element of document.querySelectorAll("[data-profile-email]")) {
-		element.textContent = profile.email;
+		setProfileFieldValue(element, profile.email);
 	}
 	for (const element of document.querySelectorAll("[data-profile-created]")) {
-		element.textContent = profile.createdAt;
+		setProfileFieldValue(element, profile.createdAt);
 	}
 	for (const avatar of document.querySelectorAll("[data-profile-avatar]")) {
 		avatar.textContent = profile.initials;
@@ -158,19 +193,24 @@ function updateChrome(user) {
 	updateProfile(user);
 }
 
-async function loadCurrentUser(session) {
-	if (!session?.access_token) {
+export async function loadCurrentUser(session = readSession()) {
+	const normalized = normalizeSession(session);
+	if (!normalized) {
 		updateChrome(null);
 		return null;
+	}
+
+	if (normalized.user) {
+		updateChrome(normalized.user);
 	}
 
 	try {
 		const user = await requestJson("/auth/me", {
 			headers: {
-				Authorization: `${session.token_type ?? "bearer"} ${session.access_token}`,
+				Authorization: `Bearer ${normalized.access_token}`,
 			},
 		});
-		writeSession({ ...session, user });
+		writeSession({ ...normalized, user });
 		updateChrome(user);
 		return user;
 	} catch {
@@ -251,8 +291,8 @@ async function submitAuth(elements) {
 			method: "POST",
 			body: JSON.stringify(body),
 		});
-		writeSession(token);
-		await loadCurrentUser(token);
+		const session = writeSession(token);
+		await loadCurrentUser(session);
 		setStatus(elements, "Готово. Вы вошли в аккаунт.", "success");
 		window.setTimeout(() => closeModal(elements), 600);
 	} catch (error) {
@@ -336,6 +376,23 @@ function handleKeydown(event) {
 	}
 }
 
+function bindSessionEvents() {
+	if (document.documentElement.dataset.authSessionListeners === "true") {
+		return;
+	}
+
+	document.documentElement.dataset.authSessionListeners = "true";
+	window.addEventListener(AUTH_CHANGED_EVENT, (event) => {
+		updateChrome(event.detail?.session?.user ?? null);
+	});
+	window.addEventListener("storage", (event) => {
+		if (event.key !== AUTH_STORAGE_KEY) {
+			return;
+		}
+		void loadCurrentUser(readSession());
+	});
+}
+
 function bindCurrentElements(elements) {
 	if (elements.form.dataset.authBound === "true") {
 		return;
@@ -367,6 +424,7 @@ function bindCurrentElements(elements) {
 }
 
 export function initializeAuth() {
+	bindSessionEvents();
 	const elements = findElements();
 	if (!elements) {
 		loadCurrentUser(readSession());

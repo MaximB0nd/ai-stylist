@@ -57,6 +57,7 @@ services:
     restart: unless-stopped
     environment:
       APP_ENV: ${FRONTEND_APP_ENV:-development}
+      AUTH_SECRET: ${FRONTEND_AUTH_SECRET:-temporary-frontend-auth-secret-for-dev-change-in-prod}
       PORT: 5091
     expose:
       - "5091"
