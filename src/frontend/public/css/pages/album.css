@@ -15,7 +15,7 @@
 .album-page .look-number { position: absolute; right: 14px; bottom: 12px; color: #fff; font-size: var(--text-small); font-weight: 300; text-shadow: 0 1px 8px rgb(0 0 0 / 35%); }
 .album-page :where(a):focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
 .album-page .look-card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
-.album-lightbox { position: fixed; z-index: 20; inset: 0; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(280px, 820px) minmax(48px, 1fr); align-items: center; gap: 22px; padding: 40px; background: rgb(42 34 29 / 94%); }
+.album-lightbox { position: fixed; z-index: 2001; inset: 0; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(280px, 820px) minmax(48px, 1fr); align-items: center; gap: 22px; padding: 40px; background: rgb(42 34 29 / 94%); }
 .album-lightbox[hidden] { display: none; }
 .lightbox-figure { display: grid; justify-items: center; gap: 14px; margin: 0; }
 .lightbox-figure img { display: block; max-width: min(100%, 820px); max-height: calc(100vh - 130px); object-fit: contain; border-radius: var(--radius-unified); }
@@ -26,6 +26,7 @@
 .lightbox-close { position: absolute; top: 24px; right: 28px; }
 .lightbox-close:hover, .lightbox-nav:hover { border-color: var(--color-accent); color: var(--color-accent); }
 body.lightbox-open { overflow: hidden; }
+body.lightbox-open .site-header { visibility: hidden; }
 @media (max-width: 980px) { .album-page .looks-grid { column-count: 3; } }
 @media (max-width: 640px) { .album-page .album-title { font-size: var(--text-title); } .album-page .looks-grid { column-count: 2; column-gap: 14px; } .album-page .look-card { margin-bottom: 14px; } }
 @media (max-width: 640px) { .album-lightbox { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; padding: 52px 10px 24px; } .lightbox-figure img { max-height: calc(100vh - 150px); } .lightbox-close { top: 12px; right: 14px; } .lightbox-nav { width: 40px; height: 40px; font-size: var(--text-body); } }
