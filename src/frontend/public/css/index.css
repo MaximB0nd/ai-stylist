@@ -3,9 +3,9 @@
 @import "./base.css?v=front17-9";
 @import "./shared/layout.css?v=front17-11";
 @import "./shared/controls.css?v=front17-10";
-@import "./shared/media.css?v=front18-4";
-@import "./pages/home.css?v=front18-4";
+@import "./shared/media.css?v=front18-6";
+@import "./pages/home.css?v=front18-5";
 @import "./pages/generation.css?v=front17-12";
-@import "./pages/gallery.css?v=front18-4";
+@import "./pages/gallery.css?v=front18-6";
 @import "./pages/album.css?v=front18-2";
 @import "./pages/profile.css?v=front17-14";

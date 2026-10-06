@@ -19,14 +19,14 @@ def page():
             <div class="album-preview">
               <div class="album-mosaic album-mosaic--{layout}">
                 <img class="album-image album-mosaic__primary" src="/images/gallery/{image}" alt="{name}" width="640" height="640" loading="lazy" decoding="async">
-                <img class="album-image album-mosaic__secondary" src="/images/album/{preview_images[0]}" alt="" width="640" height="960" loading="lazy" decoding="async">
-                <img class="album-image album-mosaic__secondary" src="/images/album/{preview_images[1]}" alt="" width="640" height="960" loading="lazy" decoding="async">
+                <img class="album-image album-mosaic__secondary album-mosaic__secondary--one" src="/images/album/{preview_images[0]}" alt="" width="640" height="960" loading="lazy" decoding="async">
+                <img class="album-image album-mosaic__secondary album-mosaic__secondary--two" src="/images/album/{preview_images[1]}" alt="" width="640" height="960" loading="lazy" decoding="async">
               </div>
-              <time class="album-date">{date}</time>
             </div>
           <div class="album-footer">
             <div class="album-meta">
               <h3 class="album-name">{name}</h3>
+              <time class="album-date">{date}</time>
             </div>
             <span class="album-arrow" aria-hidden="true">↗</span>
           </div>

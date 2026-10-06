@@ -34,12 +34,15 @@ class PageControlsTests(unittest.TestCase):
             for card in soup.select(".album-card")
         }
         self.assertEqual(len(previews), 4)
+        self.assertTrue(all(card.select_one(".album-preview .album-date") is None for card in soup.select(".album-card")))
+        self.assertTrue(all(card.select_one(".album-footer time.album-date") is not None for card in soup.select(".album-card")))
 
     def test_home_album_covers_use_three_photo_mosaics(self):
         soup = BeautifulSoup(str(home.page()), "html.parser")
         cards = soup.select(".albums-grid .album-card")
         self.assertEqual(len(cards), 3)
         self.assertTrue(all(len(card.select(".album-mosaic img")) == 3 for card in cards))
+        self.assertTrue(all(card.select_one("time.album-date") is not None for card in cards))
         layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in cards}
         self.assertEqual(len(layouts), 3)
 

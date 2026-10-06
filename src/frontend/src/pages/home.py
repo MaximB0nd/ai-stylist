@@ -18,13 +18,13 @@ def page():
             <div class="album-mosaic album-mosaic--{escape(album['mosaic_layout'], quote=True)}">
               <img class="album-image album-mosaic__primary" src="/images/home/{escape(album['image'], quote=True)}.webp"
                    alt="{escape(album['alt'], quote=True)}" width="640" height="960" loading="lazy" decoding="async">
-              <img class="album-image album-mosaic__secondary" src="/images/album/{escape(album['preview_images'][0], quote=True)}" alt="" width="640" height="960" loading="lazy" decoding="async">
-              <img class="album-image album-mosaic__secondary" src="/images/album/{escape(album['preview_images'][1], quote=True)}" alt="" width="640" height="960" loading="lazy" decoding="async">
+              <img class="album-image album-mosaic__secondary album-mosaic__secondary--one" src="/images/album/{escape(album['preview_images'][0], quote=True)}" alt="" width="640" height="960" loading="lazy" decoding="async">
+              <img class="album-image album-mosaic__secondary album-mosaic__secondary--two" src="/images/album/{escape(album['preview_images'][1], quote=True)}" alt="" width="640" height="960" loading="lazy" decoding="async">
             </div>
           </div>
           <div class="album-info">
             <div><h3 class="album-name">{escape(album['name'])}</h3>
-              <p class="album-date">{escape(album['description'])}</p></div>
+              <time class="album-date">{escape(album['description'])}</time></div>
           </div>
         </a>'''
         for album in HOME_ALBUMS
