@@ -16,3 +16,49 @@
   content: "";
   pointer-events: none;
 }
+
+.album-mosaic {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 3px;
+  background: var(--color-canvas);
+}
+
+.album-mosaic--left,
+.album-mosaic--right {
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.album-mosaic--left .album-mosaic__primary {
+  grid-row: 1 / span 2;
+}
+
+.album-mosaic--right {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr);
+}
+
+.album-mosaic--right .album-mosaic__primary {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.album-mosaic--top,
+.album-mosaic--bottom {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr);
+}
+
+.album-mosaic--top .album-mosaic__primary {
+  grid-column: 1 / span 2;
+}
+
+.album-mosaic--bottom {
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1.3fr);
+}
+
+.album-mosaic--bottom .album-mosaic__primary {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+}
