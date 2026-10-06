@@ -6,9 +6,9 @@ metadata = Metadata(title="Галерея", description="Примеры альб
 
 ALBUMS = (
     ("office", "Офис", "5 сентября 2026", "office.png", ("look02.png", "look04.png"), "left"),
-    ("evening", "Вечер", "3 сентября 2026", "evening.png", ("look01.png", "look03.png"), "top"),
-    ("street", "Улица", "1 сентября 2026", "street.png", ("look04.png", "look05.png"), "right"),
-    ("study", "Учёба", "28 августа 2026", "study.png", ("look02.png", "look05.png"), "bottom"),
+    ("evening", "Вечер", "3 сентября 2026", "evening.png", ("look01.png", "look03.png"), "right"),
+    ("street", "Улица", "1 сентября 2026", "street.png", ("look04.png", "look05.png"), "left-compact"),
+    ("study", "Учёба", "28 августа 2026", "study.png", ("look02.png", "look05.png"), "right-compact"),
 )
 
 

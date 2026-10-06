@@ -26,69 +26,52 @@
 }
 
 .album-mosaic--left,
-.album-mosaic--right {
+.album-mosaic--right,
+.album-mosaic--left-compact,
+.album-mosaic--right-compact {
   grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
   grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
-.album-mosaic--left .album-mosaic__primary {
+.album-mosaic--left .album-mosaic__primary,
+.album-mosaic--left-compact .album-mosaic__primary {
   grid-area: 1 / 1 / 3 / 2;
 }
 
-.album-mosaic--left .album-mosaic__secondary--one {
+.album-mosaic--left .album-mosaic__secondary--one,
+.album-mosaic--left-compact .album-mosaic__secondary--one {
   grid-area: 1 / 2;
 }
 
-.album-mosaic--left .album-mosaic__secondary--two {
+.album-mosaic--left .album-mosaic__secondary--two,
+.album-mosaic--left-compact .album-mosaic__secondary--two {
   grid-area: 2 / 2;
 }
 
-.album-mosaic--right {
+.album-mosaic--right,
+.album-mosaic--right-compact {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr);
 }
 
-.album-mosaic--right .album-mosaic__primary {
+.album-mosaic--left-compact {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+.album-mosaic--right-compact {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+}
+
+.album-mosaic--right .album-mosaic__primary,
+.album-mosaic--right-compact .album-mosaic__primary {
   grid-area: 1 / 2 / 3 / 3;
 }
 
-.album-mosaic--right .album-mosaic__secondary--one {
+.album-mosaic--right .album-mosaic__secondary--one,
+.album-mosaic--right-compact .album-mosaic__secondary--one {
   grid-area: 1 / 1;
 }
 
-.album-mosaic--right .album-mosaic__secondary--two {
+.album-mosaic--right .album-mosaic__secondary--two,
+.album-mosaic--right-compact .album-mosaic__secondary--two {
   grid-area: 2 / 1;
-}
-
-.album-mosaic--top,
-.album-mosaic--bottom {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr);
-}
-
-.album-mosaic--top .album-mosaic__primary {
-  grid-area: 1 / 1 / 2 / 3;
-}
-
-.album-mosaic--top .album-mosaic__secondary--one {
-  grid-area: 2 / 1;
-}
-
-.album-mosaic--top .album-mosaic__secondary--two {
-  grid-area: 2 / 2;
-}
-
-.album-mosaic--bottom {
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1.3fr);
-}
-
-.album-mosaic--bottom .album-mosaic__primary {
-  grid-area: 2 / 1 / 3 / 3;
-}
-
-.album-mosaic--bottom .album-mosaic__secondary--one {
-  grid-area: 1 / 1;
-}
-
-.album-mosaic--bottom .album-mosaic__secondary--two {
-  grid-area: 1 / 2;
 }

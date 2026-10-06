@@ -29,6 +29,8 @@ class PageControlsTests(unittest.TestCase):
         self.assertEqual(len(soup.select('.album-card .album-mosaic__secondary[alt=""]')), 8)
         layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in soup.select(".album-card")}
         self.assertEqual(len(layouts), 4)
+        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
+        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
         previews = {
             tuple(image["src"] for image in card.select(".album-mosaic__secondary"))
             for card in soup.select(".album-card")
@@ -45,6 +47,8 @@ class PageControlsTests(unittest.TestCase):
         self.assertTrue(all(card.select_one("time.album-date") is not None for card in cards))
         layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in cards}
         self.assertEqual(len(layouts), 3)
+        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
+        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
 
 
 if __name__ == "__main__":

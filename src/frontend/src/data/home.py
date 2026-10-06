@@ -17,7 +17,7 @@ HOME_ALBUMS = (
         "image": "album-evening-photo",
         "alt": "Женщина в вечернем образе",
         "preview_images": ("look01.png", "look03.png"),
-        "mosaic_layout": "bottom",
+        "mosaic_layout": "right",
     },
     {
         "slug": "street",
@@ -26,6 +26,6 @@ HOME_ALBUMS = (
         "image": "hero-bottom",
         "alt": "Повседневный образ с кардиганом, джинсами и кедами",
         "preview_images": ("look04.png", "look05.png"),
-        "mosaic_layout": "right",
+        "mosaic_layout": "left-compact",
     },
 )
