@@ -38,7 +38,7 @@ def page():
       <div>
         <h1 class="gallery-title" id="gallery-title">Галерея</h1>
       </div>
-      <a href="/generation" class="btn-new-album ui-button"><span class="btn-plus" aria-hidden="true">+</span>Новые образы</a>
+      <a href="/generation" class="btn-new-album ui-button"><span class="site-icon site-icon--plus btn-plus" aria-hidden="true"></span>Новые образы</a>
     </header>
     <div class="gallery-summary" aria-live="polite"><span class="gallery-count">{len(ALBUMS)} альбома</span></div>
     <div class="albums-grid">{cards}</div>

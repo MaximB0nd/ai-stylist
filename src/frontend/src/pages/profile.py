@@ -16,10 +16,7 @@ def page():
     <div class="profile-main">
       <section class="profile-section profile-account" aria-labelledby="profile-account-title">
         <header class="profile-section__heading">
-          <div>
-            <p class="profile-caption">Аккаунт</p>
-            <h3 id="profile-account-title">Данные профиля</h3>
-          </div>
+          <h3 id="profile-account-title">Данные профиля</h3>
         </header>
 
         <div class="profile-account__content">
@@ -45,17 +42,13 @@ def page():
 
       <section class="profile-section profile-settings" aria-labelledby="profile-settings-title">
         <header class="profile-section__heading">
-          <div>
-            <p class="profile-caption">Интерфейс</p>
-            <h3 id="profile-settings-title">Настройки</h3>
-          </div>
+          <h3 id="profile-settings-title">Настройки</h3>
         </header>
 
         <div class="profile-settings__list">
           <label class="profile-setting">
             <span class="profile-setting__copy">
               <strong>Тёмная тема</strong>
-              <small>Использовать тёмную палитру на всех страницах.</small>
             </span>
             <input type="checkbox" data-profile-preference="darkMode" />
             <span class="profile-toggle" aria-hidden="true"></span>
@@ -63,7 +56,6 @@ def page():
           <label class="profile-setting">
             <span class="profile-setting__copy">
               <strong>Остановка анимации</strong>
-              <small>Остановить GIF и отключить декоративные движения и переходы.</small>
             </span>
             <input type="checkbox" data-profile-preference="reduceMotion" />
             <span class="profile-toggle" aria-hidden="true"></span>
@@ -72,13 +64,9 @@ def page():
       </section>
     </div>
 
-    <aside class="profile-guide" aria-labelledby="profile-guide-title">
-      <div class="profile-guide__copy">
-        <p class="profile-caption">Совет Вики</p>
-        <h3 id="profile-guide-title">Начните с главного</h3>
-        <p class="profile-guide__tip" data-vika-tip>
-          Когда профиль будет подключён, имя и почта появятся здесь автоматически.
-        </p>
+    <aside class="profile-guide" aria-hidden="true">
+      <div class="profile-guide__flowers">
+        <img src="/images/profile/profile-blossoms.png" alt="" width="1536" height="1024" />
       </div>
       <div class="profile-guide__visual" aria-hidden="true">
         <img

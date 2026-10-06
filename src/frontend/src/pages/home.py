@@ -17,12 +17,10 @@ def page():
           <div class="album-cover">
             <img class="album-image" src="/images/home/{escape(album['image'], quote=True)}.webp"
                  alt="{escape(album['alt'], quote=True)}" width="640" height="960" loading="lazy" decoding="async">
-            <span class="album-open" aria-hidden="true">Открыть альбом ↗</span>
           </div>
           <div class="album-info">
             <div><h3 class="album-name">{escape(album['name'])}</h3>
               <p class="album-date">{escape(album['description'])}</p></div>
-            <span class="album-arrow" aria-hidden="true">↗</span>
           </div>
         </a>'''
         for album in HOME_ALBUMS

@@ -15,11 +15,11 @@
 .album-lightbox { position: fixed; z-index: 20; inset: 0; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(280px, 820px) minmax(48px, 1fr); align-items: center; gap: 22px; padding: 40px; background: rgb(42 34 29 / 94%); }
 .album-lightbox[hidden] { display: none; }
 .lightbox-figure { display: grid; justify-items: center; gap: 14px; margin: 0; }
-.lightbox-figure img { display: block; max-width: min(100%, 820px); max-height: calc(100vh - 130px); object-fit: contain; border-radius: 3px; }
+.lightbox-figure img { display: block; max-width: min(100%, 820px); max-height: calc(100vh - 130px); object-fit: contain; border-radius: var(--radius-unified); }
 .lightbox-figure figcaption { display: grid; justify-items: center; gap: 6px; color: #fff; text-align: center; }
 .lightbox-figure figcaption strong { font: var(--font-weight-display) var(--text-card) / 1.2 var(--font-display); }
 .lightbox-figure .lightbox-counter { color: rgb(255 255 255 / 68%); font: var(--font-weight-body) var(--text-small) / 1.2 var(--font-body); }
-.lightbox-close, .lightbox-nav { display: grid; place-items: center; width: 48px; height: 48px; justify-self: center; border: 1px solid rgb(255 255 255 / 38%); border-radius: 50%; color: #fff; background: transparent; font-size: var(--text-body); cursor: pointer; }
+.lightbox-close, .lightbox-nav { display: grid; place-items: center; width: 48px; height: 48px; justify-self: center; border: 1px solid rgb(255 255 255 / 38%); border-radius: var(--radius-unified); color: #fff; background: transparent; font-size: var(--text-body); cursor: pointer; }
 .lightbox-close { position: absolute; top: 24px; right: 28px; }
 .lightbox-close:hover, .lightbox-nav:hover { border-color: var(--color-accent); color: var(--color-accent); }
 body.lightbox-open { overflow: hidden; }
