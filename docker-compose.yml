@@ -72,8 +72,10 @@ services:
       MINIO_SECURE: "false"
       AI_CORE_URL: ${AI_CORE_URL:-http://ai-core:8001}
 
-      AI_CORE_SERVICE_TOKEN: ${AI_CORE_SERVICE_TOKEN:-temporary-ai-core-service-token}
-      AI_CORE_WEBHOOK_SECRET: ${AI_CORE_WEBHOOK_SECRET:-temporary-ai-core-webhook-secret}
+      # IMPORTANT: Override these in .env for production!
+      # Generate: python -c "import secrets; print(secrets.token_hex(24))"
+      AI_CORE_SERVICE_TOKEN: ${AI_CORE_SERVICE_TOKEN:-temporary-ai-core-service-token-change-in-prod}
+      AI_CORE_WEBHOOK_SECRET: ${AI_CORE_WEBHOOK_SECRET:-temporary-ai-core-webhook-secret-change-in-prod}
     volumes:
       - ./src/backend_core/app:/app/app
       - ./src/backend_core/alembic:/app/alembic

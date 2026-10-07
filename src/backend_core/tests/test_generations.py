@@ -461,12 +461,17 @@ async def test_generation_uploads_correct_keys(
     "field, value, test_id",
     [
         ("age", "0", "age_too_low"),
+        ("age", "17", "age_17_below_min"),
+        ("age", "101", "age_101_above_max"),
         ("age", "151", "age_too_high"),
         ("height", "49", "height_too_low"),
+        ("height", "119", "height_119_below_min"),
+        ("height", "231", "height_231_above_max"),
         ("height", "301", "height_too_high"),
         ("gender", "x", "invalid_gender"),
         ("gender", "male", "gender_full_word"),
         ("situation", "beach", "invalid_situation"),
+        ("styles", "casual", "casual_rejected_not_in_contract"),
         ("styles", "unknown_style", "styles_invalid_value"),
         ("shoes", "sandals", "shoes_invalid_value"),
         ("impressions", "boring", "impressions_invalid_value"),
@@ -592,6 +597,75 @@ async def test_generation_rejects_invalid_magic_bytes(client: httpx.AsyncClient)
     assert resp.status_code == 400
     assert "magic bytes" in resp.json()["detail"].lower()
 
+
+@pytest.mark.parametrize(
+    "age, height, style",
+    [
+        ("18", "120", "classic"),
+        ("18", "230", "minimalism"),
+        ("100", "120", "romantic"),
+        ("100", "230", "streetwear"),
+        ("25", "175", "sport"),
+    ],
+    ids=["min_bounds", "min_age_max_height", "max_age_min_height", "max_bounds", "sport_style"],
+)
+async def test_generation_contract_boundary_success(
+    client: httpx.AsyncClient,
+    age: str,
+    height: str,
+    style: str,
+):
+    """Boundary values for age (18, 100), height (120, 230), and AI Core styles succeed with 202."""
+    form = {**VALID_FORM, "age": age, "height": height, "styles": style}
+    resp = await client.post(
+        "/api/v1/generations",
+        data=form,
+        files={
+            "face_photo": _fake_image(),
+            "body_photo": _fake_image(filename="body.jpg"),
+        },
+        headers=_auth_header(),
+    )
+    assert resp.status_code == 202
+
+
+async def test_generation_file_size_boundary_10mib_accepted(client: httpx.AsyncClient):
+    """A valid JPEG file of exactly 10 MiB is accepted (boundary test)."""
+    max_size = 10 * 1024 * 1024
+    header = b"\xff\xd8\xff\xe0"
+    content = header + b"\x00" * (max_size - len(header))
+    assert len(content) == max_size
+
+    resp = await client.post(
+        "/api/v1/generations",
+        data=VALID_FORM,
+        files={
+            "face_photo": ("face.jpg", BytesIO(content), "image/jpeg"),
+            "body_photo": _fake_image(),
+        },
+        headers=_auth_header(),
+    )
+    assert resp.status_code == 202
+
+
+async def test_generation_file_size_boundary_exceeds_10mib_rejected_413(client: httpx.AsyncClient):
+    """A file exceeding 10 MiB by 1 byte is rejected with HTTP 413."""
+    max_size = 10 * 1024 * 1024
+    header = b"\xff\xd8\xff\xe0"
+    content = header + b"\x00" * (max_size + 1 - len(header))
+    assert len(content) == max_size + 1
+
+    resp = await client.post(
+        "/api/v1/generations",
+        data=VALID_FORM,
+        files={
+            "face_photo": ("oversized.jpg", BytesIO(content), "image/jpeg"),
+            "body_photo": _fake_image(),
+        },
+        headers=_auth_header(),
+    )
+    assert resp.status_code == 413
+    assert "exceeds the maximum allowed size" in resp.json()["detail"]
 
 
 # =============================================================================

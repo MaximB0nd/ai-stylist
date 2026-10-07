@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -84,23 +84,85 @@ class AlbumRepository:
             await self.session.rollback()
             raise
 
-    async def atomic_claim_for_download(self, album_id: uuid.UUID) -> bool:
-        """Atomically transition album from PROCESSING → DOWNLOADING.
+    async def atomic_claim_for_download(
+        self,
+        album_id: uuid.UUID,
+        stale_seconds: int = 60,
+    ) -> bool:
+        """Atomically transition album to DOWNLOADING.
+
+        Allowed source states:
+        - QUEUED or PROCESSING (normal forward progression). AI Core may skip
+          the PROCESSING event and send COMPLETED directly.
+        - DOWNLOADING if stuck (updated_at older than stale_seconds) so that
+          webhook retries can recover crashed or interrupted background tasks.
 
         Returns True if this caller "won" the race (row was updated),
-        False if another concurrent handler already claimed it.
-        This prevents duplicate background tasks from processing the same webhook.
+        False if another concurrent handler already claimed it (status was
+        already fresh DOWNLOADING, COMPLETED, FAILED, etc.).
         """
         now = datetime.now(timezone.utc)
+        stale_threshold = now - timedelta(seconds=stale_seconds)
         stmt = (
             update(Album)
-            .where(Album.id == album_id, Album.status == "PROCESSING")
+            .where(
+                Album.id == album_id,
+                or_(
+                    Album.status.in_(["QUEUED", "PROCESSING"]),
+                    and_(
+                        Album.status == "DOWNLOADING",
+                        Album.updated_at < stale_threshold,
+                    ),
+                ),
+            )
             .values(status="DOWNLOADING", updated_at=now)
             .returning(Album.id)
         )
         result = await self.session.execute(stmt)
         await self.session.commit()
         return result.scalar_one_or_none() is not None
+
+    async def atomic_transition(
+        self,
+        album_id: uuid.UUID,
+        from_statuses: List[str],
+        to_status: str,
+        error_message: Optional[str] = None,
+    ) -> bool:
+        """Atomically transition album status ONLY if current status is in from_statuses.
+
+        Prevents delayed/out-of-order events from regressing advanced states
+        (e.g., delayed PROCESSING event overwriting DOWNLOADING or COMPLETED).
+        """
+        now = datetime.now(timezone.utc)
+        values = {"status": to_status, "updated_at": now}
+        if error_message is not None:
+            values["error_message"] = error_message
+
+        stmt = (
+            update(Album)
+            .where(
+                Album.id == album_id,
+                Album.status.in_(from_statuses),
+            )
+            .values(**values)
+            .returning(Album.id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def get_stuck_downloading_albums(
+        self, stale_seconds: int = 0
+    ) -> List[Album]:
+        """Fetch albums stuck in DOWNLOADING status (e.g., across server restarts)."""
+        stmt = select(Album).where(Album.status == "DOWNLOADING")
+        if stale_seconds > 0:
+            now = datetime.now(timezone.utc)
+            threshold = now - timedelta(seconds=stale_seconds)
+            stmt = stmt.where(Album.updated_at < threshold)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def add_photos(
         self,

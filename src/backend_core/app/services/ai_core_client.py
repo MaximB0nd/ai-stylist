@@ -25,6 +25,19 @@ GENDER_MAP: Dict[str, str] = {
     "m": "male",
 }
 
+# Style normalization & mapping for AI Core contract compliance.
+# AI Core strictly allows: classic, minimalism, romantic, streetwear, sport.
+# Legacy "casual" is mapped to "streetwear".
+ALLOWED_AI_CORE_STYLES = {"classic", "minimalism", "romantic", "streetwear", "sport"}
+STYLE_MAP: Dict[str, str] = {
+    "casual": "streetwear",
+    "classic": "classic",
+    "minimalism": "minimalism",
+    "romantic": "romantic",
+    "streetwear": "streetwear",
+    "sport": "sport",
+}
+
 
 class AICoreError(Exception):
     """Base exception for AI Core communication errors."""
@@ -89,6 +102,7 @@ class AICoreClient:
         """Submit a new image generation job to AI Core (POST /v1/jobs)."""
         occasion = SITUATION_TO_OCCASION.get(situation, "casual")
         mapped_gender = GENDER_MAP.get(gender, "unspecified")
+        mapped_styles = [STYLE_MAP.get(s.lower(), s.lower()) for s in styles]
 
         payload = {
             "requested_image_count": requested_image_count,
@@ -104,7 +118,7 @@ class AICoreClient:
             },
             "preferences": {
                 "occasion": occasion,
-                "styles": styles,
+                "styles": mapped_styles,
                 "shoes": shoes,
                 "impressions": impressions,
                 "description": description or f"Generation for {situation}",

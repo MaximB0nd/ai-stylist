@@ -100,7 +100,7 @@ EXPECTED_METADATA = {
             "user_height", "SMALLINT", nullable=True, server_default=None
         ),
         ExpectedColumn(
-            "gender", "VARCHAR", length=1, nullable=True, server_default=None
+            "user_weight", "SMALLINT", nullable=True, server_default=None
         ),
         ExpectedColumn(
             "source_face_key",

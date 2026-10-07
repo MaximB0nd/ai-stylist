@@ -84,13 +84,52 @@ class FakeAlbumRepository:
             return album.photos
         return []
 
-    async def atomic_claim_for_download(self, album_id: uuid.UUID) -> bool:
-        """Fake: atomically claim album for download. Returns True if status was PROCESSING."""
+    async def atomic_claim_for_download(self, album_id: uuid.UUID, stale_seconds: int = 60) -> bool:
+        """Fake: atomically claim album for download. Supports QUEUED, PROCESSING, and stale DOWNLOADING."""
         album = self.albums.get(album_id)
-        if album and album.status == "PROCESSING":
+        now = datetime.now(timezone.utc)
+        if not album:
+            return False
+        if album.status in ("QUEUED", "PROCESSING"):
             album.status = "DOWNLOADING"
+            album.updated_at = now
+            return True
+        if album.status == "DOWNLOADING" and getattr(album, "updated_at", None):
+            from datetime import timedelta
+            if album.updated_at < (now - timedelta(seconds=stale_seconds)):
+                album.status = "DOWNLOADING"
+                album.updated_at = now
+                return True
+        return False
+
+    async def atomic_transition(
+        self,
+        album_id: uuid.UUID,
+        from_statuses: list[str],
+        to_status: str,
+        error_message: str = None,
+    ) -> bool:
+        album = self.albums.get(album_id)
+        if album and album.status in from_statuses:
+            album.status = to_status
+            if error_message is not None:
+                album.error_message = error_message
+            album.updated_at = datetime.now(timezone.utc)
             return True
         return False
+
+    async def get_stuck_downloading_albums(self, stale_seconds: int = 0) -> list:
+        now = datetime.now(timezone.utc)
+        from datetime import timedelta
+        res = []
+        for album in self.albums.values():
+            if album.status == "DOWNLOADING":
+                if stale_seconds > 0:
+                    if getattr(album, "updated_at", None) and album.updated_at < (now - timedelta(seconds=stale_seconds)):
+                        res.append(album)
+                else:
+                    res.append(album)
+        return res
 
 
 class FakeStorageService:
@@ -571,4 +610,263 @@ async def test_ai_events_find_by_ai_job_id(fake_repos, current_user):
             assert album.status == "PROCESSING"
     finally:
         app.dependency_overrides.clear()
+
+
+# ==============================================================================
+# P1 Regression tests:
+# - Direct QUEUED -> COMPLETED transition
+# - Out-of-order late PROCESSING rejection
+# - Webhook repeat re-claim of stale DOWNLOADING albums
+# - Empty results & expired state guard
+# - Empty photos legacy webhook guard
+# ==============================================================================
+
+@pytest.mark.asyncio
+async def test_completed_directly_from_queued_transitions_to_downloading():
+    """AI Core may send COMPLETED directly while album is still QUEUED (or PROCESSING delayed).
+    The handler must accept QUEUED -> DOWNLOADING, claim the task, and launch download.
+    """
+    album_repo = FakeAlbumRepository()
+    storage = FakeStorageService()
+    ai_client = FakeAICoreClient()
+
+    gen_id = uuid.uuid4()
+    ai_job_id = uuid.uuid4()
+    album_id = uuid.uuid4()
+    album = Album(
+        id=album_id,
+        user_id=uuid.uuid4(),
+        title="Вечер",
+        generation_id=gen_id,
+        ai_job_id=ai_job_id,
+        status="QUEUED",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    album_repo.albums[album_id] = album
+
+    app.dependency_overrides[get_album_repository] = lambda: album_repo
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_ai_core_client] = lambda: ai_client
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            payload = json.dumps({
+                "job_id": str(ai_job_id),
+                "status": "COMPLETED",
+            }).encode("utf-8")
+            headers = generate_hmac_headers(payload)
+
+            resp = await client.post("/api/v1/internal/ai-events", content=payload, headers=headers)
+            assert resp.status_code == 200
+            assert resp.json()["success"] is True
+            # Album was claimed and moved to DOWNLOADING
+            assert album.status == "DOWNLOADING"
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_out_of_order_processing_does_not_regress_downloading_or_completed():
+    """A delayed PROCESSING webhook arriving when album is already DOWNLOADING
+    must be discarded (out_of_order_ignored) and must not regress status back to PROCESSING.
+    """
+    album_repo = FakeAlbumRepository()
+    storage = FakeStorageService()
+    ai_client = FakeAICoreClient()
+
+    gen_id = uuid.uuid4()
+    ai_job_id = uuid.uuid4()
+    album_id = uuid.uuid4()
+    album = Album(
+        id=album_id,
+        user_id=uuid.uuid4(),
+        title="Вечер",
+        generation_id=gen_id,
+        ai_job_id=ai_job_id,
+        status="DOWNLOADING",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    album_repo.albums[album_id] = album
+
+    app.dependency_overrides[get_album_repository] = lambda: album_repo
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_ai_core_client] = lambda: ai_client
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            payload = json.dumps({
+                "job_id": str(ai_job_id),
+                "status": "PROCESSING",
+            }).encode("utf-8")
+            headers = generate_hmac_headers(payload)
+
+            resp = await client.post("/api/v1/internal/ai-events", content=payload, headers=headers)
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "out_of_order_ignored"
+            # Status remained DOWNLOADING, never regressed
+            assert album.status == "DOWNLOADING"
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_stale_downloading_reclaim_on_repeated_webhook():
+    """When an album has been stuck in DOWNLOADING for longer than stale_seconds
+    (e.g., process restarted and in-memory background task was lost),
+    a webhook retry must successfully re-claim it and resume download.
+    """
+    from datetime import timedelta
+    album_repo = FakeAlbumRepository()
+    storage = FakeStorageService()
+    ai_client = FakeAICoreClient()
+
+    gen_id = uuid.uuid4()
+    ai_job_id = uuid.uuid4()
+    album_id = uuid.uuid4()
+    # Stuck in DOWNLOADING for 120 seconds
+    old_time = datetime.now(timezone.utc) - timedelta(seconds=120)
+    album = Album(
+        id=album_id,
+        user_id=uuid.uuid4(),
+        title="Вечер",
+        generation_id=gen_id,
+        ai_job_id=ai_job_id,
+        status="DOWNLOADING",
+        created_at=old_time,
+        updated_at=old_time,
+    )
+    album_repo.albums[album_id] = album
+
+    app.dependency_overrides[get_album_repository] = lambda: album_repo
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_ai_core_client] = lambda: ai_client
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            payload = json.dumps({
+                "job_id": str(ai_job_id),
+                "status": "COMPLETED",
+            }).encode("utf-8")
+            headers = generate_hmac_headers(payload)
+
+            resp = await client.post("/api/v1/internal/ai-events", content=payload, headers=headers)
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["success"] is True
+            # Did not return duplicate_ignored; successfully claimed
+            assert data.get("status") != "duplicate_ignored"
+            assert album.status == "DOWNLOADING"
+            # updated_at was refreshed
+            assert album.updated_at > old_time
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_empty_results_from_ai_core_marks_failed_and_skips_ack():
+    """When AI Core returns empty results (e.g. after EXPIRED/ACKNOWLEDGED or glitch),
+    _download_and_store_results must abort, mark the album FAILED, and NOT send ACK.
+    """
+    from app.api.v1.endpoints.internal import _download_and_store_results
+
+    album_repo = FakeAlbumRepository()
+    storage = FakeStorageService()
+    ai_client = FakeAICoreClient()
+
+    gen_id = uuid.uuid4()
+    ai_job_id = uuid.uuid4()
+    album_id = uuid.uuid4()
+    album = Album(
+        id=album_id,
+        user_id=uuid.uuid4(),
+        title="Вечер",
+        generation_id=gen_id,
+        ai_job_id=ai_job_id,
+        status="DOWNLOADING",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    album_repo.albums[album_id] = album
+
+    # Mock get_job returning 0 results with EXPIRED delivery_status
+    ai_client.job_details[ai_job_id] = {
+        "id": str(ai_job_id),
+        "status": "COMPLETED",
+        "delivery_status": "EXPIRED",
+        "results": [],
+    }
+
+    from unittest.mock import patch, MagicMock
+
+    class MockAsyncContextManager:
+        async def __aenter__(self):
+            return MagicMock()
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    # Execute download routine with mocked DB session delegating to album_repo
+    with patch("app.api.v1.endpoints.internal.AsyncSessionLocal", return_value=MockAsyncContextManager()), \
+         patch("app.db.repositories.album_repository.AlbumRepository", return_value=album_repo):
+        await _download_and_store_results(
+            album_id=album_id,
+            job_uuid=ai_job_id,
+            ai_client=ai_client,
+        )
+
+    # Album must be marked FAILED
+    updated_album = await album_repo.get_by_id(album_id)
+    assert updated_album.status == "FAILED"
+    assert "Cannot accept or confirm expired/acknowledged delivery" in (updated_album.error_message or "")
+    # ACK was NEVER sent for an empty or failed delivery
+    assert ai_job_id not in ai_client.acknowledged_jobs
+
+
+@pytest.mark.asyncio
+async def test_empty_photos_legacy_webhook_marks_failed():
+    """A legacy COMPLETED webhook with photos=[] must not mark the album COMPLETED;
+    it should mark FAILED and return status=failed.
+    """
+    album_repo = FakeAlbumRepository()
+    storage = FakeStorageService()
+    ai_client = FakeAICoreClient()
+
+    gen_id = uuid.uuid4()
+    album_id = uuid.uuid4()
+    album = Album(
+        id=album_id,
+        user_id=uuid.uuid4(),
+        title="Вечер",
+        generation_id=gen_id,
+        status="PROCESSING",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    album_repo.albums[album_id] = album
+
+    app.dependency_overrides[get_album_repository] = lambda: album_repo
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    app.dependency_overrides[get_ai_core_client] = lambda: ai_client
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            payload = json.dumps({
+                "generation_id": str(gen_id),
+                "status": "COMPLETED",
+                "photos": [],
+            }).encode("utf-8")
+            headers = generate_hmac_headers(payload)
+
+            resp = await client.post("/api/v1/internal/ai-events", content=payload, headers=headers)
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "failed"
+            assert album.status == "FAILED"
+    finally:
+        app.dependency_overrides.clear()
+
 

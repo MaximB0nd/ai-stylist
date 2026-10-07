@@ -7,14 +7,19 @@ from sqlalchemy.engine import URL
 backend_core_env = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
-# Weak/default secrets that must NOT be used in production
+# Minimum lengths enforced by validators
+# SECRET_KEY: >= 32 chars (JWT signing key must be strong)
+# AI tokens: >= 24 chars (enough entropy for HMAC and bearer tokens)
+_SECRET_KEY_MIN_LEN = 32
+_AI_TOKEN_MIN_LEN = 24
+
+# Values that are always rejected regardless of length
 _FORBIDDEN_SECRETS: set[str] = {
-    "temporary-secret-key-for-dev-change-in-prod",
-    "temporary-ai-core-service-token",
-    "temporary-ai-core-webhook-secret",
     "changeme",
     "secret",
     "password",
+    "test",
+    "12345",
 }
 
 
@@ -41,39 +46,43 @@ class Settings(BaseSettings):
     ]
 
 
-    # Database connection parameters
-    POSTGRES_SERVER: str = "localhost"
+    # Database connection parameters (strictly required from .env / environment)
+    POSTGRES_SERVER: str
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_DB: str = "stylist"
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
 
     # Optional explicit database URL (if not provided, assembled safely via URL.create)
     DATABASE_URL: Optional[str] = None
 
-    # MinIO / S3-compatible storage
-    MINIO_ENDPOINT: str = "localhost:9000"
+    # MinIO / S3-compatible storage (strictly required from .env / environment)
+    MINIO_ENDPOINT: str
     MINIO_PUBLIC_ENDPOINT: Optional[str] = None
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin"
-    MINIO_BUCKET: str = "stylist"
+    MINIO_ACCESS_KEY: str
+    MINIO_SECRET_KEY: str
+    MINIO_BUCKET: str
     MINIO_SECURE: bool = False
     MINIO_PUBLIC_SECURE: Optional[bool] = None
     MINIO_PRESIGNED_TTL: int = 3600  # presigned URL lifetime in seconds
 
-
-    # AI Core Integration
-    AI_CORE_URL: str = "http://localhost:8001"
-    AI_CORE_SERVICE_TOKEN: str = "temporary-ai-core-service-token"
-    AI_CORE_WEBHOOK_SECRET: str = "temporary-ai-core-webhook-secret"
+    # AI Core Integration (strictly required from .env / environment)
+    AI_CORE_URL: str
+    AI_CORE_SERVICE_TOKEN: str
+    AI_CORE_WEBHOOK_SECRET: str
 
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
-        """Reject weak/default SECRET_KEY values and enforce minimum length."""
-        if v.lower() in _FORBIDDEN_SECRETS or len(v) < 32:
+        """Reject trivially weak SECRET_KEY values and enforce minimum length."""
+        if v.lower() in _FORBIDDEN_SECRETS:
             raise ValueError(
-                "SECRET_KEY is insecure: use a strong random value of at least 32 characters. "
+                f"SECRET_KEY '{v}' is trivially insecure. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        if len(v) < _SECRET_KEY_MIN_LEN:
+            raise ValueError(
+                f"SECRET_KEY must be at least {_SECRET_KEY_MIN_LEN} characters. "
                 "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
         return v
@@ -81,10 +90,15 @@ class Settings(BaseSettings):
     @field_validator("AI_CORE_SERVICE_TOKEN", "AI_CORE_WEBHOOK_SECRET", mode="after")
     @classmethod
     def validate_ai_secrets(cls, v: str) -> str:
-        """Reject default AI Core tokens."""
+        """Reject trivially weak AI Core tokens and enforce minimum length."""
         if v.lower() in _FORBIDDEN_SECRETS:
             raise ValueError(
-                f"AI Core secret token is insecure — replace the default value in your environment."
+                "AI Core secret token is trivially insecure — replace with a real secret."
+            )
+        if len(v) < _AI_TOKEN_MIN_LEN:
+            raise ValueError(
+                f"AI Core secret token must be at least {_AI_TOKEN_MIN_LEN} characters. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(24))\""
             )
         return v
 

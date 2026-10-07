@@ -143,7 +143,14 @@ class GenerationService:
 
     @staticmethod
     async def _validate_photo(file: UploadFile, field_name: str) -> None:
-        """Validate that uploaded file is an allowed image type and matches magic bytes."""
+        """Validate that uploaded file is an allowed image type, matches magic bytes,
+        and does not exceed MAX_IMAGE_SIZE.
+
+        Reads the entire file content into memory here so we can check both the
+        magic signature AND the total size before handing the file to storage.
+        The UploadFile is seeked back to position 0 afterwards so subsequent
+        reads (e.g. upload_file) work correctly.
+        """
         if not file or not file.filename:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -156,10 +163,22 @@ class GenerationService:
                 detail=f"Invalid file type for {field_name}: {content_type}. Allowed: webp, jpeg, png.",
             )
 
-        # Validate magic bytes / file signature
-        header = await file.read(16)
+        # Read MAX_IMAGE_SIZE + 1 bytes to detect oversized files without reading
+        # the entire (potentially enormous) upload into memory unconditionally.
+        chunk = await file.read(MAX_IMAGE_SIZE + 1)
         await file.seek(0)
 
+        if len(chunk) > MAX_IMAGE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(
+                    f"{field_name} exceeds the maximum allowed size of "
+                    f"{MAX_IMAGE_SIZE // (1024 * 1024)} MiB."
+                ),
+            )
+
+        # Validate magic bytes / file signature using the first 16 bytes of the chunk.
+        header = chunk[:16]
         is_jpeg = header.startswith(b"\xff\xd8\xff")
         is_png = header.startswith(b"\x89PNG\r\n\x1a\n")
         is_webp = header[:4] == b"RIFF" and header[8:12] == b"WEBP"

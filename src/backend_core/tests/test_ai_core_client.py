@@ -293,3 +293,65 @@ async def test_generation_service_dispatch_failure_marks_failed_and_raises_502()
         assert "Failed to dispatch job to AI Core" in album.error_message
 
 
+@pytest.mark.asyncio
+async def test_ai_core_client_style_mapping_contract():
+    """Verify that casual is mapped to streetwear, and all 5 AI Core styles are sent properly."""
+    recorded_body = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal recorded_body
+        recorded_body = json.loads(request.content)
+        return httpx.Response(
+            201,
+            json={
+                "job_id": "c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
+                "status": "QUEUED",
+                "requested_image_count": 10,
+                "status_url": "/v1/jobs/c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http_client:
+        client = AICoreClient(
+            base_url="http://fake-ai-core",
+            service_token="secret-token",
+            client=http_client,
+        )
+
+        # 1. Test casual maps to streetwear
+        await client.create_job(
+            generation_id=uuid.uuid4(),
+            face_photo_url="https://minio/face.jpg",
+            body_photo_url="https://minio/body.jpg",
+            expires_at=datetime.now(timezone.utc),
+            age=25,
+            height_cm=175,
+            gender="f",
+            situation="street",
+            styles=["casual"],
+            shoes=["sneakers"],
+            impressions=["casual"],
+        )
+        assert recorded_body["preferences"]["styles"] == ["streetwear"]
+
+        # 2. Test all 5 standard styles pass through correctly
+        allowed = ["classic", "minimalism", "romantic", "streetwear", "sport"]
+        for style in allowed:
+            await client.create_job(
+                generation_id=uuid.uuid4(),
+                face_photo_url="https://minio/face.jpg",
+                body_photo_url="https://minio/body.jpg",
+                expires_at=datetime.now(timezone.utc),
+                age=25,
+                height_cm=175,
+                gender="m",
+                situation="office",
+                styles=[style],
+                shoes=["loafers"],
+                impressions=["confident"],
+            )
+            assert recorded_body["preferences"]["styles"] == [style]
+
+
+

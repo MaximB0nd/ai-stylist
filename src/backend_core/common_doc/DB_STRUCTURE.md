@@ -96,8 +96,11 @@ erDiagram
 | `source_body_key` | `VARCHAR(512)` | `NULL` | Ключ исходного фото тела в MinIO |
 | `total_photos` | `INTEGER` | `NOT NULL`, по умолчанию `10` | Общее количество фотографий в альбоме |
 | `is_archived` | `BOOLEAN` | `NOT NULL`, по умолчанию `FALSE` | Флаг нахождения в архиве |
-| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время завершения генерации / создания альбома |
-| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время последнего обновления |
+| `status` | `VARCHAR(20)` | `NOT NULL`, по умолчанию `'VALIDATING'` | Статус пайплайна генерации (`VALIDATING`, `QUEUED`, `PROCESSING`, `DOWNLOADING`, `COMPLETED`, `FAILED`) |
+| `ai_job_id` | `UUID` | `NULL` | ID задачи в AI Core сервисе |
+| `error_message` | `VARCHAR(512)` | `NULL` | Сообщение об ошибке в случае сбоя генерации или скачивания |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время создания записи альбома |
+| `updated_at` | `TIMESTAMPTZ` | `NOT NULL`, по умолчанию `CURRENT_TIMESTAMP` | Дата и время последнего обновления статуса/записи |
 
 **Индексы и ограничения:**
 - `pk_albums`: `PRIMARY KEY (id)`
@@ -105,6 +108,8 @@ erDiagram
 - `ix_albums_generation_id`: Уникальный B-tree индекс по `generation_id`
 - `ix_albums_user_id`: B-tree индекс по `user_id` (оптимизирует запрос `GET /api/v1/albums`)
 - `idx_albums_user_created`: B-tree индекс по `(user_id, created_at)` для быстрой сортировки
+- `ix_albums_status`: B-tree индекс по `status` (для быстрого поиска активных и зависших задач)
+- `ix_albums_ai_job_id`: B-tree индекс по `ai_job_id` (для входящих вебхуков по AI Job UUID)
 
 ---
 

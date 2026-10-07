@@ -18,11 +18,16 @@ class SituationEnum(str, Enum):
     EVENING = "evening"
 
 
+# Styles accepted by AI Core contract.
+# AI Core allows: classic, minimalism, romantic, streetwear, sport.
+# "casual" was previously accepted here but is NOT a valid AI Core style
+# and caused guaranteed rejections after photo upload.
 class StyleEnum(str, Enum):
     MINIMALISM = "minimalism"
     CLASSIC = "classic"
-    CASUAL = "casual"
+    STREETWEAR = "streetwear"
     ROMANTIC = "romantic"
+    SPORT = "sport"
 
 
 class ShoesEnum(str, Enum):
@@ -49,13 +54,21 @@ SITUATION_TITLES: dict[str, str] = {
 
 
 class GenerationRequestForm(BaseModel):
-    """Validated form-data fields for generation request (parsed manually from form)."""
+    """Validated form-data fields for generation request (parsed manually from form).
 
-    age: int = Field(..., ge=1, le=150, description="User age")
-    height: int = Field(..., ge=50, le=300, description="Height in cm")
+    Ranges are aligned with the AI Core contract:
+      - age: 18..100   (AI Core rejects < 18 and > 100)
+      - height: 120..230 cm  (AI Core rejects < 120 and > 230)
+
+    Styles are limited to the AI Core accepted set:
+      classic, minimalism, romantic, streetwear, sport.
+    """
+
+    age: int = Field(..., ge=18, le=100, description="User age (18–100, per AI Core contract)")
+    height: int = Field(..., ge=120, le=230, description="Height in cm (120–230, per AI Core contract)")
     gender: GenderEnum = Field(..., description="Gender: 'f' or 'm'")
     situation: SituationEnum
-    styles: StyleEnum = Field(..., description="Exactly one style")
+    styles: StyleEnum = Field(..., description="One style (classic/minimalism/romantic/streetwear/sport)")
     shoes: ShoesEnum = Field(..., description="Exactly one shoe type")
     impressions: ImpressionEnum = Field(..., description="Exactly one impression")
 
@@ -78,4 +91,3 @@ class GenerationStatusResponse(BaseModel):
     error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-

@@ -23,6 +23,17 @@ async def lifespan(app: FastAPI):
         logger.info("MinIO bucket '%s' ready.", storage.bucket)
     except Exception as e:
         logger.warning("Could not auto-create MinIO bucket on startup: %s", e)
+
+    # Recover any downloads that were interrupted by previous server restart / crash
+    try:
+        from app.api.v1.endpoints.internal import recover_stuck_downloads
+
+        recovered = await recover_stuck_downloads()
+        if recovered > 0:
+            logger.info("Recovered %d interrupted downloading jobs on startup.", recovered)
+    except Exception as e:
+        logger.warning("Could not run startup stuck download recovery: %s", e)
+
     yield
 
 
