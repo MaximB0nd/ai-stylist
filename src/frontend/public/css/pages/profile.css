@@ -2,6 +2,7 @@
   width: 100%;
   max-width: var(--content-width);
   min-width: 0;
+  container-type: inline-size;
   color: var(--color-ink);
   font: var(--font-weight-body) var(--text-body)/1.5 var(--font-body);
   letter-spacing: 0;
@@ -12,6 +13,13 @@
   grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   gap: 32px;
   align-items: stretch;
+  container-type: inline-size;
+}
+
+@container (max-width: 1200px) {
+  .profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .profile-main {
@@ -180,11 +188,23 @@
 
 .profile-guide {
   position: relative;
+  container-type: inline-size;
   min-height: 670px;
-  overflow: hidden;
   padding: 64px 34px 0;
-  border-radius: 150px 150px var(--radius-unified) var(--radius-unified);
+  background: transparent;
+}
+
+.profile-guide__frame {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  right: auto;
+  left: 50%;
+  width: min(100%, 560px);
+  overflow: hidden;
+  border-radius: 50cqi 50cqi var(--radius-unified) var(--radius-unified);
   background: linear-gradient(180deg, transparent 0%, var(--color-sidebar-translucent) 48%, var(--color-sidebar) 100%);
+  transform: translateX(-50%);
 }
 
 .profile-guide__flowers {
@@ -232,7 +252,7 @@
   object-position: center bottom;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .profile-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -240,9 +260,8 @@
   .profile-guide {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 280px;
-    min-height: 330px;
+    min-height: max(330px, calc(50cqi + 24px));
     padding: 56px 32px 32px;
-    border-radius: 120px 120px var(--radius-unified) var(--radius-unified);
   }
 
   .profile-guide__visual {
@@ -295,7 +314,6 @@
     display: block;
     min-height: 560px;
     padding: 52px 26px 0;
-    border-radius: 120px 120px var(--radius-unified) var(--radius-unified);
   }
 
   .profile-guide__visual {

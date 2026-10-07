@@ -22,7 +22,7 @@
 .lightbox-figure figcaption { display: grid; justify-items: center; gap: 6px; color: #fff; text-align: center; }
 .lightbox-figure figcaption strong { font: var(--font-weight-display) var(--text-card) / 1.2 var(--font-display); }
 .lightbox-figure .lightbox-counter { color: rgb(255 255 255 / 68%); font: var(--font-weight-body) var(--text-small) / 1.2 var(--font-body); }
-.lightbox-close, .lightbox-nav { display: grid; place-items: center; width: 48px; height: 48px; justify-self: center; border: 1px solid rgb(255 255 255 / 38%); border-radius: var(--radius-unified); color: #fff; background: transparent; font-size: var(--text-body); cursor: pointer; }
+.lightbox-close, .lightbox-nav { display: grid; place-items: center; width: 48px; height: 48px; justify-self: center; border: 1px solid rgb(255 255 255 / 38%); border-radius: 50%; color: #fff; background: transparent; font-size: var(--text-body); cursor: pointer; }
 .lightbox-close { position: absolute; top: 24px; right: 28px; }
 .lightbox-close:hover, .lightbox-nav:hover { border-color: var(--color-accent); color: var(--color-accent); }
 body.lightbox-open { overflow: hidden; }

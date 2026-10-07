@@ -14,7 +14,7 @@ class ProfileLayoutTests(unittest.TestCase):
 
     def test_profile_uses_vertical_vika_panel(self):
         guide = self.soup.select_one(".profile-guide")
-        image = guide.select_one("img")
+        image = guide.select_one(".profile-guide__visual img")
         self.assertEqual(image["src"], "/images/profile/vika-profile.gif")
         self.assertEqual(
             image["data-static-src"],

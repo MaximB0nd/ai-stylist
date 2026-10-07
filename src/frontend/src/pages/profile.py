@@ -65,19 +65,21 @@ def page():
     </div>
 
     <aside class="profile-guide" aria-hidden="true">
-      <div class="profile-guide__flowers">
-        <img src="/images/profile/profile-blossoms.png" alt="" width="1536" height="1024" />
-      </div>
-      <div class="profile-guide__visual" aria-hidden="true">
-        <img
-          src="/images/profile/vika-profile.gif"
-          data-motion-image
-          data-animated-src="/images/profile/vika-profile.gif"
-          data-static-src="/images/profile/vika-profile-static.png"
-          alt=""
-          width="1254"
-          height="1254"
-        />
+      <div class="profile-guide__frame">
+        <div class="profile-guide__flowers">
+          <img src="/images/profile/profile-blossoms.png" alt="" width="1536" height="1024" />
+        </div>
+        <div class="profile-guide__visual" aria-hidden="true">
+          <img
+            src="/images/profile/vika-profile.gif"
+            data-motion-image
+            data-animated-src="/images/profile/vika-profile.gif"
+            data-static-src="/images/profile/vika-profile-static.png"
+            alt=""
+            width="1254"
+            height="1254"
+          />
+        </div>
       </div>
     </aside>
   </div>

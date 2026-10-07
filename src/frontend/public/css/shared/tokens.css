@@ -42,7 +42,7 @@
   --space-7: 48px;
   --radius-unified: 12px;
   --radius-control: var(--radius-unified);
-  --radius-button: var(--radius-unified);
+  --radius-button: 999px;
   --radius-card: var(--radius-unified);
   --sidebar-width: 270px;
   --page-gutter: 40px;

@@ -239,9 +239,14 @@
 
 .auth-modal__close {
   position: absolute;
-  top: 14px;
-  right: 18px;
-  border: 0;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
   background: transparent;
   color: var(--color-ink);
   cursor: pointer;
