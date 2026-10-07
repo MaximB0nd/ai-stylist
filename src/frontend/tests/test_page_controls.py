@@ -2,7 +2,7 @@ import unittest
 
 from bs4 import BeautifulSoup
 
-from src.pages import gallery, generation
+from src.pages import gallery, generation, home
 
 
 class PageControlsTests(unittest.TestCase):
@@ -24,8 +24,31 @@ class PageControlsTests(unittest.TestCase):
             {link["href"] for link in soup.select(".album-card")},
             {"/album/office", "/album/evening", "/album/street", "/album/study"},
         )
-        self.assertEqual(len(soup.select(".album-image[src]")), 4)
-        self.assertEqual(len(soup.select(".album-image[alt]")), 4)
+        self.assertEqual(len(soup.select(".album-card .album-image[src]")), 12)
+        self.assertEqual(len(soup.select(".album-card .album-mosaic__primary[alt]")), 4)
+        self.assertEqual(len(soup.select('.album-card .album-mosaic__secondary[alt=""]')), 8)
+        layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in soup.select(".album-card")}
+        self.assertEqual(len(layouts), 4)
+        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
+        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
+        previews = {
+            tuple(image["src"] for image in card.select(".album-mosaic__secondary"))
+            for card in soup.select(".album-card")
+        }
+        self.assertEqual(len(previews), 4)
+        self.assertTrue(all(card.select_one(".album-preview .album-date") is None for card in soup.select(".album-card")))
+        self.assertTrue(all(card.select_one(".album-footer time.album-date") is not None for card in soup.select(".album-card")))
+
+    def test_home_album_covers_use_three_photo_mosaics(self):
+        soup = BeautifulSoup(str(home.page()), "html.parser")
+        cards = soup.select(".albums-grid .album-card")
+        self.assertEqual(len(cards), 3)
+        self.assertTrue(all(len(card.select(".album-mosaic img")) == 3 for card in cards))
+        self.assertTrue(all(card.select_one("time.album-date") is not None for card in cards))
+        layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in cards}
+        self.assertEqual(len(layouts), 3)
+        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
+        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ CHOICES = (
         "style",
         "Стиль",
         (
-            ("minimal", "Минимализм"),
+            ("minimal", "Мини"),
             ("classic", "Классика"),
             ("casual", "Casual"),
             ("romantic", "Романтика"),

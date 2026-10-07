@@ -12,7 +12,7 @@ def layout():
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ page_title }}</title>
     <meta name="description" content="{{ page_description }}" />
-    <link href="/css/index.css?v=front17-10" rel="stylesheet" />
+    <link href="/css/index.css?v=front18-15" rel="stylesheet" />
     <script type="module" src="/js/main.js?v=front17-2"></script>
   </head>
   <body>

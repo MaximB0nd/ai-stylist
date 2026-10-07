@@ -1,7 +1,7 @@
 def sidebar(active_page=None):
     items = (
         ("home", "/", "Главная", "house"),
-        ("generation", "/generation", "Генерация", "sparkles"),
+        ("generation", "/generation", "Подобрать образ", "sparkles"),
         ("gallery", "/gallery", "Галерея", "images"),
     )
     links = []

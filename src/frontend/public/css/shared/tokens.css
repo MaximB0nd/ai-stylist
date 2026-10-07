@@ -11,6 +11,10 @@
   --color-accent: #a33e4b;
   --color-accent-hover: #883b47;
   --color-accent-soft: #fae9eb;
+  --color-button-background: var(--color-accent);
+  --color-button-hover-background: transparent;
+  --color-button-text: var(--color-surface);
+  --color-button-hover-text: var(--color-accent);
   --color-gold: #b38d60;
   --color-overlay: rgb(53 46 42 / 65%);
   --color-sidebar-translucent: rgb(238 232 223 / 52%);
@@ -36,10 +40,11 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --radius-control: 4px;
-  --radius-button: 10px;
-  --radius-card: 5px;
-  --sidebar-width: 222px;
+  --radius-unified: 12px;
+  --radius-control: var(--radius-unified);
+  --radius-button: 999px;
+  --radius-card: var(--radius-unified);
+  --sidebar-width: 270px;
   --page-gutter: 40px;
   --content-width: 1320px;
 }
@@ -54,9 +59,13 @@
   --color-placeholder: #312c29;
   --color-ink: #f7f0e9;
   --color-muted: #c8bbb0;
-  --color-accent: #a33e4b;
-  --color-accent-hover: #b9515e;
-  --color-accent-soft: #42252b;
+  --color-accent: #CB5566;
+  --color-accent-hover: #f1a6af;
+  --color-accent-soft: #493034;
+  --color-button-background: #B84455;
+  --color-button-hover-background: transparent;
+  --color-button-text: #F7F0E9;
+  --color-button-hover-text: #F7F0E9;
   --color-gold: #d7b17e;
   --color-overlay: rgb(8 7 6 / 78%);
   --color-sidebar-translucent: rgb(45 39 36 / 62%);

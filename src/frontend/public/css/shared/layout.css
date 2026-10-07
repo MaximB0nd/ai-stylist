@@ -23,7 +23,7 @@
 .site-sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--color-ink);
   text-decoration: none;
 }
@@ -36,7 +36,7 @@
 }
 
 .site-sidebar__name {
-  font: var(--font-weight-display) var(--text-body)/1.1 var(--font-display);
+  font: var(--font-weight-display) 30px/1.08 var(--font-display);
 }
 
 .site-sidebar__name em {
@@ -53,7 +53,7 @@
 }
 
 .site-sidebar__link {
-  font-size: var(--text-small);
+  font-size: var(--text-body);
   font-weight: var(--font-weight-body);
   position: relative;
   display: flex;
@@ -62,7 +62,7 @@
   min-height: 48px;
   padding: 14px 17px;
   border-radius: var(--radius-card);
-  color: var(--color-muted);
+  color: var(--color-ink);
   text-decoration: none;
 }
 
@@ -74,7 +74,7 @@
 
 .site-sidebar [aria-current="page"] {
   background: var(--color-canvas);
-  color: var(--color-accent);
+  color: var(--color-ink);
   font-weight: var(--font-weight-body);
 }
 
@@ -107,7 +107,7 @@
   font-weight: var(--font-weight-body);
   flex: 1;
   min-width: 0;
-  font-size: var(--text-small);
+  font-size: var(--text-body);
 }
 
 .site-sidebar__account-copy small {
@@ -143,6 +143,7 @@
 .site-icon--images { --site-icon: url("/icons/lucide/images.svg"); }
 .site-icon--user-round { --site-icon: url("/icons/lucide/user-round.svg"); }
 .site-icon--chevron-right { --site-icon: url("/icons/lucide/chevron-right.svg"); }
+.site-icon--plus { --site-icon: url("/icons/lucide/plus.svg"); }
 
 .site-shell__body {
   display: flex;
@@ -231,16 +232,21 @@
   max-height: calc(100vh - 48px);
   overflow-y: auto;
   border: 1px solid var(--color-line);
-  border-radius: 8px;
+  border-radius: var(--radius-unified);
   background: var(--color-surface);
   padding: 48px 40px 40px;
 }
 
 .auth-modal__close {
   position: absolute;
-  top: 14px;
-  right: 18px;
-  border: 0;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
   background: transparent;
   color: var(--color-ink);
   cursor: pointer;
@@ -303,7 +309,7 @@
 .auth-status {
   margin-top: 16px;
   border: 1px solid var(--color-line);
-  border-radius: 8px;
+  border-radius: var(--radius-unified);
   color: var(--color-ink);
   font-size: var(--text-small);
   line-height: 1.5;
