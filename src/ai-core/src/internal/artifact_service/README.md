@@ -35,7 +35,7 @@ file until the artifact expires or is deleted.
 Run the unit tests with:
 
 ```sh
-uv run --project src/ai-core --extra test python -m pytest src/ai-core/tests/artifact_service/test_image.py src/ai-core/tests/artifact_service/test_http.py -q
+uv run --project src/ai-core --extra test python -m pytest src/ai-core/tests/artifact_service/test_image.py src/ai-core/tests/artifact_service/http_api -q
 ```
 
 For real SeaweedFS integration tests, start `s3` with Compose, export the
