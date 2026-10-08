@@ -15,7 +15,7 @@ state or permanent product files.
 ## Import by URL
 
 ```http
-POST /internal/v1/artifacts/{artifact_id}/import
+POST /internal/v1/artifacts/{artifact_id}/content
 Content-Type: application/json
 ```
 
@@ -56,6 +56,10 @@ A different import or another creation method for the same ID returns
 `409 ARTIFACT_CONFLICT`.
 
 ## Direct write and read
+
+The same `/internal/v1/artifacts/{artifact_id}/content` address accepts POST
+for import, PUT for direct upload, and GET for reading. The former `/import`
+address is not available.
 
 ```http
 PUT /internal/v1/artifacts/{artifact_id}/content

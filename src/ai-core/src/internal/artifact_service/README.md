@@ -19,8 +19,9 @@ SeaweedFS S3 is bound to `127.0.0.1:18333`; artifact HTTP is bound to
 `127.0.0.1:18081`. The example credentials are only for local development.
 For a reachable import source, set `ARTIFACT_SOURCE_ORIGIN` to exactly one HTTP
 origin accessible from the Compose network, such as a local test server.
-The source URL supplied to `/import` must match that origin and may include a
-path and query. Redirects are refused. Tests use an in-process HTTP source;
+The source URL supplied to `POST /internal/v1/artifacts/{artifact_id}/content`
+must match that origin and may include a path and query. Redirects are refused.
+Tests use an in-process HTTP source;
 the Compose stack intentionally has no always-running mock source.
 
 The service creates its `artifacts` bucket at startup. The caller supplies a

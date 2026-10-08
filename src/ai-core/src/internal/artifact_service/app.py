@@ -177,7 +177,7 @@ def create_app(settings: Settings | None = None, storage: Storage | None = None,
             raise ArtifactError(503, "STORAGE_UNAVAILABLE", retryable=True)
         return {"status": "ready"}
 
-    @app.post("/internal/v1/artifacts/{artifact_id}/import")
+    @app.post("/internal/v1/artifacts/{artifact_id}/content")
     async def import_artifact(artifact_id: str, payload: ImportRequest):
         check_id(artifact_id)
         validate_source_url(payload.source_url, settings.source_origin)

@@ -54,17 +54,17 @@ def test_import_and_restart_persist_deleted_state(real_storage):
 
     payload = {"source_url": "http://source.test/photo", "max_size_bytes": 1024, "expires_at": expiry()}
     with TestClient(create_app(settings, storage, httpx.MockTransport(source))) as client:
-        first = client.post(f"/internal/v1/artifacts/{ARTIFACT_ID}/import", json=payload)
+        first = client.post(f"/internal/v1/artifacts/{ARTIFACT_ID}/content", json=payload)
         assert first.status_code == 201, first.text
         assert first.json()["url"].endswith(f"/{ARTIFACT_ID}/content")
-        assert client.post(f"/internal/v1/artifacts/{ARTIFACT_ID}/import", json=payload).status_code == 200
+        assert client.post(f"/internal/v1/artifacts/{ARTIFACT_ID}/content", json=payload).status_code == 200
         assert len(calls) == 1
         assert client.get(f"/internal/v1/artifacts/{ARTIFACT_ID}/content").content == png_bytes()
         assert client.delete(f"/internal/v1/artifacts/{ARTIFACT_ID}").status_code == 204
 
     with TestClient(create_app(settings, Storage(settings))) as restarted:
         assert restarted.get(f"/internal/v1/artifacts/{ARTIFACT_ID}/content").status_code == 404
-        assert restarted.post(f"/internal/v1/artifacts/{ARTIFACT_ID}/import", json=payload).status_code == 409
+        assert restarted.post(f"/internal/v1/artifacts/{ARTIFACT_ID}/content", json=payload).status_code == 409
 
 
 @pytest.mark.asyncio
