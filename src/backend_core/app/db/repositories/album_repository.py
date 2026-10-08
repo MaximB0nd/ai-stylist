@@ -1,0 +1,236 @@
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
+
+from sqlalchemy import and_, or_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.album import Album
+from app.models.photo import Photo
+
+
+class AlbumRepository:
+    """Repository handling database operations for Album and Photo entities."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_by_id_with_photos(self, album_id: uuid.UUID) -> Optional[Album]:
+        """Fetch a single album with eagerly loaded photos, ordered by order_index."""
+        stmt = (
+            select(Album)
+            .where(Album.id == album_id)
+            .options(selectinload(Album.photos))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_user_album_ids(self, user_id: uuid.UUID) -> List[uuid.UUID]:
+        """Fetch all album IDs belonging to a given user, ordered by creation date desc."""
+        stmt = (
+            select(Album.id)
+            .where(Album.user_id == user_id)
+            .order_by(Album.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_by_generation_id(self, generation_id: uuid.UUID) -> Optional[Album]:
+        """Fetch a single album by generation_id with eagerly loaded photos."""
+        stmt = (
+            select(Album)
+            .where(Album.generation_id == generation_id)
+            .options(selectinload(Album.photos))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_by_ai_job_id(self, ai_job_id: uuid.UUID) -> Optional[Album]:
+        """Fetch album by AI Core job ID with photos preloaded."""
+        stmt = (
+            select(Album)
+            .where(Album.ai_job_id == ai_job_id)
+            .options(selectinload(Album.photos))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+    async def update_status(
+        self,
+        album_id: uuid.UUID,
+        status: str,
+        error_message: Optional[str] = None,
+        ai_job_id: Optional[uuid.UUID] = None,
+    ) -> Optional[Album]:
+        """Update album processing status, error message, and optional AI job ID."""
+        album = await self.session.get(Album, album_id)
+        if not album:
+            return None
+        album.status = status
+        # Explicitly set updated_at — SQLAlchemy Python-side onupdate is not
+        # reliably triggered for AsyncSession attribute assignments.
+        album.updated_at = datetime.now(timezone.utc)
+        if error_message is not None:
+            album.error_message = error_message
+        if ai_job_id is not None:
+            album.ai_job_id = ai_job_id
+        try:
+            await self.session.commit()
+            await self.session.refresh(album)
+            return album
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def atomic_claim_for_download(
+        self,
+        album_id: uuid.UUID,
+        stale_seconds: int = 60,
+    ) -> bool:
+        """Atomically transition album to DOWNLOADING.
+
+        Allowed source states:
+        - QUEUED or PROCESSING (normal forward progression). AI Core may skip
+          the PROCESSING event and send COMPLETED directly.
+        - DOWNLOADING if stuck (updated_at older than stale_seconds) so that
+          webhook retries can recover crashed or interrupted background tasks.
+
+        Returns True if this caller "won" the race (row was updated),
+        False if another concurrent handler already claimed it (status was
+        already fresh DOWNLOADING, COMPLETED, FAILED, etc.).
+        """
+        now = datetime.now(timezone.utc)
+        stale_threshold = now - timedelta(seconds=stale_seconds)
+        stmt = (
+            update(Album)
+            .where(
+                Album.id == album_id,
+                or_(
+                    Album.status.in_(["QUEUED", "PROCESSING"]),
+                    and_(
+                        Album.status == "DOWNLOADING",
+                        Album.updated_at < stale_threshold,
+                    ),
+                ),
+            )
+            .values(status="DOWNLOADING", updated_at=now)
+            .returning(Album.id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def atomic_transition(
+        self,
+        album_id: uuid.UUID,
+        from_statuses: List[str],
+        to_status: str,
+        error_message: Optional[str] = None,
+    ) -> bool:
+        """Atomically transition album status ONLY if current status is in from_statuses.
+
+        Prevents delayed/out-of-order events from regressing advanced states
+        (e.g., delayed PROCESSING event overwriting DOWNLOADING or COMPLETED).
+        """
+        now = datetime.now(timezone.utc)
+        values = {"status": to_status, "updated_at": now}
+        if error_message is not None:
+            values["error_message"] = error_message
+
+        stmt = (
+            update(Album)
+            .where(
+                Album.id == album_id,
+                Album.status.in_(from_statuses),
+            )
+            .values(**values)
+            .returning(Album.id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def get_stuck_downloading_albums(
+        self, stale_seconds: int = 0
+    ) -> List[Album]:
+        """Fetch albums stuck in DOWNLOADING status (e.g., across server restarts)."""
+        stmt = select(Album).where(Album.status == "DOWNLOADING")
+        if stale_seconds > 0:
+            now = datetime.now(timezone.utc)
+            threshold = now - timedelta(seconds=stale_seconds)
+            stmt = stmt.where(Album.updated_at < threshold)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def add_photos(
+        self,
+        album_id: uuid.UUID,
+        photos_data: List[dict],
+    ) -> List[Photo]:
+        """Batch insert photos for an album."""
+        created_photos = [
+            Photo(
+                album_id=album_id,
+                order_index=item["order_index"],
+                object_key=item["object_key"],
+                is_cover=item.get("is_cover", False),
+                is_favorite=item.get("is_favorite", False),
+            )
+            for item in photos_data
+        ]
+        try:
+            self.session.add_all(created_photos)
+            await self.session.commit()
+            for photo in created_photos:
+                await self.session.refresh(photo)
+            return created_photos
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def create_album(
+        self,
+        user_id: uuid.UUID,
+        generation_id: uuid.UUID,
+        title: str,
+        situation: str,
+        styles: list,
+        shoes: list,
+        impressions: list,
+        user_age: Optional[int] = None,
+        user_height: Optional[int] = None,
+        gender: Optional[str] = None,
+        source_face_key: Optional[str] = None,
+        source_body_key: Optional[str] = None,
+        status: str = "VALIDATING",
+        ai_job_id: Optional[uuid.UUID] = None,
+        error_message: Optional[str] = None,
+    ) -> Album:
+        """Create and persist a new album record."""
+        album = Album(
+            user_id=user_id,
+            generation_id=generation_id,
+            title=title,
+            situation=situation,
+            styles=styles,
+            shoes=shoes,
+            impressions=impressions,
+            user_age=user_age,
+            user_height=user_height,
+            gender=gender,
+            source_face_key=source_face_key,
+            source_body_key=source_body_key,
+            status=status,
+            ai_job_id=ai_job_id,
+            error_message=error_message,
+        )
+        try:
+            self.session.add(album)
+            await self.session.commit()
+            await self.session.refresh(album)
+            return album
+        except Exception:
+            await self.session.rollback()
+            raise

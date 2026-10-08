@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,22 +9,56 @@ from fastapi.responses import JSONResponse
 from app.api.v1.router import api_router
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: verify or create MinIO bucket on startup."""
+    try:
+        from app.services.storage_service import StorageService
+
+        storage = StorageService()
+        storage._ensure_bucket()
+        logger.info("MinIO bucket '%s' ready.", storage.bucket)
+    except Exception as e:
+        logger.warning("Could not auto-create MinIO bucket on startup: %s", e)
+
+    # Recover any downloads that were interrupted by previous server restart / crash
+    try:
+        from app.api.v1.endpoints.internal import recover_stuck_downloads
+
+        recovered = await recover_stuck_downloads()
+        if recovered > 0:
+            logger.info("Recovered %d interrupted downloading jobs on startup.", recovered)
+    except Exception as e:
+        logger.warning("Could not run startup stuck download recovery: %s", e)
+
+    yield
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    # Swagger UI and OpenAPI schema are disabled in production to avoid leaking internal API details
+    docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
+    redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
+    openapi_url="/openapi.json" if settings.ENVIRONMENT != "production" else None,
+    lifespan=lifespan,
 )
 
-# CORS configuration
+# CORS configuration:
+# - Explicit origins from config (exact match, safe with allow_credentials=True)
+# - No allow_origin_regex: regex like r"localhost:\d+" would allow any local port
+#   with credentials, creating a security hole for malicious browser extensions.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 @app.exception_handler(RequestValidationError)

@@ -32,10 +32,26 @@ class Album(Base):
     impressions: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False)
     user_age: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     user_height: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
-    user_weight: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    gender: Mapped[Optional[str]] = mapped_column(String(1), nullable=True)
     source_face_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     source_body_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     total_photos: Mapped[int] = mapped_column(Integer, server_default=text("10"), default=10, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        server_default=text("'VALIDATING'"),
+        default="VALIDATING",
+        nullable=False,
+        index=True,
+    )
+    ai_job_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True,
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        String(512),
+        nullable=True,
+    )
     is_archived: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

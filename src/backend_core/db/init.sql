@@ -20,6 +20,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email);
 
 -- =============================================================================
 -- Table: albums
+-- Baseline schema matching Alembic revision 0001.
+-- Subsequent migrations:
+--   - 0002: replaces user_weight with gender
+--   - 0003: adds generation status, ai_job_id, error_message
+-- Documented workflow: init.sql -> alembic upgrade head
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS albums (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -66,8 +71,7 @@ CREATE TABLE IF NOT EXISTS photos (
 CREATE INDEX IF NOT EXISTS ix_photos_album_id ON photos(album_id);
 
 -- =============================================================================
--- Table: alembic_version (Baseline stamp for Alembic migrations)
--- Stamped at the end of transaction after all schema elements are established.
+-- Table: alembic_version (Baseline stamp for Alembic revision 0001)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS alembic_version (
     version_num VARCHAR(32) NOT NULL,

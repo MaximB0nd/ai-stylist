@@ -730,3 +730,165 @@ async def test_postgres_integration_valid_schema_and_fail_closed_mutations():
                 )
         finally:
             await cleanup_conn.close()
+
+
+def test_init_sql_matches_revision_0001_and_alembic_upgrade_head_sql(capsys):
+    """Verify that init.sql matches revision 0001 schema and can upgrade to head via Alembic SQL.
+
+    Regression test for P1 data/compatibility issue:
+    init.sql must have user_weight, must not have gender or status, and must stamp 0001.
+    Alembic upgrade from 0001 to head then drops user_weight and adds gender and status.
+    """
+    from alembic.config import Config
+    from alembic import command
+
+    repo_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    )
+    init_sql_path = os.path.join(
+        repo_root, "src", "backend_core", "db", "init.sql"
+    )
+    with open(init_sql_path, "r", encoding="utf-8") as f:
+        init_sql = f.read()
+
+    # Schema must strictly match revision 0001
+    assert "user_weight SMALLINT" in init_sql, "init.sql must include user_weight per revision 0001"
+    assert "gender VARCHAR" not in init_sql, "init.sql must not include gender (added in 0002)"
+    assert "status VARCHAR" not in init_sql, "init.sql must not include status (added in 0003)"
+    assert "INSERT INTO alembic_version (version_num) VALUES ('0001')" in init_sql, (
+        "init.sql must stamp alembic_version as '0001'"
+    )
+
+    # Verify Alembic offline migration generation from 0001 to head
+    alembic_ini_path = os.path.join(
+        repo_root, "src", "backend_core", "alembic.ini"
+    )
+    alembic_cfg = Config(alembic_ini_path)
+    alembic_cfg.set_main_option(
+        "script_location",
+        os.path.join(repo_root, "src", "backend_core", "alembic"),
+    )
+
+    command.upgrade(alembic_cfg, "0001:head", sql=True)
+    captured = capsys.readouterr()
+    generated_sql = captured.out
+
+    assert "DROP COLUMN user_weight" in generated_sql
+    assert "ADD COLUMN gender" in generated_sql
+    assert "ADD COLUMN status" in generated_sql
+    assert "0003" in generated_sql
+
+
+@pytest.mark.asyncio
+async def test_postgres_integration_init_sql_then_alembic_upgrade_head():
+    """Live PostgreSQL integration test: init.sql followed by alembic upgrade head.
+
+    Verifies documented path: init.sql establishes 0001 baseline, then
+    `alembic upgrade head` cleanly applies 0002 (drop user_weight, add gender)
+    and 0003 (status, ai_job_id, error_message).
+    """
+    test_db_url = os.getenv("TEST_DATABASE_URL")
+    if not test_db_url or not test_db_url.strip():
+        pytest.skip(
+            "TEST_DATABASE_URL is not set; skipping live PostgreSQL integration test."
+        )
+
+    import asyncpg
+    from alembic.config import Config
+    from alembic import command
+
+    parsed_url = make_url(test_db_url.strip())
+    admin_db = parsed_url.database or "postgres"
+
+    admin_conn_kwargs = {
+        "user": parsed_url.username or "postgres",
+        "password": parsed_url.password or "",
+        "host": parsed_url.host or "localhost",
+        "port": parsed_url.port or 5432,
+        "database": admin_db,
+    }
+
+    run_id = uuid.uuid4().hex[:12]
+    test_db = f"test_integ_initsql_{run_id}"
+
+    repo_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    )
+    init_sql_path = os.path.join(
+        repo_root, "src", "backend_core", "db", "init.sql"
+    )
+    with open(init_sql_path, "r", encoding="utf-8") as f:
+        full_sql = f.read()
+
+    # Create test database
+    sys_conn = await asyncpg.connect(**admin_conn_kwargs)
+    try:
+        await sys_conn.execute(f'CREATE DATABASE "{test_db}";')
+    finally:
+        await sys_conn.close()
+
+    try:
+        # Populate with init.sql
+        db_conn = await asyncpg.connect(
+            **{**admin_conn_kwargs, "database": test_db}
+        )
+        try:
+            await db_conn.execute(full_sql)
+            stamp = await db_conn.fetchval(
+                "SELECT version_num FROM alembic_version LIMIT 1"
+            )
+            assert stamp == "0001"
+            col_exists = await db_conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='albums' AND column_name='user_weight')"
+            )
+            assert col_exists is True
+        finally:
+            await db_conn.close()
+
+        # Run alembic upgrade head
+        alembic_ini_path = os.path.join(
+            repo_root, "src", "backend_core", "alembic.ini"
+        )
+        alembic_cfg = Config(alembic_ini_path)
+        alembic_cfg.set_main_option(
+            "script_location",
+            os.path.join(repo_root, "src", "backend_core", "alembic"),
+        )
+        sync_db_url = f"postgresql://{admin_conn_kwargs['user']}:{admin_conn_kwargs['password']}@{admin_conn_kwargs['host']}:{admin_conn_kwargs['port']}/{test_db}"
+        alembic_cfg.set_main_option("sqlalchemy.url", sync_db_url)
+        command.upgrade(alembic_cfg, "head")
+
+        # Verify upgraded schema
+        db_conn = await asyncpg.connect(
+            **{**admin_conn_kwargs, "database": test_db}
+        )
+        try:
+            head_stamp = await db_conn.fetchval(
+                "SELECT version_num FROM alembic_version LIMIT 1"
+            )
+            assert head_stamp == "0003"
+            uw_exists = await db_conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='albums' AND column_name='user_weight')"
+            )
+            assert uw_exists is False
+            gender_exists = await db_conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='albums' AND column_name='gender')"
+            )
+            assert gender_exists is True
+            status_exists = await db_conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='albums' AND column_name='status')"
+            )
+            assert status_exists is True
+        finally:
+            await db_conn.close()
+
+    finally:
+        cleanup_conn = await asyncpg.connect(**admin_conn_kwargs)
+        try:
+            await cleanup_conn.execute(
+                f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{test_db}' AND pid <> pg_backend_pid();"
+            )
+            await cleanup_conn.execute(f'DROP DATABASE IF EXISTS "{test_db}";')
+        finally:
+            await cleanup_conn.close()
+
