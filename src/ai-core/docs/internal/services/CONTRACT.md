@@ -32,7 +32,9 @@
 Служба возвращает его без изменения. Ссылки и содержимое изображений
 запрещено журналировать.
 
-`read_url` и `write_url` являются HTTP-ссылками на службу временных файлов.
+`read_url` и `write_url` — обычные HTTP-адреса службы временных файлов,
+образованные из `artifact_id`. Для первого `PUT` требуется согласованный срок
+в заголовке `X-Artifact-Expires-At`.
 
 Пример входного файла:
 
@@ -40,7 +42,7 @@
 {
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
   "image": {
-    "read_url": "http://temporary-files.example/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B1/read",
+    "read_url": "http://artifact-service/internal/v1/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B1/content",
     "checksum_sha256": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 }
@@ -140,7 +142,7 @@ Details. Поля `code`, `request_id` и `retryable` являются расш�
 
 Прочие постоянные ответы gateway также дают `INPUT_UNAVAILABLE` или
 `OUTPUT_UNAVAILABLE` с `retryable: false`. Повтор после принятой попытки записи
-получает новый output `artifact_id`; ссылку для него выдаёт оркестратор.
+получает новый output `artifact_id`; оркестратор образует адрес из него.
 
 ## Служебные endpoints
 

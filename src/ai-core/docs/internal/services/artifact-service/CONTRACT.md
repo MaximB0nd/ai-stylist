@@ -1,216 +1,125 @@
-# Договор службы временных файлов
+# Local artifact service HTTP contract
 
-## Общие правила
+## Deployment boundary
 
-| Правило | Значение |
-| --- | --- |
-| Сеть | внутренняя, HTTP |
-| Авторизация | не требуется; доступ ограничивается внутренней сетью |
-| Выдача ссылок | вызывает главный оркестратор |
-| Удаление | вызывает главный оркестратор |
-| База | нет |
-| Место объекта | определяется по `artifact_id` |
-| Передача байтов | через службу; поток без локального хранения |
-| Внешние URL | только импорт оркестратором с настроенного origin основного сервера |
+The service is one FastAPI serving process in a private local Docker Compose network.
+SeaweedFS provides its S3-compatible bucket. No other AI Core service receives the
+S3 endpoint or credentials. The service uses HTTP for this local version. There are
+no separate authorization headers, secret capability URLs, or access-link endpoint.
+Neither the service nor its management routes may be exposed publicly.
 
-## Импорт входного файла
+The caller creates a canonical, uppercase, 26-character ULID `artifact_id`. The
+service never creates IDs or chooses an artifact's expiry. It does not own job
+state or permanent product files.
 
-```text
+## Import by URL
+
+```http
 POST /internal/v1/artifacts/{artifact_id}/import
 Content-Type: application/json
 ```
 
 ```json
 {
-  "source_url": "http://files.example/temporary-face",
-  "max_size_bytes": 15728640
+  "source_url": "http://source.test/photo",
+  "max_size_bytes": 15728640,
+  "expires_at": "2026-10-08T18:00:00Z"
 }
 ```
 
-Успешный первый импорт возвращает HTTP `201`; повтор тех же приведённых
-параметров после уже завершённого импорта этого `artifact_id` возвращает HTTP
-`200` без повторного скачивания:
+The source URL must use HTTP and match the configured scheme, hostname, and port
+exactly. A private destination is allowed only for that configured local origin.
+Userinfo, fragments, redirects, and other origins are rejected. The source is
+downloaded with GET without extra request headers. Separate connect, read, and
+total timeouts apply. The service limits actual streamed bytes, regardless of
+`Content-Length`.
+
+First successful import returns `201`; an identical completed import returns
+`200` without downloading again. Both return:
 
 ```json
 {
   "artifact_id": "01J8Z8Y7W6V5T4S3R2Q1P0N9B1",
   "checksum_sha256": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-  "media_type": "image/jpeg",
+  "media_type": "image/png",
   "size_bytes": 1048576,
   "width": 1536,
-  "height": 2048
+  "height": 2048,
+  "url": "http://artifact-service/internal/v1/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B1/content"
 }
 ```
 
-- Endpoint вызывает главный оркестратор.
-- Оркестратор создаёт один `artifact_id` на один логический вход и сохраняет его
-  при повторе импорта.
-- `source_url` использует только `http` и должен точно совпадать по схеме,
-  hostname и порту с настроенным origin основного сервера. Произвольные URL из
-  интернета не принимаются.
-- URL не содержит `userinfo` или fragment; redirect запрещён. Hostname
-  разрешается непосредственно перед соединением, а HTTP-клиент соединяется
-  только с проверенным адресом. Cloud metadata, loopback, link-local, multicast,
-  unspecified и reserved адреса запрещены.
-- Служба применяет отдельные connect, read и total timeout, ограничивает поток
-  значением `max_size_bytes` и собственным верхним пределом и не доверяет
-  `Content-Length` источника.
-- `max_size_bytes` — положительное целое не выше настроенного предела импорта;
-  неизвестные поля запроса запрещены.
-- URL считается секретом: он не журналируется и не сохраняется после импорта.
-- Служба сохраняет с объектом только SHA-256 приведённых параметров импорта.
-  Другие параметры или другой способ создания для уже опубликованного
-  `artifact_id` возвращают `409 ARTIFACT_CONFLICT` с `retryable: false`.
-- После удаления `artifact_id` повтор импорта возвращает `409 ARTIFACT_CONFLICT`,
-  даже если параметры совпадают с первоначальными.
-- При любой ошибке непубличный частичный объект удаляется. Только полностью
-  скачанный и технически проверенный файл становится доступен по `READ`.
+The URL is an ordinary service URL derived from the ID. It has no independent
+expiry. It stops working when the artifact expires or is deleted. The service
+stores only a hash of the normalized import parameters, never the source URL.
+A different import or another creation method for the same ID returns
+`409 ARTIFACT_CONFLICT`.
 
-### Ошибки импорта
+## Direct write and read
 
-Ошибки используют `application/problem+json` и обязательные поля `type`,
-`title`, `status`, `code` и `retryable`. Ответ не содержит исходный URL или тело
-ответа источника.
+```http
+PUT /internal/v1/artifacts/{artifact_id}/content
+Content-Type: image/png
+X-Artifact-Expires-At: 2026-10-08T18:00:00Z
 
-| HTTP | `code` | Условие | `retryable` |
-| ---: | --- | --- | --- |
-| `400` | `MALFORMED_REQUEST` | тело нельзя разобрать как JSON | нет |
-| `409` | `ARTIFACT_CONFLICT` | `artifact_id` уже связан с другим созданием | нет |
-| `409` | `IMPORT_IN_PROGRESS` | импорт этого `artifact_id` ещё выполняется | да |
-| `422` | `VALIDATION_ERROR` | запрос не соответствует схеме | нет |
-| `422` | `SOURCE_URL_NOT_ALLOWED` | схема или origin источника запрещены | нет |
-| `422` | `SOURCE_NOT_ACCESSIBLE` | источник окончательно ответил `4xx`, кроме `429` | нет |
-| `422` | `SOURCE_TOO_LARGE` | поток превысил допустимый предел | нет |
-| `422` | `SOURCE_UNSUPPORTED_IMAGE_TYPE` | сигнатура файла не поддерживается | нет |
-| `422` | `SOURCE_UNPROCESSABLE` | изображение нельзя безопасно декодировать | нет |
-| `422` | `IMAGE_DIMENSIONS_EXCEEDED` | превышен предел геометрии, пикселей или кадров | нет |
-| `502` | `SOURCE_UNAVAILABLE` | ошибка соединения, `429` или `5xx` источника | да |
-| `504` | `SOURCE_TIMEOUT` | источник не ответил в установленный срок | да |
-
-`IMPORT_IN_PROGRESS` содержит `Retry-After`. Только оркестратор решает,
-повторять ли ошибку с `retryable: true`.
-
-## Получение ссылки
-
-```text
-POST /internal/v1/artifacts/{artifact_id}/access
+<raw image bytes>
 ```
 
-Для чтения опубликованного объекта:
+The first PUT requires `X-Artifact-Expires-At`; a retry before publication uses
+the same value and `Content-Type`. The artifact expiry must be future,
+timezone-aware, and no more than 24 hours away. The accepted `Content-Type`
+is `image/jpeg`, `image/png`, or `image/webp`, and must match the actual
+signature. `multipart/form-data` is not accepted. A successful PUT returns
+`204` only after technical verification and publication. A published object is
+immutable; another PUT returns `409`.
 
-```json
-{
-  "operation": "READ"
-}
+```http
+GET /internal/v1/artifacts/{artifact_id}/content
 ```
 
-Для записи нового объекта:
+GET returns only published, unexpired objects, streamed from S3. It supports a
+single valid `Range: bytes=...` request and returns `206` with
+`Content-Range`; invalid or out-of-bounds ranges return `416`. Missing,
+deleted, or expired objects return `404`. Responses use `Cache-Control:
+no-store`.
 
-```json
-{
-  "operation": "WRITE",
-  "content_type": "image/webp",
-  "max_size_bytes": 15728640
-}
-```
+## Technical image checks
 
-```json
-{
-  "artifact_id": "01J8Z8Y7W6V5T4S3R2Q1P0N9B1",
-  "url": "http://temporary-files.example/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B1/read"
-}
-```
+For import and PUT, the service accepts JPEG, PNG, and WebP, at most 15 MiB,
+4096 pixels per dimension, 4096 × 4096 pixels total, one frame, and eight
+bits per channel. It bounds EXIF and ICC data to 1 MiB each, parses them
+safely, and decodes the image before publication. These limits are deployment
+settings. The service does not change pixels, metadata, or color profiles and
+does not evaluate whether the photo is suitable for an ML task.
 
-- Endpoint вызывает главный оркестратор.
-- `operation`: `READ` или `WRITE`; неизвестные поля запрещены.
-- Для `READ` поля `content_type` и `max_size_bytes` запрещены: служба берёт
-  фактические ограничения из метаданных опубликованного объекта.
-- Для `WRITE` поля `content_type` и `max_size_bytes` обязательны;
-  `max_size_bytes` — положительное целое не выше настроенного предела.
-- Ссылка: один объект, одна операция.
-- Ссылка ведёт на службу временных файлов, не на S3.
-- Ссылка использует `http`, не содержит `userinfo` или fragment и не выполняет
-  redirect.
-- URL содержит `artifact_id` и операцию; ограничения записи служба хранит с
-  объектом.
-- Воркер и основной сервер не получают адрес S3 и ключи доступа.
-- Повтор возвращает URL для того же `artifact_id` и операции.
-- После закрытия объекта оркестратор не запрашивает ссылки.
-- Ссылка `READ` принимает только `GET`. Ссылка `WRITE` принимает только `PUT` с
-  сырым телом файла и закреплённым `Content-Type`; `multipart/form-data` не
-  используется. Успешный `PUT` возвращает `204` только после публикации файла.
+Bytes first enter an S3 staging object. A small S3 control object records the
+artifact expiry, status, and published object key. Only the control object
+can make bytes readable through the service. Failed transfers remove staging
+bytes. No transfer is persisted on the service's local filesystem.
 
-### Ошибки выдачи ссылки
+## Delete and readiness
 
-Ошибки управляющего endpoint используют `application/problem+json` и те же
-обязательные поля, что ошибки импорта.
-
-| HTTP | `code` | Условие | `retryable` |
-| ---: | --- | --- | --- |
-| `400` | `MALFORMED_REQUEST` | тело нельзя разобрать как JSON | нет |
-| `404` | `ARTIFACT_NOT_FOUND` | для `READ` нет опубликованного объекта | нет |
-| `409` | `ARTIFACT_NOT_WRITABLE` | объект закрыт или уже опубликован | нет |
-| `409` | `TRANSFER_IN_PROGRESS` | для объекта уже выполняется несовместимая передача | да |
-| `422` | `VALIDATION_ERROR` | запрос не соответствует схеме | нет |
-
-`TRANSFER_IN_PROGRESS` содержит `Retry-After`. Ошибка выдачи ссылки не создаёт и
-не изменяет объект.
-
-### Ответы по ссылке на файл
-
-- Метод, не совпадающий с операцией ссылки, возвращает `405` с `Allow`.
-- `PUT` с другим `Content-Type` возвращает `415`; превышение закреплённого
-  `max_size_bytes` возвращает `413` и удаляет непубличный частичный объект.
-- Повторный `PUT` после публикации объекта возвращает `409`; опубликованный файл
-  не перезаписывается.
-- `GET` отсутствующего или удалённого объекта возвращает `404`; `PUT` в удалённый
-  или закрытый объект возвращает `409`.
-- Ошибка data-plane не возвращает содержимое ссылки,
-  внутренний ключ или ответ S3.
-
-## Приём и публикация файла
-
-При `WRITE` или импорте служба ограничивает поток по `max_size_bytes`, не доверяя
-`Content-Length`, и записывает байты в непубличный временный ключ. До появления
-объекта по `READ` она проверяет:
-
-- соответствие фактической сигнатуры разрешённому `content_type`;
-- успешное безопасное декодирование изображения;
-- настроенные пределы ширины, высоты, пикселей, кадров и глубины цвета;
-- настроенные пределы EXIF и ICC-профиля.
-
-После успешной проверки объект публикуется под ключом `artifact_id`. Ошибка
-удаляет непубличный объект и не оставляет частичный читаемый результат. Служба
-не меняет пиксели, цветовой профиль или метаданные. Каждая processing service,
-читающая исходную фотографию, одинаково интерпретирует EXIF orientation и ICC
-в рабочем изображении согласно [общему поведению](../README.md). Итоговый
-перевод и запись RGB sRGB PNG принадлежат normalizer. Предметные свойства
-фотографии проверяют processing services.
-
-При `READ` служба отдаёт только опубликованный объект, ограничивает поток его
-зафиксированным размером и запрещает range, выходящий за размер объекта.
-
-## Удаление
-
-```text
+```http
 DELETE /internal/v1/artifacts/{artifact_id}
-```
-
-Ответ: `204`. Отсутствующий объект: `204`. Успешный `DELETE` атомарно закрывает
-`artifact_id` для новых и уже начатых операций записи, делает прежние URL
-недействующими и удаляет опубликованный либо частичный объект. После `204` ни
-один поздний `PUT`, импорт или повтор запроса доступа не может снова
-опубликовать этот `artifact_id`. Запрет повторного создания сохраняется после
-перезапуска и на всех экземплярах службы как минимум до истечения срока
-хранения объекта.
-Повторный `DELETE` возвращает `204`.
-
-Главный оркестратор вызывает удаление после ACK, ошибки, отмены или истечения срока.
-
-## Готовность
-
-```text
 GET /internal/ready
 ```
 
-Условие: настройки загружены, временное S3 доступно.
+DELETE returns `204`, including for an absent or already deleted artifact.
+It durably marks the ID deleted before deleting bytes. A concurrent or late
+PUT/import cannot publish after this mark, including across a process restart.
+This local guarantee assumes exactly one serving process. The deployment must
+not run multiple replicas or Uvicorn workers.
+
+Ready returns `200` when configuration is valid and the S3 bucket is
+reachable; otherwise it returns `503`.
+
+## Errors
+
+Errors use `application/problem+json` with `type`, `title`, `status`,
+`code`, and `retryable`. Malformed JSON returns `400 MALFORMED_REQUEST`;
+schema and ULID errors return `422 VALIDATION_ERROR`. The service uses
+`409` for conflicting creation, active transfers, and writes to a closed
+object; `413` for an oversized PUT; `415` for unsupported PUT content type;
+and `416` for invalid ranges. Source failures distinguish inaccessible
+(`422`), unavailable (`502`), and timeout (`504`) responses. Errors do
+not include source URLs, image bytes, internal S3 keys, or S3 responses.
