@@ -153,7 +153,7 @@ class GenerationService:
         """
         if not file or not file.filename:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Both photos are required. Missing: {field_name}",
             )
         content_type = file.content_type or ""
@@ -170,7 +170,7 @@ class GenerationService:
 
         if len(chunk) > MAX_IMAGE_SIZE:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail=(
                     f"{field_name} exceeds the maximum allowed size of "
                     f"{MAX_IMAGE_SIZE // (1024 * 1024)} MiB."

@@ -41,9 +41,32 @@ class StorageService:
 
 
     def _ensure_bucket(self) -> None:
-        """Create bucket if it does not exist (idempotent)."""
+        """Create bucket if it does not exist (idempotent) and configure lifecycle rules."""
         if not self.client.bucket_exists(self.bucket):
             self.client.make_bucket(self.bucket)
+        self._ensure_lifecycle_rules()
+
+    def _ensure_lifecycle_rules(self) -> None:
+        """Configure S3 lifecycle rules to automatically purge source photos after 1 day.
+
+        Protects MinIO storage from disk exhaustion by purging temporary face/body source photos
+        once generation is completed.
+        """
+        try:
+            from minio.commonconfig import ENABLED, Filter
+            from minio.lifecycleconfig import Expiration, LifecycleConfig, Rule
+
+            rule = Rule(
+                status=ENABLED,
+                rule_filter=Filter(prefix="sources/"),
+                rule_id="expire-sources-1-day",
+                expiration=Expiration(days=1),
+            )
+            config = LifecycleConfig([rule])
+            self.client.set_bucket_lifecycle(self.bucket, config)
+            logger.info("Configured MinIO lifecycle rule: purge 'sources/' after 1 day.")
+        except Exception as exc:
+            logger.warning("Could not set bucket lifecycle rules on '%s': %s", self.bucket, exc)
 
     async def upload_file(self, object_key: str, file: UploadFile) -> str:
         """Upload a file to MinIO. Returns the object key."""
@@ -71,8 +94,11 @@ class StorageService:
         return object_key
 
     def _put_object(self, key: str, data: BinaryIO, length: int, content_type: str) -> None:
-        """Synchronous put_object call for use with asyncio.to_thread."""
-        self._ensure_bucket()
+        """Synchronous put_object call for use with asyncio.to_thread.
+
+        Does not call _ensure_bucket() on every upload, avoiding redundant HTTP round-trips.
+        Bucket creation is guaranteed once at application startup.
+        """
         self.client.put_object(
             bucket_name=self.bucket,
             object_name=key,

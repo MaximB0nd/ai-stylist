@@ -36,6 +36,14 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Graceful shutdown: close PostgreSQL connection pool
+    try:
+        from app.db.session import engine
+        await engine.dispose()
+        logger.info("Closed PostgreSQL connection pool.")
+    except Exception as e:
+        logger.warning("Error disposing database engine on shutdown: %s", e)
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -74,7 +82,7 @@ async def validation_exception_handler(
             content={"detail": "; ".join(error_msgs)},
         )
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={"detail": exc.errors()},
     )
 
