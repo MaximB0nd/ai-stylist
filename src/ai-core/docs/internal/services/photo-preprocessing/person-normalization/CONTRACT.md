@@ -17,11 +17,11 @@ Content-Type: application/json
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
   "profile": "face",
   "image": {
-    "read_url": "http://temporary-files.example/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B1/read",
+    "read_url": "http://artifact-service/internal/v1/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B1/content",
     "checksum_sha256": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   },
   "output": {
-    "write_url": "http://temporary-files.example/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B3/write",
+    "write_url": "http://artifact-service/internal/v1/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B3/content",
     "width": 512,
     "height": 512
   }
