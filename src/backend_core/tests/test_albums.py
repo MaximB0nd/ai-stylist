@@ -85,13 +85,17 @@ class InMemoryAlbumRepository(AlbumRepository):
     async def get_by_id_with_photos(self, album_id: uuid.UUID) -> Optional[Album]:
         return self.albums.get(album_id)
 
-    async def get_user_album_ids(self, user_id: uuid.UUID) -> List[uuid.UUID]:
+    async def get_user_album_ids(
+        self,
+        user_id: uuid.UUID,
+        status: Optional[str] = "COMPLETED",
+    ) -> List[uuid.UUID]:
         return [
             a.id
             for a in sorted(
                 self.albums.values(), key=lambda a: a.created_at, reverse=True
             )
-            if a.user_id == user_id
+            if a.user_id == user_id and (status is None or getattr(a, "status", "COMPLETED") == status)
         ]
 
     async def get_by_generation_id(self, generation_id: uuid.UUID) -> Optional[Album]:
@@ -161,6 +165,7 @@ class InMemoryAlbumRepository(AlbumRepository):
         num_photos: int = 3,
         is_archived: bool = False,
         situation: str = "office",
+        status: str = "COMPLETED",
     ) -> Album:
         """Helper to add a pre-built album with photos to the store."""
         aid = album_id or uuid.uuid4()
@@ -196,6 +201,7 @@ class InMemoryAlbumRepository(AlbumRepository):
             source_body_key=f"sources/{user_id}/{aid}/body.jpg",
             total_photos=num_photos,
             is_archived=is_archived,
+            status=status,
             created_at=now,
             updated_at=now,
             photos=photos,

@@ -86,13 +86,17 @@ class InMemoryAlbumRepository(AlbumRepository):
     async def get_by_id_with_photos(self, album_id: uuid.UUID) -> Optional[Album]:
         return self.albums.get(album_id)
 
-    async def get_user_album_ids(self, user_id: uuid.UUID) -> List[uuid.UUID]:
+    async def get_user_album_ids(
+        self,
+        user_id: uuid.UUID,
+        status: Optional[str] = "COMPLETED",
+    ) -> List[uuid.UUID]:
         return [
             a.id
             for a in sorted(
                 self.albums.values(), key=lambda a: a.created_at, reverse=True
             )
-            if a.user_id == user_id
+            if a.user_id == user_id and (status is None or getattr(a, "status", "COMPLETED") == status)
         ]
 
     async def get_by_generation_id(self, generation_id: uuid.UUID) -> Optional[Album]:

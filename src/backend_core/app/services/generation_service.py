@@ -192,8 +192,19 @@ class GenerationService:
 
 
 
+MIME_TO_EXTENSION: dict[str, str] = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
+
+
 def _extension(file: UploadFile) -> str:
-    """Extract file extension from filename, defaulting to .bin."""
-    if file.filename and "." in file.filename:
-        return "." + file.filename.rsplit(".", 1)[-1].lower()
-    return ".bin"
+    """Determine file extension strictly from validated MIME content_type.
+
+    Avoids using client-supplied file extensions which could lead to path manipulation
+    or stored MIME confusion (e.g. uploading a JPEG with .html or .php extension).
+    """
+    content_type = (file.content_type or "").lower()
+    return MIME_TO_EXTENSION.get(content_type, ".bin")
+

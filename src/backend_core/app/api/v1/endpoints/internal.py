@@ -182,17 +182,39 @@ async def _download_and_store_results(
                 "Aborting incomplete delivery."
             )
 
+        MAX_DOWNLOAD_IMAGE_SIZE = 15 * 1024 * 1024  # 15 MiB limit per image
+
         async with httpx.AsyncClient(timeout=60.0) as http_client:
             async def _download_and_upload_single(item: dict) -> dict:
                 order_index = item["order_index"]
                 download_url = item["download_url"]
 
-                img_resp = await http_client.get(download_url)
-                if img_resp.status_code != 200:
-                    raise RuntimeError(
-                        f"Failed to download image from AI Core at order {order_index}: HTTP {img_resp.status_code}"
+                # Validate URL scheme to prevent arbitrary protocol injection
+                from urllib.parse import urlparse
+                parsed = urlparse(download_url)
+                if parsed.scheme not in ("http", "https"):
+                    raise ValueError(
+                        f"Unsupported download URL scheme '{parsed.scheme}' at order {order_index}"
                     )
-                content = img_resp.content
+
+                chunks: list[bytes] = []
+                total_bytes = 0
+
+                async with http_client.stream("GET", download_url) as img_resp:
+                    if img_resp.status_code != 200:
+                        raise RuntimeError(
+                            f"Failed to download image from AI Core at order {order_index}: HTTP {img_resp.status_code}"
+                        )
+                    async for chunk in img_resp.aiter_bytes():
+                        total_bytes += len(chunk)
+                        if total_bytes > MAX_DOWNLOAD_IMAGE_SIZE:
+                            raise RuntimeError(
+                                f"Image at order {order_index} exceeds maximum download limit of "
+                                f"{MAX_DOWNLOAD_IMAGE_SIZE // (1024 * 1024)} MiB"
+                            )
+                        chunks.append(chunk)
+
+                content = b"".join(chunks)
 
                 # Verify SHA256 checksum if provided.
                 # A mismatch means the image is corrupt/tampered — abort the whole album.

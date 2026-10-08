@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -26,13 +26,20 @@ class AlbumRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_user_album_ids(self, user_id: uuid.UUID) -> List[uuid.UUID]:
-        """Fetch all album IDs belonging to a given user, ordered by creation date desc."""
-        stmt = (
-            select(Album.id)
-            .where(Album.user_id == user_id)
-            .order_by(Album.created_at.desc())
-        )
+    async def get_user_album_ids(
+        self,
+        user_id: uuid.UUID,
+        status: Optional[str] = "COMPLETED",
+    ) -> List[uuid.UUID]:
+        """Fetch album IDs belonging to a user, ordered by creation date desc.
+
+        Filters by status='COMPLETED' by default so gallery lists only completed albums.
+        Pass status=None to retrieve all albums regardless of status.
+        """
+        stmt = select(Album.id).where(Album.user_id == user_id)
+        if status is not None:
+            stmt = stmt.where(Album.status == status)
+        stmt = stmt.order_by(Album.created_at.desc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -169,7 +176,11 @@ class AlbumRepository:
         album_id: uuid.UUID,
         photos_data: List[dict],
     ) -> List[Photo]:
-        """Batch insert photos for an album."""
+        """Batch insert photos for an album idempotently.
+
+        Deletes any pre-existing photos for this album within the same transaction
+        before inserting, preventing UniqueConstraint collisions on download retry.
+        """
         created_photos = [
             Photo(
                 album_id=album_id,
@@ -181,6 +192,9 @@ class AlbumRepository:
             for item in photos_data
         ]
         try:
+            await self.session.execute(
+                delete(Photo).where(Photo.album_id == album_id)
+            )
             self.session.add_all(created_photos)
             await self.session.commit()
             for photo in created_photos:
