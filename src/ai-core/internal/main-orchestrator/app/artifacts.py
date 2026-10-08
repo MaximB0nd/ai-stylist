@@ -1,25 +1,25 @@
-from datetime import datetime
-
 import httpx
-from pydantic import BaseModel, ConfigDict, HttpUrl, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
 class ImportResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     artifact_id: str
-    checksum_sha256: str
-    size_bytes: int
-    format: str
-    url: HttpUrl
-    expires_at: datetime
+    checksum_sha256: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    size_bytes: int = Field(gt=0)
+    media_type: str
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
 
 
 class ArtifactFailure(Exception):
-    def __init__(self, code: str, retryable: bool, ambiguous: bool = False) -> None:
+    def __init__(self, code: str, retryable: bool, ambiguous: bool = False,
+                 retry_after_seconds: int | None = None) -> None:
         self.code = code
         self.retryable = retryable
         self.ambiguous = ambiguous
+        self.retry_after_seconds = retry_after_seconds
         super().__init__(code)
 
 
@@ -28,13 +28,12 @@ class ArtifactClient:
         self.base_url = base_url.rstrip("/")
         self.client = client or httpx.AsyncClient(timeout=120)
 
-    async def import_file(self, artifact_id: str, source_url: str, source_expires_at: datetime) -> ImportResult:
+    async def import_file(self, artifact_id: str, source_url: str) -> ImportResult:
         try:
             response = await self.client.post(
                 f"{self.base_url}/internal/v1/artifacts/{artifact_id}/import",
                 json={
                     "source_url": source_url,
-                    "source_expires_at": source_expires_at.isoformat(),
                     "max_size_bytes": 15728640,
                 },
             )
@@ -45,9 +44,14 @@ class ArtifactClient:
                 payload = response.json()
             except ValueError:
                 payload = {}
+            try:
+                retry_after = max(1, min(300, int(response.headers["Retry-After"])))
+            except (KeyError, ValueError):
+                retry_after = None
             raise ArtifactFailure(
                 str(payload.get("code", "ARTIFACT_SERVICE_ERROR")),
                 bool(payload.get("retryable", response.status_code >= 500)),
+                retry_after_seconds=retry_after,
             )
         try:
             result = ImportResult.model_validate(response.json())
@@ -59,13 +63,19 @@ class ArtifactClient:
 
     async def access(self, artifact_id: str, operation: str, content_type: str = "image/webp") -> dict:
         try:
-            response = await self.client.post(
-                f"{self.base_url}/internal/v1/artifacts/{artifact_id}/access",
-                json={"operation": operation, "content_type": content_type, "max_size_bytes": 15728640},
-            )
-            response.raise_for_status()
+            body = {"operation": operation}
+            if operation == "WRITE":
+                body.update({"content_type": content_type, "max_size_bytes": 15728640})
+            response = await self.client.post(f"{self.base_url}/internal/v1/artifacts/{artifact_id}/access", json=body)
+            if response.status_code != 200:
+                try:
+                    problem = response.json()
+                except ValueError:
+                    problem = {}
+                raise ArtifactFailure(str(problem.get("code", "ARTIFACT_SERVICE_ERROR")),
+                                      bool(problem.get("retryable", response.status_code >= 500)))
             data = response.json()
-            if data["artifact_id"] != artifact_id or not data["url"].startswith("https://") or not data["expires_at"]:
+            if data["artifact_id"] != artifact_id or not data["url"].startswith("http://"):
                 raise ValueError("Invalid access response")
             return data
         except httpx.HTTPError as exc:

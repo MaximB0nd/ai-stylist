@@ -25,6 +25,7 @@
 
 ## Документы
 
+- [HTTP-договор](CONTRACT.md)
 - [Проверки](../../models/README.md#проверка-изображения)
 - [Эксплуатация](../../runtime/operations.md)
 - [Общий договор processing services](../CONTRACT.md)

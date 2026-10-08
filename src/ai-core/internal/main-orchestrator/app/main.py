@@ -16,9 +16,8 @@ from app.dispatch import dispatch_one
 from app.errors import AppError
 from app.jobs import ack_results, cancel_job, create_job, get_job
 from app.imports import process_one_import
-from app.results import receive_result
-from app.runtime import process_cleanup, process_events, process_expirations
-from app.schemas import EmptyBody, JobCreate, WorkerResult
+from app.runtime import process_cleanup, process_expirations
+from app.schemas import EmptyBody, JobCreate
 from app.settings import Settings
 
 
@@ -30,30 +29,53 @@ def create_app(
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         application.state.artifacts = ArtifactClient(settings.artifact_service_url) if settings.artifact_service_url else None
-        application.state.http = httpx.AsyncClient(timeout=30)
-        async def run() -> None:
+        application.state.http = httpx.AsyncClient(timeout=settings.worker_timeout_seconds)
+        import logging
+        application.state.logger = logging.getLogger("orchestrator")
+
+        async def run(operation) -> None:
             while True:
                 try:
-                    await process_expirations(application.state.sessions)
-                    await process_one_import(application.state.sessions, application.state.cipher, application.state.artifacts)
-                    await process_events(application.state.sessions, application.state.cipher)
-                    await dispatch_one(application.state.sessions, application.state.cipher,
-                                       settings.worker_urls, application.state.artifacts, application.state.http)
-                    await process_cleanup(application.state.sessions, application.state.artifacts)
+                    await operation()
                 except Exception:
                     application.state.logger.exception("Orchestrator background cycle failed")
                 await asyncio.sleep(1)
-        import logging
-        application.state.logger = logging.getLogger("orchestrator")
-        task = asyncio.create_task(run())
+
+        async def dispatch_loop() -> None:
+            active: set[asyncio.Task] = set()
+            try:
+                while True:
+                    for finished in {task for task in active if task.done()}:
+                        active.remove(finished)
+                        try:
+                            finished.result()
+                        except Exception:
+                            application.state.logger.exception("Worker dispatch failed")
+                    if len(active) < 4:
+                        task = asyncio.create_task(dispatch_one(application.state.sessions,
+                            application.state.cipher, settings.worker_urls,
+                            application.state.artifacts, application.state.http))
+                        active.add(task)
+                    await asyncio.sleep(1)
+            finally:
+                for task in active:
+                    task.cancel()
+                await asyncio.gather(*active, return_exceptions=True)
+
+        tasks = [
+            asyncio.create_task(run(lambda: process_expirations(application.state.sessions))),
+            asyncio.create_task(run(lambda: process_one_import(application.state.sessions,
+                application.state.cipher, application.state.artifacts))),
+            asyncio.create_task(run(lambda: process_cleanup(application.state.sessions,
+                application.state.artifacts))),
+            asyncio.create_task(dispatch_loop()),
+        ]
         try:
             yield
         finally:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
             if application.state.artifacts:
                 await application.state.artifacts.close()
             await application.state.http.aclose()
@@ -106,7 +128,8 @@ def create_app(
 
     @app.post("/internal/v1/jobs")
     async def create(body: JobCreate) -> JSONResponse:
-        job_id, created = await create_job(app.state.sessions, app.state.cipher, body)
+        job_id, created = await create_job(app.state.sessions, app.state.cipher, body,
+                                           settings.min_input_url_ttl_seconds)
         view = await get_job(app.state.sessions, job_id)
         return JSONResponse(status_code=201 if created else 200, content=view)
 
@@ -122,9 +145,5 @@ def create_app(
     @app.post("/internal/v1/jobs/{job_id}/results/ack", status_code=204)
     async def ack(job_id: str, _: EmptyBody = Body(...)) -> None:
         await ack_results(app.state.sessions, job_id)
-
-    @app.post("/internal/v1/worker-results", status_code=204)
-    async def worker_result(body: WorkerResult) -> None:
-        await receive_result(app.state.sessions, app.state.cipher, body)
 
     return app

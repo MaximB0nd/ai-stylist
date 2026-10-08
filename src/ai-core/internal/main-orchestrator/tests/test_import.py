@@ -22,14 +22,13 @@ class FakeArtifacts:
         self.calls: list[tuple[str, str]] = []
         self.fail_body = fail_body
 
-    async def import_file(self, artifact_id: str, source_url: str, source_expires_at: datetime) -> ImportResult:
+    async def import_file(self, artifact_id: str, source_url: str) -> ImportResult:
         self.calls.append((artifact_id, source_url))
         if self.fail_body and source_url.endswith("/body"):
             raise ArtifactFailure("SOURCE_UNAVAILABLE", True)
         return ImportResult(
             artifact_id=artifact_id, checksum_sha256="sha256:" + "a" * 64,
-            size_bytes=100, format="jpeg", url="https://temporary-files.example/read-link",
-            expires_at=datetime.now(UTC) + timedelta(minutes=10),
+            size_bytes=100, media_type="image/jpeg", width=100, height=150,
         )
 
 
@@ -54,7 +53,7 @@ async def test_import_waits_for_service_then_copies_both_before_preparation() ->
         assert await process_one_import(app.state.sessions, app.state.cipher, fake, job_id)
         async with app.state.sessions() as session:
             job = await session.get(Job, job_id)
-            assert job.status == "PROCESSING" and job.stage == "PREPARATION"
+            assert job.status == "PROCESSING" and job.stage == "FACE_VALIDATION"
             assert job.face_imported and job.body_imported
             assert (await session.get(Artifact, job.face_artifact_id)).size_bytes == 100
         assert len(fake.calls) == 2 and fake.calls[0][1].endswith("/face") and fake.calls[1][1].endswith("/body")

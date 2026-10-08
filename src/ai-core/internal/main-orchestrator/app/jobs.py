@@ -28,12 +28,13 @@ def event_for(job: Job, now: datetime) -> Event:
             "occurred_at": now.isoformat().replace("+00:00", "Z"),
             "error": None if not job.error_code else {"code": job.error_code, "message": job.error_message, "retryable": False},
         },
-        delivery_status="PENDING", created_at=now,
+        delivery_status="RECORDED", created_at=now,
     )
 
 
 async def create_job(
     sessions: async_sessionmaker[AsyncSession], cipher: Cipher, body: JobCreate,
+    min_input_url_ttl_seconds: int = 900,
 ) -> tuple[str, bool]:
     if body.computed_hash() != body.request_hash:
         raise AppError(400, "INVALID_REQUEST", "Request hash does not match body")
@@ -51,7 +52,8 @@ async def create_job(
     prior = await existing()
     if prior:
         return prior
-    if body.inputs.expires_at < now + timedelta(minutes=30):
+    input_expiry = min(body.inputs.face.expires_at, body.inputs.body.expires_at)
+    if input_expiry < now + timedelta(seconds=min_input_url_ttl_seconds):
         raise AppError(400, "INVALID_REQUEST", "Input URLs expire too soon")
     job_id = str(uuid4())
     face_id, body_id = artifact_id(), artifact_id()
@@ -65,7 +67,7 @@ async def create_job(
                 status="QUEUED", stage="IMPORT",
                 requested_image_count=body.requested_image_count,
                 accepted_image_count=0, failed_attempt_count=0, current_index=0,
-                input_expires_at=body.inputs.expires_at,
+                input_expires_at=input_expiry,
                 deadline_at=now + timedelta(hours=24),
                 face_artifact_id=face_id, body_artifact_id=body_id,
                 face_imported=False, body_imported=False,
@@ -107,11 +109,16 @@ async def queue_cleanup(session: AsyncSession, job: Job, now: datetime) -> None:
     ])
 
 
+async def queue_artifact_cleanup(session: AsyncSession, job: Job, value: str, now: datetime) -> None:
+    if await session.get(CleanupRequest, value) is None:
+        session.add(CleanupRequest(artifact_id=value, job_id=job.id,
+                                   done=False, attempts=0, next_try_at=now))
+
+
 async def scrub_sensitive(session: AsyncSession, job: Job) -> None:
     job.request_encrypted = None
     await session.execute(update(ImageSlot).where(ImageSlot.job_id == job.id).values(outfit_encrypted=None))
-    await session.execute(update(Command).where(Command.job_id == job.id,
-                                                Command.stage != "NOTIFICATION")
+    await session.execute(update(Command).where(Command.job_id == job.id)
                           .values(payload_encrypted="", result_encrypted=None))
 
 
@@ -137,7 +144,6 @@ async def get_job(sessions: async_sessionmaker[AsyncSession], job_id: str,
             except ArtifactFailure as exc:
                 raise AppError(503, exc.code, "Result links unavailable", True) from exc
             result["download_url"] = access["url"]
-            result["download_url_expires_at"] = access["expires_at"]
     return view
 
 
@@ -152,7 +158,6 @@ async def cancel_job(sessions: async_sessionmaker[AsyncSession], job_id: str) ->
         job.status, job.stage = "CANCELLED", "DONE"
         job.updated_at = now
         await session.execute(update(Command).where(Command.job_id == job.id,
-                                                    Command.stage != "NOTIFICATION",
                                                     Command.status != "DONE").values(status="CANCELLED"))
         await scrub_sensitive(session, job)
         await queue_cleanup(session, job, now)
@@ -179,6 +184,9 @@ async def ack_results(sessions: async_sessionmaker[AsyncSession], job_id: str) -
 
 
 async def public_view(session: AsyncSession, job: Job) -> dict:
+    error = None if not job.error_code else {"code": job.error_code, "message": job.error_message, "retryable": False}
+    if error is not None and job.error_reasons is not None:
+        error["reasons"] = job.error_reasons
     result: dict = {
         "job_id": job.id,
         "status": job.status,
@@ -186,7 +194,7 @@ async def public_view(session: AsyncSession, job: Job) -> dict:
         "accepted_image_count": job.accepted_image_count,
         "failed_attempt_count": job.failed_attempt_count,
         "updated_at": job.updated_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
-        "error": None if not job.error_code else {"code": job.error_code, "message": job.error_message, "retryable": False},
+        "error": error,
     }
     if job.status == "COMPLETED":
         result["result_delivery_status"] = job.result_delivery_status
@@ -199,7 +207,8 @@ async def public_view(session: AsyncSession, job: Job) -> dict:
                 result["results"].append({
                     "order_index": slot.order_index, "artifact_id": artifact.id,
                     "checksum_sha256": artifact.checksum_sha256, "size_bytes": artifact.size_bytes,
-                    "format": artifact.format, "width": artifact.width, "height": artifact.height,
+                    "format": artifact.format.rsplit("/", 1)[-1] if artifact.format else None,
+                    "width": artifact.width, "height": artifact.height,
                     **(artifact.result_metadata or {}),
                 })
     return result

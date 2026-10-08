@@ -56,8 +56,8 @@ async def test_job_and_pending_work_survive_new_session() -> None:
             session.add(Artifact(id=artifact_id, job_id=job_id, kind="INPUT_FACE", created_at=now))
             await session.flush()
             session.add(Command(
-                id=command_id, job_id=job_id, stage="PREPARATION", attempt=1,
-                payload_encrypted=cipher.encrypt({"read_url": "https://files.example/secret"}),
+                id=command_id, job_id=job_id, stage="FACE_VALIDATION", attempt=1,
+                payload_encrypted=cipher.encrypt({"image_artifact_id": artifact_id}),
                 status="PENDING", next_send_at=now, sent_count=0, created_at=now,
             ))
             session.add(CleanupRequest(artifact_id=artifact_id, job_id=job_id, done=False, attempts=0, next_try_at=now))

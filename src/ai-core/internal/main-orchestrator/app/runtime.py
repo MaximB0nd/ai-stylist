@@ -1,26 +1,29 @@
 from datetime import timedelta
 
-from sqlalchemy import exists, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.orm import aliased
 
 from app.artifacts import ArtifactClient, ArtifactFailure
-from app.crypto import Cipher
-from app.db import CleanupRequest, Command, Event, Job, utcnow
+from app.db import CleanupRequest, Command, Job, utcnow
 from app.jobs import expire_results
-from app.pipeline import fail_job, make_command
+from app.pipeline import fail_job
 
 
-async def process_expirations(sessions: async_sessionmaker[AsyncSession]) -> bool:
+async def process_expirations(sessions: async_sessionmaker[AsyncSession],
+                              job_id: str | None = None) -> bool:
     now = utcnow()
     async with sessions.begin() as session:
-        job = (await session.execute(select(Job).where(
+        query = select(Job).where(
             ((Job.status.in_(("QUEUED", "PROCESSING"))) & (Job.deadline_at <= now)) |
             ((Job.stage == "IMPORT") & (Job.status.in_(("QUEUED", "PROCESSING"))) &
              (Job.input_expires_at <= now)) |
             ((Job.status == "COMPLETED") & (Job.result_delivery_status == "AVAILABLE") &
              (Job.results_available_until <= now))
-        ).order_by(Job.created_at).limit(1).with_for_update(skip_locked=True))).scalar_one_or_none()
+        )
+        if job_id is not None:
+            query = query.where(Job.id == job_id)
+        job = (await session.execute(query.order_by(Job.created_at).limit(1)
+                                     .with_for_update(skip_locked=True))).scalar_one_or_none()
         if job is None:
             return False
         if job.status == "COMPLETED":
@@ -29,31 +32,7 @@ async def process_expirations(sessions: async_sessionmaker[AsyncSession]) -> boo
             code = "INPUT_EXPIRED" if job.stage == "IMPORT" and job.input_expires_at <= now else "JOB_EXPIRED"
             await fail_job(session, job, code)
             await session.execute(update(Command).where(Command.job_id == job.id,
-                                                        Command.stage != "NOTIFICATION",
                                                         Command.status != "DONE").values(status="CANCELLED"))
-    return True
-
-
-async def process_events(sessions: async_sessionmaker[AsyncSession], cipher: Cipher,
-                         job_id: str | None = None) -> bool:
-    async with sessions.begin() as session:
-        previous = aliased(Event)
-        query = select(Event).where(
-            Event.delivery_status == "PENDING",
-            ~exists(select(previous.id).where(previous.job_id == Event.job_id,
-                                              previous.sequence < Event.sequence,
-                                              previous.delivery_status.in_(("PENDING", "QUEUED"))))
-        )
-        if job_id is not None:
-            query = query.where(Event.job_id == job_id)
-        event = (await session.execute(query
-                                       .order_by(Event.created_at).limit(1)
-                                       .with_for_update(skip_locked=True))).scalar_one_or_none()
-        if event is None:
-            return False
-        job = await session.get(Job, event.job_id)
-        await make_command(session, cipher, job, "NOTIFICATION", event.payload)
-        event.delivery_status = "QUEUED"
     return True
 
 

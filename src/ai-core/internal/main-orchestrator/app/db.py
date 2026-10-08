@@ -32,10 +32,12 @@ class Job(Base):
     result_delivery_status: Mapped[str | None] = mapped_column(String(16))
     error_code: Mapped[str | None] = mapped_column(String(64))
     error_message: Mapped[str | None] = mapped_column(String(256))
+    error_reasons: Mapped[list | None] = mapped_column(JSON)
     face_artifact_id: Mapped[str] = mapped_column(String(40), nullable=False)
     body_artifact_id: Mapped[str] = mapped_column(String(40), nullable=False)
     face_imported: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     body_imported: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    color_type: Mapped[str | None] = mapped_column(String(16))
     import_attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     import_next_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -90,14 +92,6 @@ class Command(Base):
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sent_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
-
-
-class ReceivedMessage(Base):
-    __tablename__ = "received_messages"
-
-    message_id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    command_id: Mapped[str] = mapped_column(ForeignKey("commands.id", ondelete="CASCADE"), nullable=False)
-    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class OutfitReservation(Base):

@@ -32,10 +32,12 @@ def upgrade() -> None:
         sa.Column("result_delivery_status", sa.String(16)),
         sa.Column("error_code", sa.String(64)),
         sa.Column("error_message", sa.String(256)),
+        sa.Column("error_reasons", sa.JSON()),
         sa.Column("face_artifact_id", sa.String(40), nullable=False),
         sa.Column("body_artifact_id", sa.String(40), nullable=False),
         sa.Column("face_imported", sa.Boolean(), nullable=False),
         sa.Column("body_imported", sa.Boolean(), nullable=False),
+        sa.Column("color_type", sa.String(16)),
         sa.Column("import_attempt", sa.Integer(), nullable=False),
         sa.Column("import_next_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("sequence", sa.Integer(), nullable=False),
@@ -65,6 +67,7 @@ def upgrade() -> None:
         sa.Column("format", sa.String(16)),
         sa.Column("width", sa.Integer()),
         sa.Column("height", sa.Integer()),
+        sa.Column("result_metadata", sa.JSON()),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
     op.create_index("ix_artifacts_job_id", "artifacts", ["job_id"])
@@ -76,6 +79,9 @@ def upgrade() -> None:
         sa.Column("attempt", sa.Integer(), nullable=False),
         sa.Column("order_index", sa.Integer()),
         sa.Column("payload_encrypted", sa.Text(), nullable=False),
+        sa.Column("result_encrypted", sa.Text()),
+        sa.Column("error_code", sa.String(64)),
+        sa.Column("error_retryable", sa.Boolean()),
         sa.Column("status", sa.String(16), nullable=False),
         sa.Column("next_send_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("accepted_at", sa.DateTime(timezone=True)),
@@ -84,12 +90,6 @@ def upgrade() -> None:
     )
     op.create_index("ix_commands_job_id", "commands", ["job_id"])
     op.create_index("ix_commands_status", "commands", ["status"])
-    op.create_table(
-        "received_messages",
-        sa.Column("message_id", sa.String(36), primary_key=True),
-        sa.Column("command_id", sa.String(36), sa.ForeignKey("commands.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("received_at", sa.DateTime(timezone=True), nullable=False),
-    )
     op.create_table(
         "outfit_reservations",
         sa.Column("job_id", sa.String(36), sa.ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True),
@@ -117,5 +117,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for table in ("cleanup_requests", "events", "outfit_reservations", "received_messages", "commands", "artifacts", "image_slots", "jobs"):
+    for table in ("cleanup_requests", "events", "outfit_reservations", "commands", "artifacts", "image_slots", "jobs"):
         op.drop_table(table)

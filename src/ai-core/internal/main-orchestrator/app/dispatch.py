@@ -6,43 +6,78 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.artifacts import ArtifactClient, ArtifactFailure
 from app.crypto import Cipher
-from app.db import Command, Event, Job, utcnow
-from app.pipeline import RETRY_DELAYS, make_command
+from app.db import Artifact, Command, Job, utcnow
+from app.errors import AppError
+from app.pipeline import apply_success, fail_job, retry_command
+
+ENDPOINTS = {
+    "FACE_VALIDATION": "/v1/validate", "BODY_VALIDATION": "/v1/validate",
+    "IDENTITY_VERIFICATION": "/v1/compare",
+    "NORMALIZE_FACE": "/v1/normalize", "NORMALIZE_BODY": "/v1/normalize",
+    "COLOR_TYPE": "/v1/classify", "STYLING": "/v1/style",
+    "GENERATION": "/v1/generate", "VERIFICATION": "/v1/verify",
+}
 
 
-async def hydrate(payload: dict, stage: str, artifacts: ArtifactClient | None) -> dict:
-    if stage == "NOTIFICATION" or stage == "STYLING":
+async def hydrate(session: AsyncSession, payload: dict, stage: str,
+                  artifacts: ArtifactClient | None) -> dict:
+    if stage == "STYLING":
         return payload
     if artifacts is None:
         raise ArtifactFailure("ARTIFACT_SERVICE_UNAVAILABLE", True)
 
-    async def url(key: str, operation: str) -> str:
-        access = await artifacts.access(payload[key], operation)
-        return access["url"]
+    async def image(key: str) -> dict:
+        value = await session.get(Artifact, payload[key])
+        link = await artifacts.access(value.id, "READ")
+        return {"read_url": link["url"], "checksum_sha256": value.checksum_sha256}
 
-    if stage == "PREPARATION":
-        return {
-            "face": {"artifact_id": payload["face_artifact_id"], "read_url": await url("face_artifact_id", "READ")},
-            "body": {"artifact_id": payload["body_artifact_id"], "read_url": await url("body_artifact_id", "READ")},
-            "prepared_face": {"artifact_id": payload["prepared_face_artifact_id"], "write_url": await url("prepared_face_artifact_id", "WRITE")},
-            "prepared_body": {"artifact_id": payload["prepared_body_artifact_id"], "write_url": await url("prepared_body_artifact_id", "WRITE")},
-        }
+    if stage in ("FACE_VALIDATION", "BODY_VALIDATION", "COLOR_TYPE"):
+        return {"image": await image("image_artifact_id")}
+    if stage == "IDENTITY_VERIFICATION":
+        return {"face_image": await image("face_artifact_id"),
+                "body_image": await image("body_artifact_id")}
+    if stage in ("NORMALIZE_FACE", "NORMALIZE_BODY"):
+        link = await artifacts.access(payload["output_artifact_id"], "WRITE", "image/png")
+        return {"profile": payload["profile"], "image": await image("image_artifact_id"),
+                "output": {"write_url": link["url"], "width": payload["width"],
+                           "height": payload["height"]}}
     if stage == "GENERATION":
-        return {
-            "prepared_face_read_url": await url("prepared_face_artifact_id", "READ"),
-            "prepared_body_read_url": await url("prepared_body_artifact_id", "READ"),
-            "outfit_spec_version": payload["outfit_spec_version"], "outfit_spec": payload["outfit_spec"],
-            "seed": payload["seed"], "candidate_artifact_id": payload["candidate_artifact_id"],
-            "write_url": await url("candidate_artifact_id", "WRITE"),
-        }
+        link = await artifacts.access(payload["output_artifact_id"], "WRITE")
+        return {"face_image": await image("face_artifact_id"),
+                "body_image": await image("body_artifact_id"),
+                "outfit_spec_version": payload["outfit_spec_version"],
+                "outfit_spec": payload["outfit_spec"], "seed": payload["seed"],
+                "output": {"write_url": link["url"]}}
     if stage == "VERIFICATION":
-        return {
-            "face_read_url": await url("face_artifact_id", "READ"),
-            "body_read_url": await url("body_artifact_id", "READ"),
-            "candidate_read_url": await url("candidate_artifact_id", "READ"),
-            "outfit_spec_version": payload["outfit_spec_version"], "outfit_spec": payload["outfit_spec"],
-        }
+        return {"face_image": await image("face_artifact_id"),
+                "body_image": await image("body_artifact_id"),
+                "candidate_image": await image("candidate_artifact_id"),
+                "outfit_spec_version": payload["outfit_spec_version"],
+                "outfit_spec": payload["outfit_spec"]}
     raise ValueError(stage)
+
+
+def retry_after(response: httpx.Response) -> int:
+    try:
+        return max(1, min(300, int(response.headers.get("Retry-After", "5"))))
+    except ValueError:
+        return 5
+
+
+def public_failure(stage: str, code: str) -> str:
+    if code == "COLOR_TYPE_UNCERTAIN":
+        return code
+    if code in {"INVALID_NORMALIZED_IMAGE", "INPUT_UNAVAILABLE", "OUTPUT_UNAVAILABLE",
+                "MODEL_UNAVAILABLE", "INPUT_TIMEOUT", "OUTPUT_TIMEOUT", "WORKER_UNREACHABLE"}:
+        return "PREPROCESSING_UNAVAILABLE" if stage in {
+            "FACE_VALIDATION", "BODY_VALIDATION", "IDENTITY_VERIFICATION",
+            "NORMALIZE_FACE", "NORMALIZE_BODY", "COLOR_TYPE"} else code
+    if code in {"PERSON_MASK_UNAVAILABLE", "SOURCE_UNPROCESSABLE", "INPUT_UNPROCESSABLE",
+                "SOURCE_UNSUPPORTED_IMAGE_TYPE", "UNSUPPORTED_IMAGE_TYPE"}:
+        return "PHOTO_UNPROCESSABLE"
+    if stage == "IDENTITY_VERIFICATION" and code.startswith(("FACE_IMAGE_", "BODY_IMAGE_")):
+        return "PHOTO_UNPROCESSABLE"
+    return code
 
 
 async def dispatch_one(sessions: async_sessionmaker[AsyncSession], cipher: Cipher,
@@ -50,60 +85,74 @@ async def dispatch_one(sessions: async_sessionmaker[AsyncSession], cipher: Ciphe
                        client: httpx.AsyncClient, job_id: str | None = None) -> bool:
     now = utcnow()
     async with sessions.begin() as session:
-        query = select(Command).where(Command.status.in_(("PENDING", "AWAITING", "SENDING")),
+        query = select(Command).where(Command.status.in_(("PENDING", "SENDING")),
                                       Command.next_send_at <= now)
         if job_id is not None:
             query = query.where(Command.job_id == job_id)
-        command = (await session.execute(
-            query
-            .order_by(Command.next_send_at, Command.created_at).limit(1)
-            .with_for_update(skip_locked=True)
-        )).scalar_one_or_none()
+        command = (await session.execute(query.order_by(Command.next_send_at, Command.created_at)
+                                         .limit(1).with_for_update(skip_locked=True))).scalar_one_or_none()
         if command is None:
             return False
         job = await session.get(Job, command.job_id)
-        if job.status in ("FAILED", "CANCELLED", "COMPLETED") and command.stage != "NOTIFICATION":
+        if job.status not in ("QUEUED", "PROCESSING"):
             command.status = "CANCELLED"
             return True
-        if command.stage == "NOTIFICATION":
-            event = await session.get(Event, cipher.decrypt(command.payload_encrypted)["event_id"])
-            if now >= event.created_at + timedelta(hours=24):
-                event.delivery_status = "UNDELIVERED"
-                command.status = "CANCELLED"
-                return True
         command.status = "SENDING"
         command.sent_count += 1
-        command.next_send_at = now + timedelta(minutes=3)
-        selected = (command.id, command.job_id, command.stage, command.attempt,
-                    command.order_index, command.payload_encrypted)
+        command.next_send_at = now + timedelta(minutes=31)
+        selected = (command.id, command.job_id, command.stage,
+                    command.payload_encrypted)
 
-    command_id, job_id, stage, attempt, index, encrypted = selected
-    try:
-        worker_url = worker_urls.get(stage)
-        if not worker_url:
-            raise RuntimeError("Worker not configured")
-        payload = await hydrate(cipher.decrypt(encrypted), stage, artifacts)
-        response = await client.post(f"{worker_url.rstrip('/')}/internal/v1/commands", json={
-            "contract_version": 1, "command_id": command_id, "job_id": job_id,
-            "stage": stage, "attempt": attempt, "order_index": index, "payload": payload,
-        })
-        accepted = response.status_code == 202
-    except (httpx.HTTPError, ArtifactFailure, RuntimeError, KeyError, ValueError):
-        accepted = False
+    command_id, selected_job_id, stage, encrypted = selected
+    base = worker_urls.get(stage)
+    if not base:
+        outcome = ("WAIT", None, 60)
+    else:
+        try:
+            async with sessions() as session:
+                body = await hydrate(session, cipher.decrypt(encrypted), stage, artifacts)
+            response = await client.post(f"{base.rstrip('/')}{ENDPOINTS[stage]}",
+                                         json={"request_id": command_id, **body})
+            if response.status_code == 200:
+                outcome = ("SUCCESS", response.json(), 0)
+            elif response.status_code == 429:
+                outcome = ("WAIT", None, retry_after(response))
+            else:
+                try:
+                    problem = response.json()
+                except ValueError:
+                    problem = {}
+                outcome = ("FAIL", (str(problem.get("code", "WORKER_UNAVAILABLE")),
+                                    bool(problem.get("retryable", response.status_code >= 500))), 0)
+        except ArtifactFailure as exc:
+            outcome = ("WAIT", None, 60) if exc.retryable else ("FAIL", (exc.code, False), 0)
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            outcome = ("FAIL", ("WORKER_UNREACHABLE", True), 0)
+
     async with sessions.begin() as session:
+        job = (await session.execute(select(Job).where(Job.id == selected_job_id).with_for_update())).scalar_one()
         command = (await session.execute(select(Command).where(Command.id == command_id).with_for_update())).scalar_one()
-        if command.status == "SENDING":
-            if stage == "NOTIFICATION" and not accepted:
-                event = await session.get(Event, cipher.decrypt(encrypted)["event_id"])
-                command.status = "DONE"
-                if attempt >= 4:
-                    event.delivery_status = "UNDELIVERED"
-                else:
-                    job = await session.get(Job, job_id)
-                    await make_command(session, cipher, job, stage, cipher.decrypt(encrypted),
-                                       attempt=attempt + 1, delay=RETRY_DELAYS[attempt - 1])
-                return True
-            command.status = "AWAITING" if accepted else "PENDING"
-            command.accepted_at = utcnow() if accepted else command.accepted_at
-            command.next_send_at = utcnow() + timedelta(minutes=30 if accepted else 1)
+        if command.status != "SENDING":
+            return True
+        if job.status not in ("QUEUED", "PROCESSING"):
+            command.status = "CANCELLED"
+            return True
+        kind, value, delay = outcome
+        if kind == "WAIT":
+            command.status = "PENDING"
+            command.next_send_at = utcnow() + timedelta(seconds=delay)
+        elif kind == "FAIL":
+            code, retryable = value
+            await retry_command(session, cipher, job, command, code, retryable,
+                                public_code=public_failure(stage, code))
+            command.error_code, command.error_retryable = code, retryable
+            command.status = "DONE"
+        else:
+            try:
+                await apply_success(session, cipher, job, command, value)
+            except (AppError, KeyError, TypeError, ValueError):
+                await fail_job(session, job, "INVALID_WORKER_RESULT")
+            command.status = "DONE"
+            if job.status not in ("COMPLETED", "FAILED", "CANCELLED"):
+                command.result_encrypted = cipher.encrypt(value)
     return True

@@ -13,11 +13,23 @@ from app.pipeline import seed_preparation
 RETRY_DELAYS = (5, 30, 120)
 
 
+def public_import_error(code: str) -> str:
+    if code in {"SOURCE_TOO_LARGE", "SOURCE_UNSUPPORTED_IMAGE_TYPE", "SOURCE_UNPROCESSABLE",
+                "IMAGE_DIMENSIONS_EXCEEDED"}:
+        return "PHOTO_UNPROCESSABLE"
+    if code == "SOURCE_URL_NOT_ALLOWED":
+        return "INPUT_URL_NOT_ALLOWED"
+    if code in {"SOURCE_TIMEOUT", "SOURCE_UNAVAILABLE", "SOURCE_NOT_ACCESSIBLE",
+                "IMPORT_IN_PROGRESS", "ARTIFACT_CONFLICT", "INVALID_ARTIFACT_RESPONSE"}:
+        return "PREPROCESSING_UNAVAILABLE"
+    return code
+
+
 async def fail_import(session: AsyncSession, job: Job, code: str) -> None:
     now = utcnow()
     job.status = "FAILED"
     job.stage = "DONE"
-    job.error_code = code
+    job.error_code = public_import_error(code)
     job.error_message = "Input import failed"
     job.request_encrypted = None
     job.updated_at = now
@@ -59,13 +71,12 @@ async def process_one_import(
             session.add(event_for(job, now))
         side = "face" if not job.face_imported else "body"
         artifact_id = job.face_artifact_id if side == "face" else job.body_artifact_id
-        source = cipher.decrypt(job.request_encrypted)["inputs"][f"{side}_photo_url"]
-        source_expiry = job.input_expires_at
+        source = cipher.decrypt(job.request_encrypted)["inputs"][side]["url"]
         job.import_next_at = now + timedelta(minutes=3)
         selected_job_id = job.id
 
     try:
-        result = await artifacts.import_file(artifact_id, source, source_expiry)
+        result = await artifacts.import_file(artifact_id, source)
     except ArtifactFailure as exc:
         async with sessions.begin() as session:
             job = (await session.execute(select(Job).where(Job.id == selected_job_id).with_for_update())).scalar_one()
@@ -78,13 +89,16 @@ async def process_one_import(
                 await fail_import(session, job, exc.code)
             elif exc.ambiguous:
                 job.import_next_at = now + timedelta(seconds=5)
+            elif exc.code == "IMPORT_IN_PROGRESS":
+                job.import_next_at = now + timedelta(seconds=exc.retry_after_seconds or 5)
             else:
                 job.import_attempt += 1
                 job.failed_attempt_count += 1
                 if job.import_attempt >= 4:
                     await fail_import(session, job, exc.code)
                 else:
-                    job.import_next_at = now + timedelta(seconds=RETRY_DELAYS[job.import_attempt - 1])
+                    job.import_next_at = now + timedelta(seconds=max(
+                        RETRY_DELAYS[job.import_attempt - 1], exc.retry_after_seconds or 0))
         return True
 
     async with sessions.begin() as session:
@@ -92,7 +106,9 @@ async def process_one_import(
         artifact = await session.get(Artifact, artifact_id)
         artifact.checksum_sha256 = result.checksum_sha256
         artifact.size_bytes = result.size_bytes
-        artifact.format = result.format
+        artifact.format = result.media_type
+        artifact.width = result.width
+        artifact.height = result.height
         if job.status in ("CANCELLED", "FAILED", "COMPLETED"):
             await queue_cleanup(session, job, utcnow())
             return True
@@ -104,7 +120,7 @@ async def process_one_import(
         job.import_next_at = utcnow()
         job.updated_at = utcnow()
         if job.face_imported and job.body_imported:
-            job.stage = "PREPARATION"
+            job.stage = "FACE_VALIDATION"
             session.add(event_for(job, job.updated_at))
             await seed_preparation(session, cipher, job)
     return True

@@ -22,12 +22,13 @@ def request_body() -> dict:
         "request_hash": "0" * 64,
         "requested_image_count": 1,
         "inputs": {
-            "face_photo_url": "https://files.example/face",
-            "body_photo_url": "https://files.example/body",
-            "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+            "face": {"url": "http://files.example/face",
+                     "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat()},
+            "body": {"url": "http://files.example/body",
+                     "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat()},
         },
         "person": {"age": 26, "height_cm": 172, "gender": "female"},
-        "preferences": {"occasion": "office", "styles": ["classic"], "shoes": ["loafers"], "impressions": ["confident"], "description": "Office look"},
+        "preferences": {"occasion": "office", "style": "classic", "shoe": "loafers", "mood": "confident"},
     }
     body["request_hash"] = JobCreate.model_validate(body).computed_hash()
     return body

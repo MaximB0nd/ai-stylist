@@ -1,6 +1,7 @@
+import asyncio
+import json
 import os
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
 
 import httpx
 import pytest
@@ -8,11 +9,11 @@ from cryptography.fernet import Fernet
 from pydantic import SecretStr
 from sqlalchemy import select
 
-from app.db import CleanupRequest, Command, Event, Job
+from app.db import CleanupRequest, Command, Job
 from app.dispatch import dispatch_one
 from app.imports import process_one_import
 from app.main import create_app
-from app.runtime import process_cleanup, process_events, process_expirations
+from app.runtime import process_cleanup, process_expirations
 from app.settings import Settings
 from test_jobs_api import request_body
 from test_pipeline import FakeArtifacts
@@ -21,129 +22,133 @@ DATABASE_URL = os.getenv("ORCHESTRATOR_TEST_DATABASE_URL", "postgresql+asyncpg:/
 
 
 @pytest.mark.asyncio
-async def test_missing_callback_resends_same_command_without_new_attempt():
+async def test_capacity_wait_reuses_request_then_worker_failure_creates_retry():
     app = create_app(Settings(database_url=DATABASE_URL, encryption_key=SecretStr(Fernet.generate_key().decode())))
     artifacts = FakeArtifacts()
+    responses = iter([httpx.Response(429, headers={"Retry-After": "1"}),
+                      httpx.Response(503, json={"code": "MODEL_UNAVAILABLE", "retryable": True})])
     sent = []
-    transport = httpx.MockTransport(lambda request: (sent.append(request) or httpx.Response(202)))
+    def worker(request):
+        sent.append(json.loads(request.content)["request_id"])
+        return next(responses)
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client, \
-                httpx.AsyncClient(transport=transport) as worker:
+                httpx.AsyncClient(transport=httpx.MockTransport(worker)) as worker_client:
             job_id = (await client.post("/internal/v1/jobs", json=request_body())).json()["job_id"]
             await process_one_import(app.state.sessions, app.state.cipher, artifacts, job_id)
             await process_one_import(app.state.sessions, app.state.cipher, artifacts, job_id)
+            await dispatch_one(app.state.sessions, app.state.cipher,
+                               {"FACE_VALIDATION": "https://worker.test"}, artifacts, worker_client, job_id)
+            async with app.state.sessions.begin() as session:
+                command = (await session.execute(select(Command).where(Command.job_id == job_id))).scalar_one()
+                assert command.attempt == 1 and command.status == "PENDING"
+                command.next_send_at = datetime.now(UTC) - timedelta(seconds=1)
+            await dispatch_one(app.state.sessions, app.state.cipher,
+                               {"FACE_VALIDATION": "https://worker.test"}, artifacts, worker_client, job_id)
+            assert sent == [sent[0], sent[0]]
+            async with app.state.sessions() as session:
+                commands = (await session.execute(select(Command).where(Command.job_id == job_id))).scalars().all()
+                assert len(commands) == 2 and {command.attempt for command in commands} == {1, 2}
+                assert (await session.get(Job, job_id)).failed_attempt_count == 1
+    finally:
+        await app.state.engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_cancel_ignores_late_http_response_and_cleans_artifacts():
+    app = create_app(Settings(database_url=DATABASE_URL, encryption_key=SecretStr(Fernet.generate_key().decode())))
+    artifacts = FakeArtifacts()
+    started, release = asyncio.Event(), asyncio.Event()
+    async def worker(request):
+        started.set()
+        await release.wait()
+        return httpx.Response(200, json={"request_id": json.loads(request.content)["request_id"],
+                                         "decision": "ACCEPTED", "reasons": [],
+                                         "model_version": "model-1"})
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client, \
+                httpx.AsyncClient(transport=httpx.MockTransport(worker)) as worker_client:
+            job_id = (await client.post("/internal/v1/jobs", json=request_body())).json()["job_id"]
+            await process_one_import(app.state.sessions, app.state.cipher, artifacts, job_id)
+            await process_one_import(app.state.sessions, app.state.cipher, artifacts, job_id)
+            task = asyncio.create_task(dispatch_one(app.state.sessions, app.state.cipher,
+                {"FACE_VALIDATION": "https://worker.test"}, artifacts, worker_client, job_id))
+            await asyncio.wait_for(started.wait(), timeout=5)
+            assert (await client.post(f"/internal/v1/jobs/{job_id}/cancel", json={})).status_code == 200
+            release.set()
+            assert await task
+            async with app.state.sessions() as session:
+                job = await session.get(Job, job_id)
+                assert job.status == "CANCELLED" and job.request_encrypted is None
+                commands = (await session.execute(select(Command).where(Command.job_id == job_id))).scalars().all()
+                assert len(commands) == 1 and commands[0].status == "CANCELLED"
             for _ in range(2):
-                assert await dispatch_one(app.state.sessions, app.state.cipher,
-                                          {"PREPARATION": "https://worker.test"}, artifacts, worker, job_id)
-                async with app.state.sessions.begin() as session:
-                    command = (await session.execute(select(Command).where(Command.job_id == job_id,
-                                                                          Command.stage == "PREPARATION"))).scalar_one()
-                    command.next_send_at = datetime.now(UTC) - timedelta(seconds=1)
-            assert len(sent) == 2
-            assert sent[0].content == sent[1].content
+                assert await process_cleanup(app.state.sessions, artifacts, job_id)
             async with app.state.sessions() as session:
-                assert command.attempt == 1 and command.sent_count == 2
-                assert (await session.get(Job, job_id)).failed_attempt_count == 0
+                requests = (await session.execute(select(CleanupRequest)
+                    .where(CleanupRequest.job_id == job_id))).scalars().all()
+                assert len(requests) == 2 and all(request.done for request in requests)
     finally:
+        release.set()
         await app.state.engine.dispose()
 
 
 @pytest.mark.asyncio
-async def test_unreachable_notification_stops_after_four_deliveries():
+async def test_input_expiration_without_artifact_service():
     app = create_app(Settings(database_url=DATABASE_URL, encryption_key=SecretStr(Fernet.generate_key().decode())))
-    sent = []
-    transport = httpx.MockTransport(lambda request: (sent.append(request) or httpx.Response(503)))
-    try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client, \
-                httpx.AsyncClient(transport=transport) as worker:
-            job_id = (await client.post("/internal/v1/jobs", json=request_body())).json()["job_id"]
-            assert await process_events(app.state.sessions, app.state.cipher, job_id)
-            for _ in range(4):
-                assert await dispatch_one(app.state.sessions, app.state.cipher,
-                                          {"NOTIFICATION": "https://worker.test"}, None, worker, job_id)
-                async with app.state.sessions.begin() as session:
-                    for command in (await session.execute(select(Command).where(Command.job_id == job_id,
-                                                                               Command.stage == "NOTIFICATION",
-                                                                               Command.status == "PENDING"))).scalars():
-                        command.next_send_at = datetime.now(UTC) - timedelta(seconds=1)
-            async with app.state.sessions() as session:
-                event = (await session.execute(select(Event).where(Event.job_id == job_id))).scalar_one()
-                assert event.delivery_status == "UNDELIVERED"
-                assert (await session.get(Job, job_id)).status == "QUEUED"
-            assert len(sent) == 4
-    finally:
-        await app.state.engine.dispose()
-
-
-@pytest.mark.asyncio
-async def test_input_expiry_fails_and_cleanup_is_durable():
-    app = create_app(Settings(database_url=DATABASE_URL, encryption_key=SecretStr(Fernet.generate_key().decode())))
-    artifacts = FakeArtifacts()
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             job_id = (await client.post("/internal/v1/jobs", json=request_body())).json()["job_id"]
             async with app.state.sessions.begin() as session:
                 job = await session.get(Job, job_id)
                 job.input_expires_at = datetime.now(UTC) - timedelta(seconds=1)
-            assert await process_expirations(app.state.sessions)
+            assert await process_expirations(app.state.sessions, job_id)
             async with app.state.sessions() as session:
                 job = await session.get(Job, job_id)
                 assert job.status == "FAILED" and job.error_code == "INPUT_EXPIRED"
                 assert job.request_encrypted is None
-                assert await session.get(CleanupRequest, job.face_artifact_id)
-            # Deletions remain queued while the artifact service is unavailable.
-            assert not await process_cleanup(app.state.sessions, None)
+            assert not await process_cleanup(app.state.sessions, None, job_id)
     finally:
         await app.state.engine.dispose()
 
 
 @pytest.mark.asyncio
-async def test_notifications_of_one_job_wait_for_previous_result():
-    app = create_app(Settings(database_url=DATABASE_URL, encryption_key=SecretStr(Fernet.generate_key().decode())))
-    try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-            job_id = (await client.post("/internal/v1/jobs", json=request_body())).json()["job_id"]
-            assert (await client.post(f"/internal/v1/jobs/{job_id}/cancel", json={})).status_code == 200
-            assert await process_events(app.state.sessions, app.state.cipher, job_id)
-            assert not await process_events(app.state.sessions, app.state.cipher, job_id)
-            async with app.state.sessions.begin() as session:
-                events = (await session.execute(select(Event).where(Event.job_id == job_id)
-                                                .order_by(Event.sequence))).scalars().all()
-                assert [event.delivery_status for event in events] == ["QUEUED", "PENDING"]
-                events[0].delivery_status = "UNDELIVERED"
-            assert await process_events(app.state.sessions, app.state.cipher, job_id)
-    finally:
-        await app.state.engine.dispose()
-
-
-@pytest.mark.asyncio
-async def test_cancel_ignores_late_result_and_deletes_artifacts():
+async def test_failed_file_attempt_uses_new_output_and_queues_old_for_deletion():
     app = create_app(Settings(database_url=DATABASE_URL, encryption_key=SecretStr(Fernet.generate_key().decode())))
     artifacts = FakeArtifacts()
+
+    def worker(request):
+        body = json.loads(request.content)
+        if request.url.path == "/v1/validate":
+            return httpx.Response(200, json={"request_id": body["request_id"],
+                                             "decision": "ACCEPTED", "reasons": [],
+                                             "model_version": "model-1",
+                                             "model_versions": {"person_detection": "1", "pose_estimation": "1"}})
+        if request.url.path == "/v1/compare":
+            return httpx.Response(200, json={"request_id": body["request_id"],
+                                             "decision": "SAME_PERSON",
+                                             "model_versions": {"face_detector": "1", "face_recognizer": "1"}})
+        return httpx.Response(503, json={"code": "MODEL_UNAVAILABLE", "retryable": True})
+
     try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client, \
+                httpx.AsyncClient(transport=httpx.MockTransport(worker)) as worker_client:
             job_id = (await client.post("/internal/v1/jobs", json=request_body())).json()["job_id"]
             await process_one_import(app.state.sessions, app.state.cipher, artifacts, job_id)
             await process_one_import(app.state.sessions, app.state.cipher, artifacts, job_id)
-            async with app.state.sessions() as session:
-                command = (await session.execute(select(Command).where(Command.job_id == job_id,
-                                                                       Command.stage == "PREPARATION"))).scalar_one()
-                job = await session.get(Job, job_id)
-                expected = {job.face_artifact_id, job.body_artifact_id}
-            assert (await client.post(f"/internal/v1/jobs/{job_id}/cancel", json={})).status_code == 200
-            late = await client.post("/internal/v1/worker-results", json={
-                "contract_version": 1, "message_id": str(uuid4()), "command_id": command.id,
-                "job_id": job_id, "stage": "PREPARATION", "attempt": 1,
-                "order_index": None, "status": "SUCCEEDED", "result": {}, "error": None,
-            })
-            assert late.status_code == 204
-            async with app.state.sessions() as session:
-                assert (await session.get(Job, job_id)).status == "CANCELLED"
             for _ in range(4):
-                assert await process_cleanup(app.state.sessions, artifacts, job_id)
-            assert expected.issubset(set(artifacts.deleted))
+                await dispatch_one(app.state.sessions, app.state.cipher, {
+                    "FACE_VALIDATION": "https://worker.test", "BODY_VALIDATION": "https://worker.test",
+                    "IDENTITY_VERIFICATION": "https://worker.test", "NORMALIZE_FACE": "https://worker.test",
+                }, artifacts, worker_client, job_id)
             async with app.state.sessions() as session:
-                requests = (await session.execute(select(CleanupRequest).where(CleanupRequest.job_id == job_id))).scalars().all()
-                assert all(request.done for request in requests)
+                commands = (await session.execute(select(Command).where(Command.job_id == job_id,
+                    Command.stage == "NORMALIZE_FACE").order_by(Command.attempt))).scalars().all()
+                assert len(commands) == 2 and commands[0].attempt == 1 and commands[1].attempt == 2
+                old_output = app.state.cipher.decrypt(commands[0].payload_encrypted)["output_artifact_id"]
+                new_output = app.state.cipher.decrypt(commands[1].payload_encrypted)["output_artifact_id"]
+                assert old_output != new_output
+                assert await session.get(CleanupRequest, old_output)
+                assert (await session.get(Job, job_id)).failed_attempt_count == 1
     finally:
         await app.state.engine.dispose()
