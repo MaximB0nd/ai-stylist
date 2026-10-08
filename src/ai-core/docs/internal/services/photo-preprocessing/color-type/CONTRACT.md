@@ -7,7 +7,7 @@ POST /v1/classify
 Content-Type: application/json
 ```
 
-Запрос использует авторизацию и правила файлов из
+Запрос использует правила файлов из
 [общего договора](../../CONTRACT.md).
 
 ## Запрос
@@ -16,7 +16,7 @@ Content-Type: application/json
 {
   "request_id": "4bb167f7-cfeb-4c4c-b4ba-c63e64e96adb",
   "image": {
-    "read_url": "https://temporary-files.example/opaque-read-token",
+    "read_url": "http://temporary-files.example/artifacts/01J8Z8Y7W6V5T4S3R2Q1P0N9B1/read",
     "checksum_sha256": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 }
