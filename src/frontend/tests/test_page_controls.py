@@ -50,6 +50,49 @@ class PageControlsTests(unittest.TestCase):
         allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
         self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
 
+    def test_home_has_accessible_faq_disclosures(self):
+        soup = BeautifulSoup(str(home.page()), "html.parser")
+        items = soup.select(".home-faq__item")
+        self.assertEqual(len(items), 12)
+        self.assertTrue(all(item.select_one("summary") is not None for item in items))
+        self.assertTrue(all(item.select_one(".home-faq__answer p") is not None for item in items))
+        self.assertEqual(
+            soup.select_one(".home-faq__heading .section-title").get_text(strip=True),
+            "Вопросы и ответы",
+        )
+        self.assertIn("section-title", soup.select_one(".home-faq__heading h2")["class"])
+        self.assertLess(
+            list(soup.select(".home-page > section")).index(soup.select_one(".albums-section")),
+            list(soup.select(".home-page > section")).index(soup.select_one(".home-faq")),
+        )
+        faq_copy = " ".join(item.get_text(" ", strip=True) for item in items).casefold()
+        for implementation_note in ("сейчас нет", "демо-версии", "ещё не выполнено", "планируемая структура", "после подключения"):
+            self.assertNotIn(implementation_note, faq_copy)
+
+    def test_home_guide_uses_animated_illustrations_without_frame_overlays(self):
+        soup = BeautifulSoup(str(home.page()), "html.parser")
+        sections = list(soup.select(".home-page > section"))
+        guide = soup.select_one(".home-guide")
+        self.assertEqual(sections.index(guide) + 1, sections.index(soup.select_one(".albums-section")))
+        self.assertEqual(guide.get("aria-label"), "Как работает сервис")
+        self.assertEqual(guide.select(".home-guide__heading"), [])
+        self.assertEqual(len(guide.select(".home-guide__step")), 3)
+        self.assertEqual(
+            [caption.get_text(strip=True) for caption in guide.select(".home-guide__caption")],
+            ["Загрузите фото", "Выберите стиль", "Получите образы"],
+        )
+        self.assertEqual(len(guide.select(".home-guide__vika[data-animated-src][data-static-src]")), 3)
+        self.assertEqual(guide.select(".home-guide__frame"), [])
+        self.assertEqual(len(guide.select(".home-guide__arrow")), 2)
+        arrow_sources = [arrow["src"] for arrow in guide.select("img.home-guide__arrow")]
+        self.assertEqual(arrow_sources, ["/images/home/guide/designer-arrow.png"] * 2)
+        self.assertEqual(guide.select(".home-guide__motion-toggle"), [])
+        for scene in ("upload", "choose", "results"):
+            self.assertEqual(len(guide.select(f".home-guide__vika--{scene}")), 1)
+            image = guide.select_one(f".home-guide__vika--{scene}")
+            self.assertTrue(image["data-animated-src"].endswith(".gif"))
+            self.assertTrue(image["data-static-src"].endswith(".png"))
+
 
 if __name__ == "__main__":
     unittest.main()
