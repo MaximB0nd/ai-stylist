@@ -3,7 +3,7 @@ from html import escape
 from casp.layout import Metadata
 
 from src.components.shared.layout.app_shell import app_shell
-from src.data.home import HOME_ALBUMS
+from src.data.home import HOME_ALBUMS, HOME_FAQ
 
 metadata = Metadata(
     title="Носи Красиво — ваш персональный стиль",
@@ -29,6 +29,16 @@ def page():
         </a>'''
         for album in HOME_ALBUMS
     )
+    faq_items = "".join(
+        f'''<details class="home-faq__item">
+          <summary>
+            <span class="home-faq__question">{escape(question)}</span>
+            <span class="home-faq__indicator" aria-hidden="true"></span>
+          </summary>
+          <div class="home-faq__answer"><div class="home-faq__answer-inner"><p>{escape(answer)}</p></div></div>
+        </details>'''
+        for question, answer in HOME_FAQ
+    )
     return app_shell(
         f"""
 <div class="home-page">
@@ -47,6 +57,40 @@ def page():
     </figure>
   </section>
 
+  <section class="home-guide" aria-label="Как работает сервис">
+    <div class="home-guide__steps">
+      <figure class="home-guide__step">
+        <div class="home-guide__window">
+          <img class="home-guide__vika home-guide__vika--upload" src="/images/home/guide/vika-upload-static.png" data-animated-src="/images/home/guide/vika-upload.gif" data-static-src="/images/home/guide/vika-upload-static.png" alt="Вика показывает фотографию на телефоне" width="1000" height="1200" decoding="async">
+        </div>
+        <figcaption class="home-guide__caption">Загрузите фото</figcaption>
+      </figure>
+      <img class="home-guide__arrow home-guide__arrow--first" src="/images/home/guide/designer-arrow.png" alt="" aria-hidden="true" width="960" height="480" decoding="async">
+      <figure class="home-guide__step">
+        <div class="home-guide__window">
+          <img class="home-guide__vika home-guide__vika--choose" src="/images/home/guide/vika-choose-static.png" data-animated-src="/images/home/guide/vika-choose.gif" data-static-src="/images/home/guide/vika-choose-static.png" alt="Вика выбирает стиль по фотографиям одежды" width="1000" height="1200" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--skirt" src="/images/home/guide/skirt.png" alt="" width="168" height="220" loading="lazy" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--jacket" src="/images/home/guide/jacket.png" alt="" width="175" height="224" loading="lazy" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--blouse" src="/images/home/guide/blouse.png" alt="" width="168" height="210" loading="lazy" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--shoes" src="/images/home/guide/shoes.png" alt="" width="170" height="154" loading="lazy" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--bag" src="/images/home/guide/bag.png" alt="" width="176" height="176" loading="lazy" decoding="async">
+        </div>
+        <figcaption class="home-guide__caption">Выберите стиль</figcaption>
+      </figure>
+      <img class="home-guide__arrow home-guide__arrow--second" src="/images/home/guide/designer-arrow.png" alt="" aria-hidden="true" width="960" height="480" decoding="async">
+      <figure class="home-guide__step">
+        <div class="home-guide__window">
+          <img class="home-guide__vika home-guide__vika--results" src="/images/home/guide/vika-results-static.png" data-animated-src="/images/home/guide/vika-results.gif" data-static-src="/images/home/guide/vika-results-static.png" alt="Вика представляет готовые образы" width="1000" height="1200" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--look-olive" src="/images/home/guide/look_olive.png" alt="" width="193" height="286" loading="lazy" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--look-mauve" src="/images/home/guide/look_mauve.png" alt="" width="193" height="286" loading="lazy" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--look-sage" src="/images/home/guide/look_sage.png" alt="" width="193" height="286" loading="lazy" decoding="async">
+          <img class="home-guide__outfit-card home-guide__outfit-card--look-petrol" src="/images/home/guide/look_petrol.png" alt="" width="193" height="286" loading="lazy" decoding="async">
+        </div>
+        <figcaption class="home-guide__caption">Получите образы</figcaption>
+      </figure>
+    </div>
+  </section>
+
   <section class="albums-section" id="home-albums" aria-labelledby="home-albums-title">
     <div class="section-heading">
       <div><h2 class="section-title" id="home-albums-title">Альбомы</h2></div>
@@ -56,7 +100,17 @@ def page():
     <div class="albums-grid">{albums}</div>
   </section>
 
-
+  <section class="home-faq" aria-labelledby="home-faq-title">
+    <div class="section-heading home-faq__heading">
+      <div><h2 class="section-title" id="home-faq-title">Вопросы и ответы</h2></div>
+    </div>
+    <div class="home-faq__layout">
+      <div class="home-faq__list">{faq_items}</div>
+      <figure class="home-faq__visual" aria-hidden="true">
+        <img src="/images/home/faq-floral.png" alt="" />
+      </figure>
+    </div>
+  </section>
 
 </div>
 """,
