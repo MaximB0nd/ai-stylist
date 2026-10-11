@@ -20,9 +20,9 @@ class SituationEnum(str, Enum):
 
 # Styles accepted by AI Core contract.
 # AI Core allows: classic, minimalism, romantic, streetwear, sport.
-# "casual" was previously accepted here but is NOT a valid AI Core style
-# and caused guaranteed rejections after photo upload.
+# REST also accepts "casual"; AICoreClient maps it to "streetwear".
 class StyleEnum(str, Enum):
+    CASUAL = "casual"
     MINIMALISM = "minimalism"
     CLASSIC = "classic"
     STREETWEAR = "streetwear"
@@ -61,14 +61,14 @@ class GenerationRequestForm(BaseModel):
       - height: 120..230 cm  (AI Core rejects < 120 and > 230)
 
     Styles are limited to the AI Core accepted set:
-      classic, minimalism, romantic, streetwear, sport.
+      classic, minimalism, romantic, streetwear, sport, and the casual alias.
     """
 
     age: int = Field(..., ge=18, le=100, description="User age (18–100, per AI Core contract)")
     height: int = Field(..., ge=120, le=230, description="Height in cm (120–230, per AI Core contract)")
     gender: GenderEnum = Field(..., description="Gender: 'f' or 'm'")
     situation: SituationEnum
-    styles: StyleEnum = Field(..., description="One style (classic/minimalism/romantic/streetwear/sport)")
+    styles: StyleEnum = Field(..., description="One style (classic/minimalism/romantic/casual/streetwear/sport)")
     shoes: ShoesEnum = Field(..., description="Exactly one shoe type")
     impressions: ImpressionEnum = Field(..., description="Exactly one impression")
 

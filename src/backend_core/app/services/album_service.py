@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from typing import List
 
@@ -45,7 +46,7 @@ class AlbumService:
             else self.storage.presigned_url
         )
         for photo in album.photos:
-            url = get_url(photo.object_key)
+            url = await asyncio.to_thread(get_url, photo.object_key)
 
             photos.append(
                 PhotoResponse(

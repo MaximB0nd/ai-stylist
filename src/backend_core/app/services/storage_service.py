@@ -35,6 +35,7 @@ class StorageService:
             access_key=settings.MINIO_ACCESS_KEY,
             secret_key=settings.MINIO_SECRET_KEY,
             secure=public_secure,
+            region="us-east-1",
         )
         self.bucket = settings.MINIO_BUCKET
         self.presigned_ttl = settings.MINIO_PRESIGNED_TTL
@@ -88,9 +89,15 @@ class StorageService:
         import io
 
         data_stream = io.BytesIO(data)
-        await asyncio.to_thread(
+        upload = asyncio.create_task(asyncio.to_thread(
             self._put_object, object_key, data_stream, len(data), content_type
-        )
+        ))
+        try:
+            await asyncio.shield(upload)
+        except asyncio.CancelledError:
+            # A cancelled await cannot stop a synchronous S3 PUT. Drain it before cleanup.
+            await asyncio.gather(upload, return_exceptions=True)
+            raise
         return object_key
 
     def _put_object(self, key: str, data: BinaryIO, length: int, content_type: str) -> None:
@@ -115,6 +122,14 @@ class StorageService:
         if client is None or not hasattr(client, "presigned_get_object"):
             return getattr(self, "presigned_url", lambda k: f"http://localhost:9000/{getattr(self, 'bucket', 'stylist')}/{k}")(object_key)
 
+        region = self.client._get_region(self.bucket)
+        client = Minio(
+            endpoint=client._base_url.host,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            secure=client._base_url.is_https,
+            region=region,
+        )
         return client.presigned_get_object(
             bucket_name=self.bucket,
             object_name=object_key,
@@ -144,3 +159,10 @@ class StorageService:
 
 
 
+
+    def list_attempt_objects(self):
+        return list(self.client.list_objects(self.bucket, prefix="albums/", recursive=True))
+
+    def delete_attempt(self, prefix):
+        for obj in self.client.list_objects(self.bucket, prefix=prefix, recursive=True):
+            self.client.remove_object(self.bucket, obj.object_name)

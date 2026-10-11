@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 import logging
 
 from fastapi import FastAPI, Request, status
@@ -19,22 +20,23 @@ async def lifespan(app: FastAPI):
         from app.services.storage_service import StorageService
 
         storage = StorageService()
-        storage._ensure_bucket()
+        await asyncio.to_thread(storage._ensure_bucket)
         logger.info("MinIO bucket '%s' ready.", storage.bucket)
     except Exception as e:
         logger.warning("Could not auto-create MinIO bucket on startup: %s", e)
 
-    # Recover any downloads that were interrupted by previous server restart / crash
+    from app.services.generation_recovery import recovery_loop
+    from app.services.generation_queue import get_generation_queue
+    delivery_queue = get_generation_queue()
+    delivery_queue.start()
+    recovery_task = asyncio.create_task(recovery_loop())
     try:
-        from app.api.v1.endpoints.internal import recover_stuck_downloads
-
-        recovered = await recover_stuck_downloads()
-        if recovered > 0:
-            logger.info("Recovered %d interrupted downloading jobs on startup.", recovered)
-    except Exception as e:
-        logger.warning("Could not run startup stuck download recovery: %s", e)
-
-    yield
+        yield
+    finally:
+        recovery_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await recovery_task
+        await delivery_queue.close()
 
     # Graceful shutdown: close PostgreSQL connection pool
     try:
@@ -92,6 +94,12 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["Health"])
-async def health_check() -> dict[str, str]:
-    """Basic service healthcheck endpoint."""
-    return {"status": "ok"}
+async def health_check() -> JSONResponse:
+    """Report readiness of PostgreSQL and the configured MinIO bucket."""
+    from app.services.health_service import readiness
+    checks = await readiness()
+    healthy = all(value == "ok" for value in checks.values())
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={"status": "ok" if healthy else "unavailable", "checks": checks},
+    )

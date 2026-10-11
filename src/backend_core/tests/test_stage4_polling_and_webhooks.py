@@ -84,23 +84,50 @@ class FakeAlbumRepository:
             return album.photos
         return []
 
-    async def atomic_claim_for_download(self, album_id: uuid.UUID, stale_seconds: int = 60) -> bool:
-        """Fake: atomically claim album for download. Supports QUEUED, PROCESSING, and stale DOWNLOADING."""
+    async def atomic_claim_for_download(self, album_id: uuid.UUID, stale_seconds: int = 60):
+        """Fake ownership lease used by endpoint tests."""
         album = self.albums.get(album_id)
         now = datetime.now(timezone.utc)
-        if not album:
+        if not album or album.status in ("COMPLETED", "FAILED"):
+            return None
+        if album.processing_token and album.lease_expires_at > now:
+            return None
+        from datetime import timedelta
+        album.processing_token = uuid.uuid4()
+        album.lease_expires_at = now + timedelta(seconds=120)
+        album.status = "DOWNLOADING"
+        album.updated_at = now
+        return album.processing_token
+
+    async def persist_callback(self, album_id, photos_data):
+        album = self.albums[album_id]
+        if album.status in ("COMPLETED", "FAILED"):
+            return "already_finalized"
+        if album.pending_callback is not None and album.pending_callback != photos_data:
+            raise ValueError("Conflicting completion callback")
+        album.pending_callback = photos_data
+        return "accepted"
+
+    async def complete_with_photos(self, album_id, photos_data, token):
+        album = self.albums[album_id]
+        if album.processing_token != token or album.status != "DOWNLOADING":
             return False
-        if album.status in ("QUEUED", "PROCESSING"):
-            album.status = "DOWNLOADING"
-            album.updated_at = now
-            return True
-        if album.status == "DOWNLOADING" and getattr(album, "updated_at", None):
-            from datetime import timedelta
-            if album.updated_at < (now - timedelta(seconds=stale_seconds)):
-                album.status = "DOWNLOADING"
-                album.updated_at = now
-                return True
-        return False
+        album.photos = []
+        await self.add_photos(album_id, photos_data)
+        album.total_photos = len(photos_data)
+        album.status = "COMPLETED"
+        album.pending_callback = None
+        album.processing_token = None
+        return True
+
+    async def finish_work(self, album_id, token, **values):
+        album = self.albums[album_id]
+        if album.processing_token != token or album.status in ("COMPLETED", "FAILED"):
+            return False
+        for name, value in values.items():
+            setattr(album, name, value)
+        album.processing_token = None
+        return True
 
     async def atomic_transition(
         self,
@@ -444,7 +471,7 @@ async def test_ai_events_completed_with_download_and_ack(fake_repos, current_use
     # Track calls to the background task without actually running it
     called_with = {}
 
-    async def fake_download_and_store(album_id, job_uuid, ai_client):
+    async def fake_download_and_store(album_id, job_uuid, ai_client, token):
         called_with["album_id"] = album_id
         called_with["job_uuid"] = job_uuid
         # Simulate successful completion
@@ -772,7 +799,7 @@ async def test_empty_results_from_ai_core_marks_failed_and_skips_ack():
     """When AI Core returns empty results (e.g. after EXPIRED/ACKNOWLEDGED or glitch),
     _download_and_store_results must abort, mark the album FAILED, and NOT send ACK.
     """
-    from app.api.v1.endpoints.internal import _download_and_store_results
+    from app.services.generation_results import _download_and_store_results
 
     album_repo = FakeAlbumRepository()
     storage = FakeStorageService()
@@ -810,12 +837,14 @@ async def test_empty_results_from_ai_core_marks_failed_and_skips_ack():
             pass
 
     # Execute download routine with mocked DB session delegating to album_repo
-    with patch("app.api.v1.endpoints.internal.AsyncSessionLocal", return_value=MockAsyncContextManager()), \
+    with patch("app.services.generation_results.AsyncSessionLocal", return_value=MockAsyncContextManager()), \
          patch("app.db.repositories.album_repository.AlbumRepository", return_value=album_repo):
+        token = await album_repo.atomic_claim_for_download(album_id)
         await _download_and_store_results(
             album_id=album_id,
             job_uuid=ai_job_id,
             ai_client=ai_client,
+            token=token,
         )
 
     # Album must be marked FAILED

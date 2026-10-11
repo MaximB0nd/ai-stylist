@@ -83,6 +83,38 @@ class InMemoryAlbumRepository(AlbumRepository):
     def __init__(self) -> None:
         self.albums: Dict[uuid.UUID, Album] = {}
 
+    async def claim_work(self, album_id, from_statuses, to_status=None):
+        album = self.albums[album_id]
+        if album.status not in from_statuses or album.processing_token:
+            return None
+        album.processing_token = uuid.uuid4()
+        return album.processing_token
+
+    async def save_dispatch_request(self, album_id, token, request):
+        album = self.albums[album_id]
+        if album.processing_token != token:
+            return False
+        album.dispatch_request = request
+        return True
+
+    async def record_dispatch(self, album_id, token, ai_job_id, status):
+        album = self.albums[album_id]
+        if album.processing_token != token:
+            return False
+        album.ai_job_id = ai_job_id
+        album.status = status
+        album.processing_token = None
+        return True
+
+    async def finish_work(self, album_id, token, **values):
+        album = self.albums[album_id]
+        if album.processing_token != token:
+            return False
+        for name, value in values.items():
+            setattr(album, name, value)
+        album.processing_token = None
+        return True
+
     async def get_by_id_with_photos(self, album_id: uuid.UUID) -> Optional[Album]:
         return self.albums.get(album_id)
 
@@ -475,7 +507,6 @@ async def test_generation_uploads_correct_keys(
         ("gender", "x", "invalid_gender"),
         ("gender", "male", "gender_full_word"),
         ("situation", "beach", "invalid_situation"),
-        ("styles", "casual", "casual_rejected_not_in_contract"),
         ("styles", "unknown_style", "styles_invalid_value"),
         ("shoes", "sandals", "shoes_invalid_value"),
         ("impressions", "boring", "impressions_invalid_value"),
@@ -784,3 +815,14 @@ async def test_generation_unique_ids(client: httpx.AsyncClient):
         assert resp.status_code == 202
         ids.add(resp.json()["generation_id"])
     assert len(ids) == 3, "Each generation must produce a unique ID"
+
+
+async def test_casual_style_is_accepted_and_preserved(client, album_repo):
+    response = await client.post(
+        "/api/v1/generations",
+        data={**VALID_FORM, "styles": "casual"},
+        files={"face_photo": _fake_image(), "body_photo": _fake_image(filename="body.jpg")},
+        headers=_auth_header(),
+    )
+    assert response.status_code == 202
+    assert next(iter(album_repo.albums.values())).styles == ["casual"]

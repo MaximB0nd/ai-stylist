@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     AI_CORE_URL: str
     AI_CORE_SERVICE_TOKEN: str
     AI_CORE_WEBHOOK_SECRET: str
+    GENERATION_RECOVERY_INTERVAL_SECONDS: int = Field(default=30, ge=1)
+    GENERATION_LEASE_SECONDS: int = Field(default=120, ge=3)
+    GENERATION_TIMEOUT_SECONDS: int = Field(default=24 * 60 * 60, ge=1)
+    GENERATION_QUEUE_SIZE: int = Field(default=32, ge=1)
+    GENERATION_DOWNLOAD_WORKERS: int = Field(default=4, ge=1)
+    GENERATION_IMAGE_CONCURRENCY: int = Field(default=4, ge=1)
 
     @field_validator("SECRET_KEY", mode="after")
     @classmethod

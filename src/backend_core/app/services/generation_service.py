@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta, timezone
 import logging
 from typing import Optional
 import uuid
@@ -85,46 +84,23 @@ class GenerationService:
 
         # Dispatch job to AI Core if client is configured
         if self.ai_client:
+            from app.services.generation_dispatch import dispatch_generation
+            from app.services.generation_lease import keep_lease
+            token = await self.album_repo.claim_work(album.id, ["VALIDATING"])
             try:
-                get_url = (
-                    self.storage.presigned_internal_url
-                    if hasattr(self.storage, "presigned_internal_url")
-                    else self.storage.presigned_url
-                )
-                face_url = get_url(face_key)
-                body_url = get_url(body_key)
-                ttl = getattr(self.storage, "presigned_ttl", settings.MINIO_PRESIGNED_TTL)
-                expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
-
-                job_data = await self.ai_client.create_job(
-                    generation_id=generation_id,
-                    face_photo_url=face_url,
-                    body_photo_url=body_url,
-                    expires_at=expires_at,
-                    age=form.age,
-                    height_cm=form.height,
-                    gender=form.gender.value,
-                    situation=form.situation.value,
-                    styles=[form.styles.value],
-                    shoes=[form.shoes.value],
-                    impressions=[form.impressions.value],
-                )
-                ai_job_id_raw = job_data.get("job_id")
-                ai_job_id = uuid.UUID(ai_job_id_raw) if ai_job_id_raw else None
-                current_status = job_data.get("status", "QUEUED")
-                await self.album_repo.update_status(
-                    album_id=album.id,
-                    status=current_status,
-                    ai_job_id=ai_job_id,
-                )
+                if token is not None:
+                    async with keep_lease(album.id, token):
+                        current_status = await dispatch_generation(
+                            album, self.album_repo, self.storage, self.ai_client, token
+                        ) or "VALIDATING"
             except Exception as exc:
                 logger.error(
                     "Could not dispatch job to AI Core for generation %s: %s",
                     generation_id,
                     exc,
                 )
-                await self.album_repo.update_status(
-                    album_id=album.id,
+                await self.album_repo.finish_work(
+                    album.id, token,
                     status="FAILED",
                     error_message=f"Failed to dispatch job to AI Core: {exc}"[:500],
                 )

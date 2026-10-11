@@ -866,7 +866,7 @@ async def test_postgres_integration_init_sql_then_alembic_upgrade_head():
             head_stamp = await db_conn.fetchval(
                 "SELECT version_num FROM alembic_version LIMIT 1"
             )
-            assert head_stamp == "0003"
+            assert head_stamp == "0005"
             uw_exists = await db_conn.fetchval(
                 "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='albums' AND column_name='user_weight')"
             )

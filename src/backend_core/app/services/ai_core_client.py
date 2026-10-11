@@ -97,7 +97,7 @@ class AICoreClient:
         shoes: List[str],
         impressions: List[str],
         description: Optional[str] = None,
-        requested_image_count: int = 10,
+        requested_image_count: int = 5,
     ) -> Dict[str, Any]:
         """Submit a new image generation job to AI Core (POST /v1/jobs)."""
         occasion = SITUATION_TO_OCCASION.get(situation, "casual")

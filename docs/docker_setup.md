@@ -114,7 +114,7 @@ docker compose logs -f db
 - **Frontend через nginx:** [http://localhost:8080](http://localhost:8080)
 - **Swagger UI через nginx:** [http://localhost:8080/docs](http://localhost:8080/docs)
 - **ReDoc через nginx:** [http://localhost:8080/redoc](http://localhost:8080/redoc)
-- **Healthcheck через nginx:** [http://localhost:8080/health](http://localhost:8080/health)
+- **Healthcheck через nginx:** [http://localhost:8080/health](http://localhost:8080/health). Проверяет PostgreSQL (`SELECT 1`) и доступность настроенного бакета MinIO. Возвращает `200` и `{"status":"ok","checks":{"postgresql":"ok","minio":"ok"}}`, если обе проверки успешны. При ошибке любой зависимости возвращает `503`, общий статус `unavailable` и `unavailable` для соответствующей проверки. Проверки выполняются параллельно, таймаут каждой — 5 секунд; внутренние сообщения ошибок клиенту не передаются.
 - **Прямой backend-доступ для отладки:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ### Остановка сервисов

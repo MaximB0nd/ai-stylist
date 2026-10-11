@@ -1,5 +1,3 @@
-import asyncio
-from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
@@ -11,19 +9,16 @@ import uuid
 
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
-import httpx
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
 from app.core.dependencies import (
     get_ai_core_client,
     get_album_repository,
-    get_storage_service,
 )
 from app.db.repositories.album_repository import AlbumRepository
-from app.db.session import AsyncSessionLocal
+from app.services.generation_queue import enqueue_results as _download_and_store_results
 from app.services.ai_core_client import AICoreClient
-from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +38,7 @@ _OBJECT_KEY_PATTERN = re.compile(
 class LegacyPhotoItem(BaseModel):
     """Single photo entry in the legacy callback payload."""
 
-    order_index: int = Field(..., ge=0, le=99)
+    order_index: int = Field(..., ge=0, le=9)
     object_key: str = Field(..., min_length=1, max_length=512)
 
     @field_validator("object_key")
@@ -62,7 +57,15 @@ class LegacyPhotoItem(BaseModel):
 class LegacyCallbackPayload(BaseModel):
     """Validated body for POST /internal/generations/{id}/complete."""
 
-    photos: List[LegacyPhotoItem] = Field(..., min_length=1, max_length=50)
+    photos: List[LegacyPhotoItem] = Field(..., min_length=1, max_length=10)
+
+    @field_validator("photos")
+    @classmethod
+    def unique_orders(cls, photos):
+        if len({p.order_index for p in photos}) != len(photos):
+            raise ValueError("Duplicate photo order_index")
+        return photos
+
 
 
 # ---------------------------------------------------------------------------
@@ -123,159 +126,6 @@ def _verify_webhook_auth(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Missing webhook authentication headers.",
     )
-
-
-# ---------------------------------------------------------------------------
-# Background download task — always uses a fresh DB session
-# ---------------------------------------------------------------------------
-
-async def _download_and_store_results(
-    album_id: uuid.UUID,
-    job_uuid: uuid.UUID,
-    ai_client: AICoreClient,
-) -> None:
-    """Background task: fetch images from AI Core temp S3 in parallel,
-    upload to permanent MinIO and persist to DB.
-
-    Always creates its own AsyncSession because the request-scoped session
-    is already closed by the time this background task runs.
-    """
-    # Import here to avoid circular dependency at module load time
-    from app.services.storage_service import StorageService as _StorageService
-
-    storage = _StorageService()
-
-    try:
-        job_details = await ai_client.get_job(job_uuid)
-        job_status = (job_details.get("status") or "").upper()
-        delivery_status = (job_details.get("delivery_status") or "").upper()
-        results = job_details.get("results") or []
-        expected_count = job_details.get("requested_image_count")
-
-        # Guard: AI Core contract marks jobs EXPIRED or ACKNOWLEDGED.
-        # We must never accept or confirm delivery if delivery_status is expired/acknowledged.
-        if delivery_status in ("EXPIRED", "ACKNOWLEDGED"):
-            raise RuntimeError(
-                f"AI Core job {job_uuid} has invalid delivery state {delivery_status!r}. "
-                "Cannot accept or confirm expired/acknowledged delivery."
-            )
-
-        # Guard: only confirm delivery if job status is explicitly COMPLETED
-        if job_status and job_status != "COMPLETED":
-            raise RuntimeError(
-                f"AI Core job {job_uuid} has unexpected status {job_status!r}; "
-                "expected COMPLETED. Aborting to avoid confirming a bad delivery."
-            )
-
-        # Guard: AI Core may return stale/expired job with empty results.
-        # We must never mark an album COMPLETED with 0 photos.
-        if not results:
-            raise RuntimeError(
-                f"AI Core returned 0 results for job {job_uuid} (job status={job_status!r}). "
-                "Cannot mark album COMPLETED with empty photo list."
-            )
-
-        # Guard: verify expected photo count if provided by AI Core
-        if expected_count is not None and len(results) < expected_count:
-            raise RuntimeError(
-                f"AI Core returned {len(results)} photos, but {expected_count} were expected for job {job_uuid}. "
-                "Aborting incomplete delivery."
-            )
-
-        MAX_DOWNLOAD_IMAGE_SIZE = 15 * 1024 * 1024  # 15 MiB limit per image
-
-        async with httpx.AsyncClient(timeout=60.0) as http_client:
-            async def _download_and_upload_single(item: dict) -> dict:
-                order_index = item["order_index"]
-                download_url = item["download_url"]
-
-                # Validate URL scheme to prevent arbitrary protocol injection
-                from urllib.parse import urlparse
-                parsed = urlparse(download_url)
-                if parsed.scheme not in ("http", "https"):
-                    raise ValueError(
-                        f"Unsupported download URL scheme '{parsed.scheme}' at order {order_index}"
-                    )
-
-                chunks: list[bytes] = []
-                total_bytes = 0
-
-                async with http_client.stream("GET", download_url) as img_resp:
-                    if img_resp.status_code != 200:
-                        raise RuntimeError(
-                            f"Failed to download image from AI Core at order {order_index}: HTTP {img_resp.status_code}"
-                        )
-                    async for chunk in img_resp.aiter_bytes():
-                        total_bytes += len(chunk)
-                        if total_bytes > MAX_DOWNLOAD_IMAGE_SIZE:
-                            raise RuntimeError(
-                                f"Image at order {order_index} exceeds maximum download limit of "
-                                f"{MAX_DOWNLOAD_IMAGE_SIZE // (1024 * 1024)} MiB"
-                            )
-                        chunks.append(chunk)
-
-                content = b"".join(chunks)
-
-                # Verify SHA256 checksum if provided.
-                # A mismatch means the image is corrupt/tampered — abort the whole album.
-                if item.get("checksum_sha256"):
-                    expected_sha = item["checksum_sha256"].replace("sha256:", "")
-                    actual_sha = hashlib.sha256(content).hexdigest()
-                    if actual_sha != expected_sha:
-                        raise RuntimeError(
-                            f"SHA256 checksum mismatch for order {order_index}: "
-                            f"expected {expected_sha}, got {actual_sha}. "
-                            "Image may be corrupt or tampered."
-                        )
-
-                # Store in Permanent MinIO
-                dest_key = f"albums/{album_id}/look_{order_index:02d}.webp"
-                await storage.upload_bytes(dest_key, content, content_type="image/webp")
-
-                return {
-                    "order_index": order_index,
-                    "object_key": dest_key,
-                    "is_cover": (order_index == 0),
-                    "is_favorite": False,
-                }
-
-            # Download and upload all images concurrently
-            photos_data = await asyncio.gather(*[_download_and_upload_single(item) for item in results])
-            photos_data = sorted(photos_data, key=lambda p: p["order_index"])
-
-        # Always use a fresh session — the request-scoped session is already closed
-        async with AsyncSessionLocal() as session:
-            from app.db.repositories.album_repository import AlbumRepository as _Repo
-            repo = _Repo(session=session)
-            await repo.add_photos(album_id, list(photos_data))
-            await repo.update_status(album_id, status="COMPLETED")
-
-        # Acknowledge delivery to AI Core so it cleans up temporary S3
-        try:
-            await ai_client.acknowledge_results(job_uuid)
-        except Exception as exc:
-            logger.warning("Could not send ACK to AI Core for job %s: %s", job_uuid, exc)
-
-        logger.info("Successfully processed and saved completed album %s in parallel", album_id)
-
-    except Exception as exc:
-        logger.exception("Failed to process completed job %s for album %s: %s", job_uuid, album_id, exc)
-        # Always use a fresh session for error recording too
-        try:
-            async with AsyncSessionLocal() as session:
-                from app.db.repositories.album_repository import AlbumRepository as _Repo
-                repo = _Repo(session=session)
-                await repo.update_status(
-                    album_id,
-                    status="FAILED",
-                    error_message=f"Failed to download results: {exc}"[:500],
-                )
-        except Exception as db_exc:
-            logger.exception(
-                "Could not persist FAILED status for album %s after download error: %s",
-                album_id,
-                db_exc,
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +228,9 @@ async def handle_ai_core_event(
     elif event_status == "FAILED":
         err_detail = data.get("error")
         err_msg = json.dumps(err_detail) if isinstance(err_detail, (dict, list)) else str(err_detail or "Generation failed")
-        await album_repo.update_status(album.id, status="FAILED", error_message=err_msg[:500])
+        await album_repo.atomic_transition(
+            album.id, ["VALIDATING", "QUEUED", "PROCESSING"], "FAILED", error_message=err_msg[:500]
+        )
         return {"status": "failed", "album_id": str(album.id)}
 
     elif event_status == "COMPLETED":
@@ -386,30 +238,20 @@ async def handle_ai_core_event(
         if "photos" in data and isinstance(data["photos"], list):
             if not data["photos"]:
                 logger.warning("Empty photos list in legacy COMPLETED webhook for album %s", album.id)
-                await album_repo.update_status(
-                    album.id,
-                    status="FAILED",
+                await album_repo.atomic_transition(
+                    album.id, ["VALIDATING", "QUEUED", "PROCESSING"], "FAILED",
                     error_message="Received COMPLETED event with empty photos list",
                 )
                 return {"status": "failed", "error": "Empty photos list", "album_id": str(album.id)}
-            photos_data = [
-                {
-                    "order_index": p["order_index"],
-                    "object_key": p["object_key"],
-                    "is_cover": (p["order_index"] == 0),
-                    "is_favorite": False,
-                }
-                for p in data["photos"]
-            ]
-            await album_repo.add_photos(album.id, photos_data)
-            await album_repo.update_status(album.id, status="COMPLETED")
-            return {"success": True, "album_id": str(album.id)}
+            try:
+                payload = LegacyCallbackPayload.model_validate({"photos": data["photos"]})
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+            return await _accept_callback(album_repo, album, payload)
 
-        # Standard AI Core contract: atomically claim the download slot to prevent
-        # race conditions when AI Core retries the webhook before we finish downloading.
-        # Allows re-claiming stuck DOWNLOADING tasks if older than 60s.
+        # Only an unclaimed or expired lease may be acquired by this handler.
         claimed = await album_repo.atomic_claim_for_download(album.id)
-        if not claimed:
+        if claimed is None:
             # Another concurrent webhook handler already claimed it — this is a duplicate.
             logger.info(
                 "Duplicate COMPLETED webhook for album %s. Skipping.",
@@ -417,12 +259,15 @@ async def handle_ai_core_event(
             )
             return {"success": True, "album_id": str(album.id), "status": "duplicate_ignored"}
 
-        # Only the "winner" of the atomic claim runs the background download
+        # Persist the waiting state before acknowledgement; workers claim on dequeue.
+        if not await album_repo.finish_work(album.id, claimed, status="DOWNLOADING"):
+            return {"success": True, "album_id": str(album.id), "status": "duplicate_ignored"}
         background_tasks.add_task(
             _download_and_store_results,
             album_id=album.id,
-            job_uuid=job_uuid,
+            job_uuid=album.ai_job_id or job_uuid,
             ai_client=ai_client,
+            token=None,
         )
         return {"success": True, "album_id": str(album.id)}
 
@@ -472,59 +317,23 @@ async def legacy_complete_generation(
     if album.status in ("COMPLETED", "FAILED"):
         return {"success": True, "album_id": str(album.id), "status": "already_finalized"}
 
-    photos_data = [
-        {
-            "order_index": p.order_index,
-            "object_key": p.object_key,
-            "is_cover": (p.order_index == 0),
-            "is_favorite": False,
-        }
+    return await _accept_callback(album_repo, album, payload)
+
+
+async def _accept_callback(album_repo, album, payload):
+    photos_data = sorted([
+        {"order_index": p.order_index, "object_key": p.object_key,
+         "is_cover": p.order_index == 0, "is_favorite": False}
         for p in payload.photos
-    ]
-
-    await album_repo.add_photos(album.id, photos_data)
-    await album_repo.update_status(album.id, status="COMPLETED")
-
-    return {"success": True, "album_id": str(album.id)}
-
-
-async def recover_stuck_downloads(
-    ai_client: Optional[AICoreClient] = None,
-    stale_seconds: int = 0,
-) -> int:
-    """Recover and resume albums that were interrupted in DOWNLOADING status.
-
-    Called during application startup (lifespan) to ensure no album remains stuck
-    after server reload / restart.
-    """
-    if ai_client is None:
-        ai_client = AICoreClient()
-
-    recovered_count = 0
+    ], key=lambda p: p["order_index"])
     try:
-        async with AsyncSessionLocal() as session:
-            repo = AlbumRepository(session=session)
-            stuck_albums = await repo.get_stuck_downloading_albums(stale_seconds=stale_seconds)
-            for album in stuck_albums:
-                if album.ai_job_id:
-                    logger.info("Resuming stuck DOWNLOADING album %s (ai_job_id=%s)", album.id, album.ai_job_id)
-                    asyncio.create_task(
-                        _download_and_store_results(
-                            album_id=album.id,
-                            job_uuid=album.ai_job_id,
-                            ai_client=ai_client,
-                        )
-                    )
-                    recovered_count += 1
-                else:
-                    logger.warning("Stuck DOWNLOADING album %s has no ai_job_id; marking FAILED", album.id)
-                    await repo.update_status(
-                        album.id,
-                        status="FAILED",
-                        error_message="Interrupted download with no ai_job_id available to resume",
-                    )
-    except Exception as exc:
-        logger.exception("Error during stuck download recovery: %s", exc)
-
-    return recovered_count
-
+        outcome = await album_repo.persist_callback(album.id, photos_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if outcome == "already_finalized":
+        return {"success": True, "album_id": str(album.id), "status": outcome}
+    token = await album_repo.atomic_claim_for_download(album.id)
+    if token is not None and await album_repo.complete_with_photos(album.id, photos_data, token):
+        return {"success": True, "album_id": str(album.id)}
+    # Recovery consumes the persisted callback after the current lease expires/releases.
+    return {"success": True, "album_id": str(album.id), "status": "accepted"}

@@ -2,12 +2,13 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy import case, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.album import Album
 from app.models.photo import Photo
+from app.core.config import settings
 
 
 class AlbumRepository:
@@ -94,40 +95,155 @@ class AlbumRepository:
     async def atomic_claim_for_download(
         self,
         album_id: uuid.UUID,
-        stale_seconds: int = 60,
-    ) -> bool:
-        """Atomically transition album to DOWNLOADING.
+    ) -> Optional[uuid.UUID]:
+        """Enter DOWNLOADING and return its ownership token, or None if busy/final."""
+        return await self.claim_work(
+            album_id, ["VALIDATING", "QUEUED", "PROCESSING", "DOWNLOADING"],
+            to_status="DOWNLOADING",
+        )
 
-        Allowed source states:
-        - QUEUED or PROCESSING (normal forward progression). AI Core may skip
-          the PROCESSING event and send COMPLETED directly.
-        - DOWNLOADING if stuck (updated_at older than stale_seconds) so that
-          webhook retries can recover crashed or interrupted background tasks.
-
-        Returns True if this caller "won" the race (row was updated),
-        False if another concurrent handler already claimed it (status was
-        already fresh DOWNLOADING, COMPLETED, FAILED, etc.).
-        """
+    async def claim_work(self, album_id, from_statuses, to_status=None) -> Optional[uuid.UUID]:
+        """Acquire a renewable lease; an expired worker cannot commit results."""
         now = datetime.now(timezone.utc)
-        stale_threshold = now - timedelta(seconds=stale_seconds)
+        token = uuid.uuid4()
+        values = dict(
+            processing_token=token,
+            lease_expires_at=now + timedelta(seconds=settings.GENERATION_LEASE_SECONDS),
+            updated_at=now,
+        )
+        if to_status is not None:
+            values["status"] = to_status
         stmt = (
             update(Album)
             .where(
                 Album.id == album_id,
-                or_(
-                    Album.status.in_(["QUEUED", "PROCESSING"]),
-                    and_(
-                        Album.status == "DOWNLOADING",
-                        Album.updated_at < stale_threshold,
-                    ),
-                ),
+                Album.status.in_(from_statuses),
+                or_(Album.processing_token.is_(None), Album.lease_expires_at <= now),
             )
-            .values(status="DOWNLOADING", updated_at=now)
+            .values(**values)
             .returning(Album.id)
         )
         result = await self.session.execute(stmt)
         await self.session.commit()
+        return token if result.scalar_one_or_none() is not None else None
+
+    async def renew_lease(self, album_id, token) -> bool:
+        now = datetime.now(timezone.utc)
+        result = await self.session.execute(
+            update(Album).where(
+                Album.id == album_id, Album.processing_token == token,
+                Album.lease_expires_at > now,
+                Album.status.not_in(["COMPLETED", "FAILED"]),
+            ).values(lease_expires_at=now + timedelta(seconds=settings.GENERATION_LEASE_SECONDS))
+            .returning(Album.id)
+        )
+        await self.session.commit()
         return result.scalar_one_or_none() is not None
+
+    async def finish_work(self, album_id, token, release=True, **values) -> bool:
+        """Apply progress/error only while this worker owns the live lease."""
+        now = datetime.now(timezone.utc)
+        if release:
+            values.update(processing_token=None, lease_expires_at=None)
+        result = await self.session.execute(
+            update(Album).where(
+                Album.id == album_id, Album.processing_token == token,
+                Album.lease_expires_at > now,
+                Album.status.not_in(["COMPLETED", "FAILED"]),
+            ).values(**values, updated_at=now)
+            .returning(Album.id)
+        )
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def save_dispatch_request(self, album_id, token, request) -> bool:
+        now = datetime.now(timezone.utc)
+        result = await self.session.execute(
+            update(Album).where(
+                Album.id == album_id, Album.processing_token == token,
+                Album.lease_expires_at > now, Album.status == "VALIDATING",
+            ).values(dispatch_request=request).returning(Album.id)
+        )
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def record_dispatch(self, album_id, token, ai_job_id, status) -> bool:
+        """Attach the remote ID without regressing an early progress webhook."""
+        now = datetime.now(timezone.utc)
+        result = await self.session.execute(
+            update(Album).where(
+                Album.id == album_id, Album.processing_token == token,
+                Album.lease_expires_at > now, Album.status.not_in(["COMPLETED", "FAILED"]),
+            ).values(
+                ai_job_id=ai_job_id,
+                status=case((Album.status == "VALIDATING", status), else_=Album.status),
+                processing_token=None, lease_expires_at=None, updated_at=now, error_message=None,
+            ).returning(Album.id)
+        )
+        await self.session.commit()
+        return result.scalar_one_or_none() is not None
+
+    async def get_recoverable_albums(self) -> List[Album]:
+        now = datetime.now(timezone.utc)
+        result = await self.session.execute(
+            select(Album).where(
+                Album.status.in_(["VALIDATING", "QUEUED", "PROCESSING", "DOWNLOADING"]),
+                Album.updated_at < now - timedelta(seconds=settings.GENERATION_RECOVERY_INTERVAL_SECONDS),
+                or_(Album.processing_token.is_(None), Album.lease_expires_at <= now),
+            ).order_by(Album.updated_at).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def complete_with_photos(self, album_id, photos_data, token) -> bool:
+        """Commit the photo replacement and final state in one fenced transaction."""
+        try:
+            now = datetime.now(timezone.utc)
+            result = await self.session.execute(
+                update(Album).where(
+                    Album.id == album_id, Album.status == "DOWNLOADING",
+                    Album.processing_token == token, Album.lease_expires_at > now,
+                ).values(status="COMPLETED", total_photos=len(photos_data), error_message=None,
+                         processing_token=None, lease_expires_at=None, pending_callback=None, updated_at=now)
+                .returning(Album.id)
+            )
+            if result.scalar_one_or_none() is None:
+                await self.session.rollback()
+                return False
+            await self.session.execute(delete(Photo).where(Photo.album_id == album_id))
+            self.session.add_all([Photo(album_id=album_id, **item) for item in photos_data])
+            await self.session.commit()
+            return True
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def persist_callback(self, album_id, photos_data):
+        """Serialize competing callbacks; acknowledge only after durable storage."""
+        result = await self.session.execute(select(Album).where(Album.id == album_id).with_for_update().execution_options(populate_existing=True))
+        album = result.scalar_one()
+        if album.status in ("COMPLETED", "FAILED"):
+            await self.session.commit()
+            return "already_finalized"
+        if album.pending_callback is not None and album.pending_callback != photos_data:
+            await self.session.rollback()
+            raise ValueError("Conflicting completion callback")
+        album.pending_callback = photos_data
+        await self.session.commit()
+        return "accepted"
+
+    async def delete_orphan_attempt(self, album_id, token, prefix, storage):
+        """Lock the album against completion while proving its attempt is unreferenced."""
+        import asyncio
+        result = await self.session.execute(select(Album).where(Album.id == album_id).with_for_update().execution_options(populate_existing=True))
+        album = result.scalar_one_or_none()
+        if album and album.processing_token == token and album.lease_expires_at and album.lease_expires_at > datetime.now(timezone.utc):
+            await self.session.rollback()
+            return
+        references = await self.session.execute(select(Photo.id).where(Photo.object_key.startswith(prefix)).limit(1))
+        pending = (album.pending_callback or []) if album else []
+        if references.scalar_one_or_none() is None and not any(p["object_key"].startswith(prefix) for p in pending):
+            await asyncio.to_thread(storage.delete_attempt, prefix)
+        await self.session.rollback()
 
     async def atomic_transition(
         self,

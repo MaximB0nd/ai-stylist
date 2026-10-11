@@ -52,6 +52,10 @@ class Album(Base):
         String(512),
         nullable=True,
     )
+    processing_token: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    lease_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    pending_callback: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
+    dispatch_request: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
