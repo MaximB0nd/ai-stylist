@@ -67,7 +67,13 @@
 - **Внутренний порт:** `5091`. Наружу напрямую не публикуется; доступен через nginx.
 - **Авторизация:** Браузерный код вызывает backend по относительному префиксу `/api/v1`, поэтому в Docker-развертывании не требуется отдельная настройка CORS или внешнего API URL.
 
-### 2.4. `nginx` (Reverse Proxy)
+### 2.4. `minio` (S3-совместимое объектное хранилище)
+- **Контекст сборки:** [../docker/minio](../docker/minio) на базе [Dockerfile](../docker/minio/Dockerfile) (`alpine:3.20` + официальный релиз бинарника MinIO).
+- **Порты:** `9000` (S3 API) и `9001` (Web-консоль администрирования).
+- **Постоянное хранение:** Том `minio_data:/data`.
+- **Авто-инициализация бакетов:** Создание бакета `stylist` выполняется нативно бэкендом при старте приложения через `StorageService._ensure_bucket()` в FastAPI `lifespan`.
+
+### 2.5. `nginx` (Reverse Proxy)
 - **Образ:** `nginx:1.27-alpine`.
 - **Порт:** По умолчанию публикуется на [http://localhost:8080](http://localhost:8080). Значение можно изменить переменной `NGINX_PORT`.
 - **Маршрутизация:** Конфигурация [../nginx/default.conf](../nginx/default.conf) отправляет `/api/*`, `/docs`, `/redoc`, `/openapi.json` и `/health` в backend, а остальные запросы во frontend.
@@ -108,7 +114,7 @@ docker compose logs -f db
 - **Frontend через nginx:** [http://localhost:8080](http://localhost:8080)
 - **Swagger UI через nginx:** [http://localhost:8080/docs](http://localhost:8080/docs)
 - **ReDoc через nginx:** [http://localhost:8080/redoc](http://localhost:8080/redoc)
-- **Healthcheck через nginx:** [http://localhost:8080/health](http://localhost:8080/health)
+- **Healthcheck через nginx:** [http://localhost:8080/health](http://localhost:8080/health). Проверяет PostgreSQL (`SELECT 1`) и доступность настроенного бакета MinIO. Возвращает `200` и `{"status":"ok","checks":{"postgresql":"ok","minio":"ok"}}`, если обе проверки успешны. При ошибке любой зависимости возвращает `503`, общий статус `unavailable` и `unavailable` для соответствующей проверки. Проверки выполняются параллельно, таймаут каждой — 5 секунд; внутренние сообщения ошибок клиенту не передаются.
 - **Прямой backend-доступ для отладки:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ### Остановка сервисов
