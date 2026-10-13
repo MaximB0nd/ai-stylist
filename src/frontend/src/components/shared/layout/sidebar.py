@@ -1,7 +1,7 @@
 def sidebar(active_page=None):
     items = (
         ("home", "/", "Главная", "house"),
-        ("generation", "/generation", "Генерация", "sparkles"),
+        ("generation", "/generation", "Подобрать образ", "sparkles"),
         ("gallery", "/gallery", "Галерея", "images"),
     )
     links = []
@@ -16,7 +16,7 @@ def sidebar(active_page=None):
     return f"""
 <aside class="site-sidebar" aria-label="Навигация по сайту">
   <a class="site-sidebar__brand" href="/">
-    <img class="site-sidebar__logo" src="/images/brand/logo.webp" alt="" width="48" height="64" />
+    <img class="site-sidebar__logo" src="/images/brand/logo-mark.png" alt="" width="70" height="70" />
     <span class="site-sidebar__name">Носи <em>Красиво</em></span>
   </a>
 
@@ -25,8 +25,8 @@ def sidebar(active_page=None):
   </nav>
   <div class="site-sidebar__bottom">
     <a class="site-sidebar__account" href="/profile"{profile_current}>
-      <span class="site-avatar" aria-hidden="true"><span class="site-icon site-icon--user-round"></span></span>
-      <span class="site-sidebar__account-copy">Профиль<small>Мой аккаунт</small></span>
+      <span class="site-avatar" aria-hidden="true" data-auth-avatar><span class="site-icon site-icon--user-round"></span></span>
+      <span class="site-sidebar__account-copy">Профиль<small data-auth-account-label>Войти</small></span>
       <span class="site-icon site-icon--chevron-right" aria-hidden="true"></span>
     </a>
   </div>

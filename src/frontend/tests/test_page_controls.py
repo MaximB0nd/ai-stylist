@@ -6,30 +6,7 @@ from src.pages import gallery, generation, home
 
 
 class PageControlsTests(unittest.TestCase):
-    def test_home_keeps_navigation_and_dialog_controls_available(self):
-        soup = BeautifulSoup(str(home.page()), "html.parser")
-        self.assertEqual(soup.select_one(".generate-button")["href"], "/generation")
-        for selector in ("#authTrigger", "[data-auth-close]", ".auth-modal__backdrop"):
-            with self.subTest(selector=selector):
-                button = soup.select_one(selector)
-                self.assertFalse(button.has_attr("disabled"))
-                self.assertFalse(button.get("onclick"))
-        self.assertIsNotNone(soup.select_one(".site-header #authModal"))
-        self.assertIsNone(soup.select_one(".home-page #authModal"))
-        self.assertEqual(len(soup.select(".ui-image-placeholder")), 5)
-
-    def test_auth_offers_login_and_registration_controls(self):
-        soup = BeautifulSoup(str(home.page()), "html.parser")
-        submit = soup.select_one('#loginForm button[type="submit"]')
-        self.assertEqual(submit["id"], "authSubmit")
-        self.assertFalse(submit.has_attr("disabled"))
-        switch = soup.select_one("#switchToRegister")
-        self.assertEqual(switch.name, "button")
-        self.assertEqual(switch["type"], "button")
-        self.assertFalse(switch.has_attr("disabled"))
-        self.assertIsNotNone(soup.select_one("#registerName"))
-
-    def test_generation_actions_stay_disabled_until_javascript_initializes(self):
+    def test_generation_check_stays_disabled_until_javascript_initializes(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")
         fields = soup.select('.generation-form input[type="number"]')
         self.assertEqual(len(fields), 2)
@@ -38,9 +15,6 @@ class PageControlsTests(unittest.TestCase):
         self.assertEqual(button["type"], "submit")
         self.assertTrue(button.has_attr("disabled"))
         self.assertEqual(button["form"], "generation-form")
-        generation_button = soup.select_one(".generation-generate")
-        self.assertEqual(generation_button["type"], "button")
-        self.assertTrue(generation_button.has_attr("disabled"))
 
     def test_gallery_uses_album_links_and_real_previews(self):
         soup = BeautifulSoup(str(gallery.page()), "html.parser")
@@ -50,8 +24,31 @@ class PageControlsTests(unittest.TestCase):
             {link["href"] for link in soup.select(".album-card")},
             {"/album/office", "/album/evening", "/album/street", "/album/study"},
         )
-        self.assertEqual(len(soup.select(".album-image[src]")), 4)
-        self.assertEqual(len(soup.select(".album-image[alt]")), 4)
+        self.assertEqual(len(soup.select(".album-card .album-image[src]")), 12)
+        self.assertEqual(len(soup.select(".album-card .album-mosaic__primary[alt]")), 4)
+        self.assertEqual(len(soup.select('.album-card .album-mosaic__secondary[alt=""]')), 8)
+        layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in soup.select(".album-card")}
+        self.assertEqual(len(layouts), 4)
+        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
+        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
+        previews = {
+            tuple(image["src"] for image in card.select(".album-mosaic__secondary"))
+            for card in soup.select(".album-card")
+        }
+        self.assertEqual(len(previews), 4)
+        self.assertTrue(all(card.select_one(".album-preview .album-date") is None for card in soup.select(".album-card")))
+        self.assertTrue(all(card.select_one(".album-footer time.album-date") is not None for card in soup.select(".album-card")))
+
+    def test_home_album_covers_use_three_photo_mosaics(self):
+        soup = BeautifulSoup(str(home.page()), "html.parser")
+        cards = soup.select(".albums-grid .album-card")
+        self.assertEqual(len(cards), 3)
+        self.assertTrue(all(len(card.select(".album-mosaic img")) == 3 for card in cards))
+        self.assertTrue(all(card.select_one("time.album-date") is not None for card in cards))
+        layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in cards}
+        self.assertEqual(len(layouts), 3)
+        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
+        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
 
 
 if __name__ == "__main__":

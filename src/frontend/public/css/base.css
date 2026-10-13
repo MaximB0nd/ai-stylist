@@ -23,6 +23,12 @@ body {
   line-height: 1.55;
 }
 
+:where(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  letter-spacing: 0;
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -59,4 +65,13 @@ img {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
