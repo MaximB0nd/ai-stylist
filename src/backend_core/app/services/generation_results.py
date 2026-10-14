@@ -13,6 +13,7 @@ from app.db.session import AsyncSessionLocal
 from app.services.ai_core_client import AICoreClient
 from app.services.generation_lease import LeaseLostError, keep_lease
 from app.core.config import settings
+from app.services.retry_policy import is_retryable_delivery_error
 
 logger = logging.getLogger(__name__)
 
@@ -192,15 +193,7 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
                 from app.db.repositories.album_repository import AlbumRepository as _Repo
                 repo = _Repo(session=session)
                 # Network/storage outages remain recoverable; invalid deliveries are terminal.
-                transient = isinstance(exc, (httpx.RequestError, OSError)) or (
-                    isinstance(exc, RuntimeError) and "HTTP 5" in str(exc)
-                )
-                from app.services.ai_core_client import AICoreError
-                from minio.error import S3Error
-                from sqlalchemy.exc import SQLAlchemyError
-                transient = transient or isinstance(exc, (S3Error, SQLAlchemyError)) or (
-                    isinstance(exc, AICoreError) and (exc.status_code is None or exc.status_code == 429 or exc.status_code >= 500)
-                )
+                transient = is_retryable_delivery_error(exc)
                 await repo.finish_work(
                     album_id, token,
                     status="DOWNLOADING" if transient else "FAILED",

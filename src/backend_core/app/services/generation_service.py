@@ -13,6 +13,7 @@ from app.schemas.generation import (
 )
 from app.services.ai_core_client import AICoreClient
 from app.services.storage_service import StorageService
+from app.services.retry_policy import is_retryable_ai_error
 
 logger = logging.getLogger(__name__)
 
@@ -94,20 +95,23 @@ class GenerationService:
                             album, self.album_repo, self.storage, self.ai_client, token
                         ) or "VALIDATING"
             except Exception as exc:
-                logger.error(
-                    "Could not dispatch job to AI Core for generation %s: %s",
-                    generation_id,
-                    exc,
-                )
-                await self.album_repo.finish_work(
-                    album.id, token,
-                    status="FAILED",
-                    error_message=f"Failed to dispatch job to AI Core: {exc}"[:500],
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Failed to dispatch generation task to AI cluster: {exc}",
-                )
+                if is_retryable_ai_error(exc):
+                    # The persisted album and dispatch inputs are the durable retry queue.
+                    await self.album_repo.finish_work(
+                        album.id, token,
+                        error_message=f"Temporary AI Core dispatch failure: {exc}"[:500],
+                    )
+                    current_status = album.status
+                    logger.warning("AI Core dispatch deferred for generation %s", generation_id)
+                else:
+                    await self.album_repo.finish_work(
+                        album.id, token, status="FAILED",
+                        error_message=f"Failed to dispatch job to AI Core: {exc}"[:500],
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"Failed to dispatch generation task to AI cluster: {exc}",
+                    ) from exc
 
 
         return GenerationAcceptedResponse(

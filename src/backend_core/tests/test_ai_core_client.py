@@ -255,7 +255,7 @@ async def test_generation_service_dispatch_failure_marks_failed_and_raises_502()
     from tests.test_generations import InMemoryAlbumRepository, InMemoryStorageService, FAKE_USER_ID
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, json={"error": "AI cluster internal error"})
+        return httpx.Response(400, json={"error": {"code": "INVALID_REQUEST", "message": "Bad input"}})
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
