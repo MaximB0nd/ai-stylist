@@ -53,20 +53,19 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
     try:
         job_details = await ai_client.get_job(job_uuid)
         job_status = (job_details.get("status") or "").upper()
-        delivery_status = (job_details.get("delivery_status") or "").upper()
+        delivery_status = (job_details.get("result_delivery_status") or "").upper()
         results = job_details.get("results") or []
         expected_count = job_details.get("requested_image_count")
 
-        # Guard: AI Core contract marks jobs EXPIRED or ACKNOWLEDGED.
-        # We must never accept or confirm delivery if delivery_status is expired/acknowledged.
-        if delivery_status in ("EXPIRED", "ACKNOWLEDGED"):
+        # Only AVAILABLE delivery can be downloaded and acknowledged.
+        if delivery_status != "AVAILABLE":
             raise RuntimeError(
                 f"AI Core job {job_uuid} has invalid delivery state {delivery_status!r}. "
                 "Cannot accept or confirm expired/acknowledged delivery."
             )
 
         # Guard: only confirm delivery if job status is explicitly COMPLETED
-        if job_status and job_status != "COMPLETED":
+        if job_status != "COMPLETED":
             raise RuntimeError(
                 f"AI Core job {job_uuid} has unexpected status {job_status!r}; "
                 "expected COMPLETED. Aborting to avoid confirming a bad delivery."
@@ -80,11 +79,11 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
                 "Cannot mark album COMPLETED with empty photo list."
             )
 
-        # Guard: verify expected photo count if provided by AI Core
-        if expected_count is not None and len(results) < expected_count:
+        # Partial success and extra results are forbidden by the AI Core contract.
+        if type(expected_count) is not int or not 1 <= expected_count <= 10 or len(results) != expected_count:
             raise RuntimeError(
                 f"AI Core returned {len(results)} photos, but {expected_count} were expected for job {job_uuid}. "
-                "Aborting incomplete delivery."
+                "Aborting invalid delivery count."
             )
 
         if len(results) > 10 or any(not isinstance(item.get("order_index"), int)
@@ -200,7 +199,7 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
                 from minio.error import S3Error
                 from sqlalchemy.exc import SQLAlchemyError
                 transient = transient or isinstance(exc, (S3Error, SQLAlchemyError)) or (
-                    isinstance(exc, AICoreError) and (exc.status_code is None or exc.status_code >= 500)
+                    isinstance(exc, AICoreError) and (exc.status_code is None or exc.status_code == 429 or exc.status_code >= 500)
                 )
                 await repo.finish_work(
                     album_id, token,

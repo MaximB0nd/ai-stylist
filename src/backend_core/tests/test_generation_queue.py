@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import uuid
+import pytest
 
 from app.services import generation_queue, generation_results
 
@@ -54,7 +55,8 @@ async def test_worker_failure_does_not_stop_queue(monkeypatch):
         await queue.close()
 
 
-async def test_image_limit_is_shared_between_albums_and_covers_upload(monkeypatch):
+@pytest.mark.parametrize("count", [5, 10])
+async def test_image_limit_is_shared_between_albums_and_covers_upload(monkeypatch, count):
     queue = generation_queue.GenerationQueue()
     queue.images = asyncio.Semaphore(2)
     monkeypatch.setattr(generation_queue, "get_generation_queue", lambda: queue)
@@ -100,8 +102,8 @@ async def test_image_limit_is_shared_between_albums_and_covers_upload(monkeypatc
     monkeypatch.setattr("app.db.repositories.album_repository.AlbumRepository", lambda **kwargs: repo)
     monkeypatch.setattr("app.services.generation_cleanup.cleanup_attempt", AsyncMock())
     ai = SimpleNamespace(get_job=AsyncMock(return_value={
-        "status": "COMPLETED", "requested_image_count": 10,
-        "results": [{"order_index": i, "download_url": "https://storage/image"} for i in range(10)],
+        "status": "COMPLETED", "result_delivery_status": "AVAILABLE", "requested_image_count": count,
+        "results": [{"order_index": i, "download_url": "http://storage/image"} for i in range(count)],
     }), acknowledge_results=AsyncMock())
     storage = SimpleNamespace(upload_bytes=upload)
     tasks = [asyncio.create_task(generation_results._store_results_owned(
@@ -112,7 +114,7 @@ async def test_image_limit_is_shared_between_albums_and_covers_upload(monkeypatc
         assert active == peak == 2
         release.set()
         await asyncio.wait_for(asyncio.gather(*tasks), 2)
-        assert uploaded == 20
+        assert uploaded == count * 2
         assert peak == 2
         assert repo.complete_with_photos.await_count == 2
     finally:
