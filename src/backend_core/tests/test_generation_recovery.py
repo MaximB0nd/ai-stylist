@@ -114,6 +114,7 @@ async def test_original_dispatch_is_persisted_before_network_send(recovery_state
     async def send(**kwargs):
         repo.save_dispatch_request.assert_awaited_once()
         saved = repo.save_dispatch_request.await_args.args[2]
+        assert saved["requested_image_count"] == kwargs["requested_image_count"] == 5
         assert kwargs["face_photo_url"] == saved["face_photo_url"]
         return {"job_id": str(uuid.uuid4()), "status": "QUEUED"}
 

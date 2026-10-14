@@ -824,7 +824,7 @@ async def test_empty_results_from_ai_core_marks_failed_and_skips_ack():
     ai_client.job_details[ai_job_id] = {
         "id": str(ai_job_id),
         "status": "COMPLETED",
-        "delivery_status": "EXPIRED",
+        "result_delivery_status": "EXPIRED",
         "results": [],
     }
 

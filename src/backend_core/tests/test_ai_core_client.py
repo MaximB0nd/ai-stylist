@@ -36,7 +36,7 @@ async def test_ai_core_create_job_success():
             json={
                 "job_id": "c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
                 "status": "QUEUED",
-                "requested_image_count": 10,
+                "requested_image_count": 5,
                 "status_url": "/v1/jobs/c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
             },
         )
@@ -53,8 +53,8 @@ async def test_ai_core_create_job_success():
         now = datetime.now(timezone.utc)
         result = await client.create_job(
             generation_id=gen_id,
-            face_photo_url="https://minio/face.jpg",
-            body_photo_url="https://minio/body.jpg",
+            face_photo_url="http://minio/face.jpg",
+            body_photo_url="http://minio/body.jpg",
             expires_at=now,
             age=25,
             height_cm=175,
@@ -69,14 +69,20 @@ async def test_ai_core_create_job_success():
 
         # Check recorded request
         assert recorded_request["url"] == "http://fake-ai-core/v1/jobs"
-        assert recorded_request["headers"]["authorization"] == "Bearer secret-token"
+        assert "authorization" not in recorded_request["headers"]
         assert recorded_request["headers"]["idempotency-key"] == str(gen_id)
 
         body = recorded_request["body"]
         assert body["person"]["gender"] == "male"
         assert body["person"]["age"] == 25
         assert body["preferences"]["occasion"] == "office"
-        assert body["inputs"]["face_photo_url"] == "https://minio/face.jpg"
+        assert body == {
+            "requested_image_count": 5,
+            "inputs": {"face": {"url": "http://minio/face.jpg", "expires_at": now.isoformat()},
+                       "body": {"url": "http://minio/body.jpg", "expires_at": now.isoformat()}},
+            "person": {"age": 25, "height_cm": 175, "gender": "male"},
+            "preferences": {"occasion": "office", "style": "minimal", "shoe": "loafers", "mood": "confident"},
+        }
 
 
 @pytest.mark.asyncio
@@ -96,8 +102,8 @@ async def test_ai_core_create_job_error_raises_exception():
         with pytest.raises(AICoreError) as exc_info:
             await client.create_job(
                 generation_id=uuid.uuid4(),
-                face_photo_url="https://minio/face.jpg",
-                body_photo_url="https://minio/body.jpg",
+                face_photo_url="http://minio/face.jpg",
+                body_photo_url="http://minio/body.jpg",
                 expires_at=datetime.now(timezone.utc),
                 age=25,
                 height_cm=175,
@@ -138,6 +144,8 @@ async def test_ai_core_acknowledge_results():
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert str(request.url) == f"http://fake-ai-core/v1/jobs/{job_id}/results/ack"
+        assert request.content == b""
+        assert "authorization" not in request.headers
         return httpx.Response(204)
 
     transport = httpx.MockTransport(handler)
@@ -189,7 +197,7 @@ async def test_generation_service_dispatches_job_to_ai_core():
             json={
                 "job_id": str(ai_job_uuid),
                 "status": "QUEUED",
-                "requested_image_count": 10,
+                "requested_image_count": 5,
                 "status_url": f"/v1/jobs/{ai_job_uuid}",
             },
         )
@@ -247,7 +255,7 @@ async def test_generation_service_dispatch_failure_marks_failed_and_raises_502()
     from tests.test_generations import InMemoryAlbumRepository, InMemoryStorageService, FAKE_USER_ID
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, json={"error": "AI cluster internal error"})
+        return httpx.Response(400, json={"error": {"code": "INVALID_REQUEST", "message": "Bad input"}})
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http_client:
@@ -293,65 +301,15 @@ async def test_generation_service_dispatch_failure_marks_failed_and_raises_502()
         assert "Failed to dispatch job to AI Core" in album.error_message
 
 
-@pytest.mark.asyncio
-async def test_ai_core_client_style_mapping_contract():
-    """Verify that casual is mapped to streetwear, and all 5 AI Core styles are sent properly."""
-    recorded_body = None
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        nonlocal recorded_body
-        recorded_body = json.loads(request.content)
-        return httpx.Response(
-            201,
-            json={
-                "job_id": "c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
-                "status": "QUEUED",
-                "requested_image_count": 10,
-                "status_url": "/v1/jobs/c84dfb50-f331-4c12-88f5-3c1a3e6015aa",
-            },
+@pytest.mark.parametrize("style, expected", [("minimalism", "minimal"), ("minimal", "minimal"), ("casual", "casual"), ("classic", "classic"), ("romantic", "romantic")])
+async def test_ai_core_client_style_mapping_contract(style, expected):
+    def handler(request):
+        body = json.loads(request.content)
+        assert body["preferences"] == {"occasion": "street", "style": expected, "shoe": "sneakers", "mood": "relaxed"}
+        return httpx.Response(201, json={"job_id": str(uuid.uuid4()), "status": "QUEUED"})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        await AICoreClient(base_url="http://fake-ai-core", client=http_client).create_job(
+            generation_id=uuid.uuid4(), face_photo_url="http://minio/face.jpg", body_photo_url="http://minio/body.jpg",
+            expires_at=datetime.now(timezone.utc), age=25, height_cm=175, gender="f", situation="street",
+            styles=[style], shoes=["sneakers"], impressions=["relaxed"],
         )
-
-    transport = httpx.MockTransport(handler)
-    async with httpx.AsyncClient(transport=transport) as http_client:
-        client = AICoreClient(
-            base_url="http://fake-ai-core",
-            service_token="secret-token",
-            client=http_client,
-        )
-
-        # 1. Test casual maps to streetwear
-        await client.create_job(
-            generation_id=uuid.uuid4(),
-            face_photo_url="https://minio/face.jpg",
-            body_photo_url="https://minio/body.jpg",
-            expires_at=datetime.now(timezone.utc),
-            age=25,
-            height_cm=175,
-            gender="f",
-            situation="street",
-            styles=["casual"],
-            shoes=["sneakers"],
-            impressions=["casual"],
-        )
-        assert recorded_body["preferences"]["styles"] == ["streetwear"]
-
-        # 2. Test all 5 standard styles pass through correctly
-        allowed = ["classic", "minimalism", "romantic", "streetwear", "sport"]
-        for style in allowed:
-            await client.create_job(
-                generation_id=uuid.uuid4(),
-                face_photo_url="https://minio/face.jpg",
-                body_photo_url="https://minio/body.jpg",
-                expires_at=datetime.now(timezone.utc),
-                age=25,
-                height_cm=175,
-                gender="m",
-                situation="office",
-                styles=[style],
-                shoes=["loafers"],
-                impressions=["confident"],
-            )
-            assert recorded_body["preferences"]["styles"] == [style]
-
-
-

@@ -18,16 +18,13 @@ class SituationEnum(str, Enum):
     EVENING = "evening"
 
 
-# Styles accepted by AI Core contract.
-# AI Core allows: classic, minimalism, romantic, streetwear, sport.
-# REST also accepts "casual"; AICoreClient maps it to "streetwear".
+# Current AI Core styles, plus the historical REST minimalism alias.
 class StyleEnum(str, Enum):
     CASUAL = "casual"
+    MINIMAL = "minimal"
     MINIMALISM = "minimalism"
     CLASSIC = "classic"
-    STREETWEAR = "streetwear"
     ROMANTIC = "romantic"
-    SPORT = "sport"
 
 
 class ShoesEnum(str, Enum):
@@ -56,19 +53,19 @@ SITUATION_TITLES: dict[str, str] = {
 class GenerationRequestForm(BaseModel):
     """Validated form-data fields for generation request (parsed manually from form).
 
-    Ranges are aligned with the AI Core contract:
-      - age: 18..100   (AI Core rejects < 18 and > 100)
-      - height: 120..230 cm  (AI Core rejects < 120 and > 230)
+    Product ranges are narrower than the AI Core contract:
+      - age: 18..100 (AI Core accepts 1..120)
+      - height: 120..230 cm (AI Core accepts 80..240)
 
     Styles are limited to the AI Core accepted set:
-      classic, minimalism, romantic, streetwear, sport, and the casual alias.
+      minimal, classic, casual, romantic; minimalism is a REST alias.
     """
 
-    age: int = Field(..., ge=18, le=100, description="User age (18–100, per AI Core contract)")
-    height: int = Field(..., ge=120, le=230, description="Height in cm (120–230, per AI Core contract)")
+    age: int = Field(..., ge=18, le=100, description="User age (18–100, product restriction)")
+    height: int = Field(..., ge=120, le=230, description="Height in cm (120–230, product restriction)")
     gender: GenderEnum = Field(..., description="Gender: 'f' or 'm'")
     situation: SituationEnum
-    styles: StyleEnum = Field(..., description="One style (classic/minimalism/romantic/casual/streetwear/sport)")
+    styles: StyleEnum = Field(..., description="One style (minimal/classic/casual/romantic; minimalism alias)")
     shoes: ShoesEnum = Field(..., description="Exactly one shoe type")
     impressions: ImpressionEnum = Field(..., description="Exactly one impression")
 

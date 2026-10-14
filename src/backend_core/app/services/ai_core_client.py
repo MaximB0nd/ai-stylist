@@ -1,8 +1,9 @@
 """HTTP client for interacting with AI Core service per public API contract."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 import uuid
 
 import httpx
@@ -11,32 +12,16 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Mapping from Backend Core situations to AI Core occasions
-SITUATION_TO_OCCASION: Dict[str, str] = {
-    "street": "casual",
-    "study": "study",
-    "office": "office",
-    "evening": "evening",
-}
+# REST keeps the historical minimalism spelling as an alias.
+STYLE_MAP = {"minimalism": "minimal", "minimal": "minimal", "classic": "classic",
+             "casual": "casual", "romantic": "romantic"}
+GENDER_MAP = {"f": "female", "m": "male"}
 
-# Mapping from Backend Core gender to AI Core gender
-GENDER_MAP: Dict[str, str] = {
-    "f": "female",
-    "m": "male",
-}
 
-# Style normalization & mapping for AI Core contract compliance.
-# AI Core strictly allows: classic, minimalism, romantic, streetwear, sport.
-# Legacy "casual" is mapped to "streetwear".
-ALLOWED_AI_CORE_STYLES = {"classic", "minimalism", "romantic", "streetwear", "sport"}
-STYLE_MAP: Dict[str, str] = {
-    "casual": "streetwear",
-    "classic": "classic",
-    "minimalism": "minimalism",
-    "romantic": "romantic",
-    "streetwear": "streetwear",
-    "sport": "sport",
-}
+def _single_choice(values, allowed, field):
+    if len(values) != 1 or values[0] not in allowed:
+        raise AICoreError(f"Unsupported {field}; exactly one supported value is required", status_code=400)
+    return values[0]
 
 
 class AICoreError(Exception):
@@ -76,7 +61,6 @@ class AICoreClient:
 
     def _headers(self, idempotency_key: Optional[str] = None) -> Dict[str, str]:
         headers = {
-            "Authorization": f"Bearer {self.service_token}",
             "Content-Type": "application/json",
         }
         if idempotency_key:
@@ -96,33 +80,36 @@ class AICoreClient:
         styles: List[str],
         shoes: List[str],
         impressions: List[str],
-        description: Optional[str] = None,
         requested_image_count: int = 5,
     ) -> Dict[str, Any]:
         """Submit a new image generation job to AI Core (POST /v1/jobs)."""
-        occasion = SITUATION_TO_OCCASION.get(situation, "casual")
-        mapped_gender = GENDER_MAP.get(gender, "unspecified")
-        mapped_styles = [STYLE_MAP.get(s.lower(), s.lower()) for s in styles]
-
+        for url in (face_photo_url, body_photo_url):
+            parsed = urlsplit(url)
+            if (
+                len(url) > 4096 or parsed.scheme != "http" or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None or parsed.fragment
+            ):
+                raise AICoreError("Unsupported input URL", status_code=422)
+        if (
+            type(age) is not int or not 1 <= age <= 120
+            or type(height_cm) is not int or not 80 <= height_cm <= 240
+        ):
+            raise AICoreError("Person values are outside the AI Core contract", status_code=400)
+        style = _single_choice(styles, STYLE_MAP, "style")
+        shoe = _single_choice(shoes, {"sneakers", "loafers", "heels", "boots"}, "shoe")
+        mood = _single_choice(impressions, {"confident", "elegant", "relaxed", "bright"}, "mood")
+        if situation not in {"street", "study", "office", "evening"} or gender not in GENDER_MAP:
+            raise AICoreError("Unsupported occasion or gender", status_code=400)
+        if type(requested_image_count) is not int or not 1 <= requested_image_count <= 10:
+            raise AICoreError("requested_image_count must be an integer from 1 to 10", status_code=400)
         payload = {
             "requested_image_count": requested_image_count,
             "inputs": {
-                "face_photo_url": face_photo_url,
-                "body_photo_url": body_photo_url,
-                "expires_at": expires_at.isoformat(),
+                "face": {"url": face_photo_url, "expires_at": expires_at.isoformat()},
+                "body": {"url": body_photo_url, "expires_at": expires_at.isoformat()},
             },
-            "person": {
-                "age": age,
-                "height_cm": height_cm,
-                "gender": mapped_gender,
-            },
-            "preferences": {
-                "occasion": occasion,
-                "styles": mapped_styles,
-                "shoes": shoes,
-                "impressions": impressions,
-                "description": description or f"Generation for {situation}",
-            },
+            "person": {"age": age, "height_cm": height_cm, "gender": GENDER_MAP[gender]},
+            "preferences": {"occasion": situation, "style": STYLE_MAP[style], "shoe": shoe, "mood": mood},
         }
 
         url = f"{self.base_url}/v1/jobs"
@@ -131,7 +118,7 @@ class AICoreClient:
         try:
             async with self._get_client() as client:
                 resp = await client.post(url, json=payload, headers=headers)
-                if resp.status_code not in (200, 201, 202):
+                if resp.status_code not in (200, 201):
                     logger.error("AI Core create_job error [%s]: %s", resp.status_code, resp.text)
                     raise AICoreError(
                         f"AI Core rejected job: {resp.text}",
@@ -169,7 +156,7 @@ class AICoreClient:
         try:
             async with self._get_client() as client:
                 resp = await client.post(url, headers=headers)
-                if resp.status_code not in (200, 204):
+                if resp.status_code != 204:
                     logger.error("AI Core ACK failed [%s]: %s", resp.status_code, resp.text)
                     raise AICoreError(
                         f"AI Core ACK rejected: {resp.text}",
@@ -188,7 +175,7 @@ class AICoreClient:
         try:
             async with self._get_client() as client:
                 resp = await client.post(url, headers=headers)
-                if resp.status_code not in (200, 204):
+                if resp.status_code != 200:
                     raise AICoreError(
                         f"Failed to cancel AI Core job {job_id}: {resp.text}",
                         status_code=resp.status_code,

@@ -13,6 +13,7 @@ async def dispatch_generation(album, repo, storage, ai_client, token):
         get_url = storage.presigned_internal_url
         ttl = getattr(storage, "presigned_ttl", settings.MINIO_PRESIGNED_TTL)
         request = {
+            "requested_image_count": 5,
             "face_photo_url": await asyncio.to_thread(get_url, album.source_face_key),
             "body_photo_url": await asyncio.to_thread(get_url, album.source_body_key),
             "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=ttl)).isoformat(),

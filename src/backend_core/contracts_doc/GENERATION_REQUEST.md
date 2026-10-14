@@ -17,7 +17,7 @@
 - `height`: `172` (целое число, в см)
 - `gender`: `"f"` или `"m"` (пол: female / male)
 - `situation`: `"office"` (ровно 1 значение: `"street"`, `"study"`, `"office"`, `"evening"`)
-- `styles`: `"minimalism"` (ровно 1 значение: `"minimalism"`, `"classic"`, `"casual"`, `"romantic"`, `"streetwear"`, `"sport"`). Backend сохраняет `casual` как выбор пользователя, а для AI Core преобразует его в `streetwear`.
+- `styles`: `"minimal"` (ровно 1 значение: `"minimal"`, `"classic"`, `"casual"`, `"romantic"`). Старое значение `"minimalism"` принимается как алиас и передаётся в AI Core как `"minimal"`. Значения `"sport"` и `"streetwear"` не поддерживаются актуальным договором AI Core и отклоняются до создания задачи.
 - `shoes`: `"loafers"` (ровно 1 значение: `"sneakers"`, `"loafers"`, `"heels"`, `"boots"`)
 - `impressions`: `"confident"` (ровно 1 значение: `"confident"`, `"elegant"`, `"relaxed"`, `"bright"`)
 

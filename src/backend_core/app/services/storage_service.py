@@ -4,6 +4,7 @@ from typing import BinaryIO
 
 from fastapi import UploadFile
 from minio import Minio
+from urllib3 import PoolManager, Retry, Timeout
 
 from app.core.config import settings
 
@@ -19,6 +20,11 @@ class StorageService:
             access_key=settings.MINIO_ACCESS_KEY,
             secret_key=settings.MINIO_SECRET_KEY,
             secure=settings.MINIO_SECURE,
+            http_client=PoolManager(
+                timeout=Timeout(connect=3, read=15),
+                retries=Retry(total=2, backoff_factor=0.2,
+                              status_forcelist=[500, 502, 503, 504]),
+            ),
         )
         # Dedicated client for browser-facing presigned URLs (resolves localhost/public domains)
         public_endpoint = settings.MINIO_PUBLIC_ENDPOINT or settings.MINIO_ENDPOINT

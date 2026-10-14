@@ -214,6 +214,9 @@ class InMemoryStorageService(StorageService):
     def presigned_url(self, object_key: str) -> str:
         return f"https://fake-minio.local/{object_key}?signed=1"
 
+    def presigned_internal_url(self, object_key: str) -> str:
+        return f"http://fake-minio.local/{object_key}?signed=1"
+
 
 class FailingStorageService(StorageService):
     """Storage mock that always raises on upload — simulates MinIO outage."""
@@ -508,6 +511,8 @@ async def test_generation_uploads_correct_keys(
         ("gender", "male", "gender_full_word"),
         ("situation", "beach", "invalid_situation"),
         ("styles", "unknown_style", "styles_invalid_value"),
+        ("styles", "sport", "unsupported_ai_style_sport"),
+        ("styles", "streetwear", "unsupported_ai_style_streetwear"),
         ("shoes", "sandals", "shoes_invalid_value"),
         ("impressions", "boring", "impressions_invalid_value"),
     ],
@@ -639,10 +644,10 @@ async def test_generation_rejects_invalid_magic_bytes(client: httpx.AsyncClient)
         ("18", "120", "classic"),
         ("18", "230", "minimalism"),
         ("100", "120", "romantic"),
-        ("100", "230", "streetwear"),
-        ("25", "175", "sport"),
+        ("100", "230", "casual"),
+        ("25", "175", "minimal"),
     ],
-    ids=["min_bounds", "min_age_max_height", "max_age_min_height", "max_bounds", "sport_style"],
+    ids=["min_bounds", "min_age_max_height", "max_age_min_height", "max_bounds", "minimal_style"],
 )
 async def test_generation_contract_boundary_success(
     client: httpx.AsyncClient,
