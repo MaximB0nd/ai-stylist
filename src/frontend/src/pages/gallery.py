@@ -36,7 +36,7 @@ def page():
     )
     return app_shell(
         f"""
-<section class="gallery-page" aria-labelledby="gallery-title">
+<section class="gallery-page" data-live-gallery aria-labelledby="gallery-title">
   <div class="content-wrapper">
     <header class="gallery-header">
       <div>

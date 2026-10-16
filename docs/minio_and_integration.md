@@ -126,6 +126,10 @@ TTL и доступности ИИ. Текущий recovery не планиру�
    `127.0.0.1:8001`, artifact-service на порту `18081` и orchestrator на
    `127.0.0.1:18180`. `AI_CORE_ARTIFACT_PUBLIC_BASE_URL` должен содержать адрес
    хоста, достижимый и из контейнеров, и из native MPS worker (обычно LAN IP).
+   Overlay передаёт этот адрес оркестратору одновременно как public download
+   origin и worker-facing artifact origin; control-plane вызовы остаются на
+   Docker DNS `http://ai-core-artifact-service:8000`. Public API настраивается
+   актуальными переменными `PUBLIC_API_*` внутри overlay.
    Пароль PostgreSQL и стабильный Fernet key обязательны.
    `AI_CORE_WORKER_URLS` обязан содержать все девять стадий пайплайна. Оркестратор
    возвращает `503` и перечисляет `missing_worker_stages`, если artifact-service

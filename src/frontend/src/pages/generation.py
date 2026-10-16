@@ -56,8 +56,8 @@ CHOICES = (
 
 def _measurements():
     fields = (
-        ("age", "Возраст, лет", 1, 120, "1", "28"),
-        ("height", "Рост, см", 80, 240, "1", "168"),
+        ("age", "Возраст, лет", 18, 100, "1", "28"),
+        ("height", "Рост, см", 120, 230, "1", "168"),
     )
     return "".join(
         f"""
@@ -164,12 +164,12 @@ def _selections():
     return "".join(
         f"""
 <div class="is-empty" data-summary-item="{key}">
-  <dt class="visually-hidden">{title}</dt>
+  <dt>{title}</dt>
   <dd>
-    <div class="generation-selection" aria-hidden="true">
+    <button class="generation-selection" type="button" data-edit-question="{key}" aria-label="Изменить: {title}">
       <img data-selection-image="{key}" width="80" height="80" alt="" hidden />
-      <span class="visually-hidden" data-selection="{key}"></span>
-    </div>
+      <span class="visually-hidden" data-selection="{key}">Не выбрано</span>
+    </button>
   </dd>
 </div>"""
         for key, title, _ in CHOICES
@@ -232,8 +232,8 @@ def page():
       <p class="generation-status" role="status" aria-live="polite"></p>
       <div class="generation-progress-label"><label for="generation-progress">Заполнено</label><span data-count="total">0 / 9</span></div>
       <progress id="generation-progress" value="0" max="9">0 из 9</progress>
-      <button class="generation-submit generation-generate ui-button" type="submit" form="generation-form">
-        Сгенерировать
+      <button class="generation-submit generation-generate ui-button" type="submit" form="generation-form" disabled>
+        Сгенерировать 5 образов
       </button>
     </aside>
   </div>

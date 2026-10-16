@@ -1,5 +1,45 @@
+import { readSession } from "./auth.js";
+
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const API_BASE = globalThis.AI_STYLIST_API_BASE ?? "/api/v1";
+const STATUS_POLL_INTERVAL_MS = 2000;
+
+export function normalizeGenerationFields(data) {
+  const gender = data.get("gender");
+  return {
+    age: data.get("age"),
+    height: data.get("height"),
+    gender: gender === "female" ? "f" : gender === "male" ? "m" : "",
+    situation: data.get("occasion"),
+    styles: data.get("style"),
+    shoes: data.get("shoe"),
+    impressions: data.get("mood"),
+  };
+}
+
+export function generationFields(form) {
+  return normalizeGenerationFields(new FormData(form));
+}
+
+function apiError(payload, status) {
+  if (typeof payload?.detail === "string") return payload.detail;
+  if (Array.isArray(payload?.detail)) {
+    return payload.detail.map((item) => item.msg ?? "Ошибка валидации").join("; ");
+  }
+  return `Ошибка запроса: ${status}`;
+}
+
+async function responseJson(response) {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    // The status code remains useful when an upstream returns a non-JSON error.
+  }
+  if (!response.ok) throw new Error(apiError(payload, response.status));
+  return payload;
+}
 
 export function photoFileError(file) {
   if (!PHOTO_TYPES.has(file.type)) return "Выберите JPG, PNG или WebP.";
@@ -45,6 +85,7 @@ export function mountGeneration(form) {
   const liveUrls = new Set();
   let disposed = false;
   let submitted = false;
+  let submitting = false;
 
   function revoke(url) {
     if (liveUrls.delete(url)) URL.revokeObjectURL(url);
@@ -88,7 +129,7 @@ export function mountGeneration(form) {
       const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
       const image = page.querySelector(`[data-selection-image="${group.dataset.question}"]`);
       const item = output.closest("dl > div");
-      output.textContent = value || "";
+      output.textContent = value || "Не выбрано";
       item.classList.toggle("is-empty", !selected);
       image.hidden = !selected;
       if (selected) image.src = selected.closest("label").querySelector("img").src;
@@ -104,6 +145,7 @@ export function mountGeneration(form) {
     progress.textContent = `${total} из ${maximum}`;
     status.textContent = "";
     delete status.dataset.state;
+    generationButton.disabled = submitting || photos.some((photo) => photo.pending);
   }
 
   const toggleRadios = [...form.querySelectorAll(
@@ -133,6 +175,15 @@ export function mountGeneration(form) {
         radio.dispatchEvent(new Event("change", { bubbles: true }));
       }, 0);
     }, { capture: true, signal: events.signal });
+  }
+
+  for (const button of page.querySelectorAll("[data-edit-question]")) {
+    button.addEventListener("click", () => {
+      const group = form.querySelector(`[data-question="${button.dataset.editQuestion}"]`);
+      const target = group?.querySelector("input:checked") ?? group?.querySelector("input");
+      target?.focus();
+      group?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, { signal: events.signal });
   }
 
   function renderPhoto(photo) {
@@ -179,6 +230,7 @@ export function mountGeneration(form) {
       if (disposed || request !== photo.request) return;
       revoke(photo.url);
       photo.url = url;
+      photo.file = files[0];
     } catch {
       if (!disposed && request === photo.request) {
         photoError(photo, "Не удалось открыть фото. Выберите другой файл.");
@@ -215,6 +267,7 @@ export function mountGeneration(form) {
       photo.pending = false;
       revoke(photo.url);
       photo.url = null;
+      photo.file = null;
       photo.input.value = "";
       error(photo.input, photo.input.name, submitted ? "Добавьте фотографию." : "");
       renderPhoto(photo);
@@ -249,6 +302,50 @@ export function mountGeneration(form) {
     if (numbers.includes(event.target)) validateNumber(event.target);
   }, { capture: true, signal: events.signal });
 
+  async function pollGeneration(generationId) {
+    while (!disposed) {
+      const session = readSession();
+      if (!session) throw new Error("Войдите в аккаунт, чтобы продолжить.");
+      const response = await fetch(`${API_BASE}/generations/${generationId}/status`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        signal: events.signal,
+      });
+      const current = await responseJson(response);
+      if (current.status === "COMPLETED" && current.album_id) {
+        status.textContent = "Образы готовы. Открываем альбом…";
+        status.dataset.state = "success";
+        window.location.assign(`/album/${current.album_id}`);
+        return;
+      }
+      if (current.status === "FAILED" || current.status === "CANCELLED") {
+        throw new Error(current.error_message || "Не удалось создать образы.");
+      }
+      status.textContent = current.status === "DOWNLOADING"
+        ? "Сохраняем готовые образы…"
+        : "Создаём образы. Это может занять несколько минут…";
+      await new Promise((resolve) => window.setTimeout(resolve, STATUS_POLL_INTERVAL_MS));
+    }
+  }
+
+  async function submitGeneration() {
+    const session = readSession();
+    if (!session) throw new Error("Войдите в аккаунт, чтобы создать образы.");
+    const payload = new FormData();
+    for (const [key, value] of Object.entries(generationFields(form))) payload.append(key, value);
+    for (const photo of photos) payload.append(`${photo.input.name}_photo`, photo.file, photo.file.name);
+
+    const response = await fetch(`${API_BASE}/generations`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: payload,
+      signal: events.signal,
+    });
+    const created = await responseJson(response);
+    status.textContent = "Задание принято. Готовим образы…";
+    status.dataset.state = "success";
+    await pollGeneration(created.generation_id);
+  }
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     submitted = true;
@@ -272,11 +369,25 @@ export function mountGeneration(form) {
       error(group, group.dataset.question, selected ? "" : "Выберите один вариант.");
       if (!selected) invalid.push(group.querySelector("input"));
     }
-    status.textContent = invalid.length
-      ? "Заполните подсвеченные блоки."
-      : "Анкета заполнена. Сгенерировать 5 образов можно будет после подключения сервиса.";
-    status.dataset.state = invalid.length ? "error" : "success";
-    if (invalid.length) pulseInvalidSections();
+    if (invalid.length) {
+      status.textContent = "Заполните подсвеченные блоки.";
+      status.dataset.state = "error";
+      pulseInvalidSections();
+    } else if (!submitting) {
+      submitting = true;
+      generationButton.disabled = true;
+      generationButton.textContent = "Отправляем…";
+      status.textContent = "Загружаем фотографии…";
+      status.dataset.state = "success";
+      void submitGeneration().catch((requestError) => {
+        if (disposed || requestError?.name === "AbortError") return;
+        status.textContent = requestError?.message || "Не удалось запустить генерацию.";
+        status.dataset.state = "error";
+        submitting = false;
+        generationButton.disabled = false;
+        generationButton.textContent = "Сгенерировать 5 образов";
+      });
+    }
     // Follow the visible form order when sections are rearranged.
     [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
   }, { signal: events.signal });
@@ -291,6 +402,7 @@ export function mountGeneration(form) {
       photo.request++;
       photo.pending = false;
       photo.url = null;
+      photo.file = null;
       photo.input.value = "";
       renderPhoto(photo);
     });

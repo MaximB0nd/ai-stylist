@@ -15,8 +15,8 @@ class GenerationLayoutTests(unittest.TestCase):
 
     def test_measurement_constraints_match_the_reference(self):
         for key, minimum, maximum, step in (
-            ("age", "1", "120", "1"),
-            ("height", "80", "240", "1"),
+            ("age", "18", "100", "1"),
+            ("height", "120", "230", "1"),
         ):
             with self.subTest(field=key):
                 field = self.soup.select_one(f"#generation-{key}")
@@ -93,26 +93,17 @@ class GenerationLayoutTests(unittest.TestCase):
                 self.assertIsNotNone(self.soup.find(id=reference))
         self.assertEqual(len(self.soup.select(".generation-error[hidden]")), 9)
 
-    def test_summary_separates_validation_from_future_generation(self):
+    def test_summary_exposes_connected_generation_action(self):
         progress = self.soup.select_one("progress")
         self.assertEqual((progress["value"], progress["max"]), ("0", "9"))
         self.assertEqual(len(self.soup.select("[data-selection]")), 4)
-        check_button = self.soup.select_one(".generation-submit")
-        self.assertEqual(check_button.get_text(strip=True), "Проверить анкету")
-        self.assertTrue(check_button.has_attr("disabled"))
-        self.assertEqual(check_button["form"], "generation-form")
         generation_button = self.soup.select_one(".generation-generate")
         self.assertEqual(
             generation_button.get_text(strip=True), "Сгенерировать 5 образов"
         )
         self.assertTrue(generation_button.has_attr("disabled"))
-        self.assertEqual(
-            generation_button["aria-describedby"], "generation-availability"
-        )
-        self.assertIn(
-            "после подключения сервиса",
-            self.soup.select_one("#generation-availability").get_text(strip=True),
-        )
+        self.assertEqual(generation_button["form"], "generation-form")
+        self.assertIsNone(self.soup.select_one("#generation-availability"))
         self.assertEqual(
             self.soup.select_one(".generation-status")["aria-live"], "polite"
         )

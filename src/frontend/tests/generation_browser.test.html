@@ -129,12 +129,10 @@ try {
     await activateWithSpace(gender);
     assert(!gender.checked && query("progress").value === 0, "Second Space activation did not clear the option");
   });
-  await test("Validation and generation actions expose honest runtime states", async ({ query }) => {
-    assert(!query(".generation-submit").disabled, "Validation action stayed disabled after mount");
-    assert(query(".generation-submit").textContent.includes("Проверить анкету"), "Validation action has a misleading label");
-    assert(query(".generation-generate").disabled, "Unavailable generation action became enabled");
-    assert(query(".generation-generate").textContent.includes("Сгенерировать 5 образов"), "Generation action lost the required label");
-    assert(query("#generation-availability").textContent.includes("после подключения сервиса"), "Missing availability note");
+  await test("Generation action is connected and available", async ({ query }) => {
+    assert(!query(".generation-submit").disabled, "Generation action stayed disabled after mount");
+    assert(query(".generation-submit").textContent.includes("Сгенерировать 5 образов"), "Generation action has a misleading label");
+    assert(!query("#generation-availability"), "Stale unavailable-service note remains");
   });
   await test("Drop shows pending state, then a preview; deletion clears it", async ({ query, drop }) => {
     const card = query('[data-photo="body"]');
@@ -195,7 +193,6 @@ try {
     decodes[0].resolve(); await tick();
     assert(preview.hidden, "Disposed preview reappeared");
     assert(query(".generation-submit").disabled, "Disposed form still enabled");
-    assert(query(".generation-generate").disabled, "Disposed generation action became enabled");
     assert(!query("form").dataset.ready, "Disposed form still initialized");
   });
   await test("Complete form intercepts submission and reports readiness", async ({ query, drop }) => {
@@ -207,7 +204,7 @@ try {
     const event = new Event("submit", { bubbles: true, cancelable: true });
     query("form").dispatchEvent(event);
     assert(event.defaultPrevented && query("progress").value === 9 && query("progress").max === 9, "Form is not complete");
-    assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
+    assert(query(".generation-status").textContent.includes("Загружаем фотографии"), "Missing submission state");
   });
   await test("Summary selections align with the submit button and each other", async ({ query }) => {
     for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();

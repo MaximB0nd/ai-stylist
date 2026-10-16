@@ -24,7 +24,7 @@ services:
       - stylist-net
 
   ai-core-artifact-service:
-    image: ${AI_CORE_ARTIFACT_IMAGE:-ai-stylist-core-artifact-service:local}
+    image: ${AI_CORE_ARTIFACT_IMAGE:-ai-stylist-core-artifact-service:latest}
     restart: unless-stopped
     environment:
       ARTIFACT_S3_ENDPOINT: http://minio:9000
@@ -47,13 +47,15 @@ services:
       - stylist-net
 
   ai-core-orchestrator:
-    image: ${AI_CORE_ORCHESTRATOR_IMAGE:-ai-stylist-core-orchestrator:local}
+    image: ${AI_CORE_ORCHESTRATOR_IMAGE:-ai-stylist-core-main-orchestrator:latest}
     restart: unless-stopped
     command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000"]
     environment:
       ORCHESTRATOR_DATABASE_URL: postgresql+asyncpg://ai_core:${AI_CORE_POSTGRES_PASSWORD}@ai-core-postgres:5432/ai_core
       ORCHESTRATOR_ENCRYPTION_KEY: ${AI_CORE_ORCHESTRATOR_ENCRYPTION_KEY:?AI_CORE_ORCHESTRATOR_ENCRYPTION_KEY is required}
       ORCHESTRATOR_ARTIFACT_SERVICE_URL: http://ai-core-artifact-service:8000
+      ORCHESTRATOR_ARTIFACT_PUBLIC_BASE_URL: ${AI_CORE_ARTIFACT_PUBLIC_BASE_URL:?AI_CORE_ARTIFACT_PUBLIC_BASE_URL is required}
+      ORCHESTRATOR_ARTIFACT_WORKER_BASE_URL: ${AI_CORE_ARTIFACT_PUBLIC_BASE_URL:?AI_CORE_ARTIFACT_PUBLIC_BASE_URL is required}
       ORCHESTRATOR_WORKER_URLS: ${AI_CORE_WORKER_URLS:?AI_CORE_WORKER_URLS must map every required pipeline stage}
       ORCHESTRATOR_WORKER_TIMEOUT_SECONDS: 1800
       ORCHESTRATOR_MIN_INPUT_URL_TTL_SECONDS: 900
@@ -75,12 +77,12 @@ services:
       - stylist-net
 
   ai-core-api:
-    image: ${AI_CORE_API_IMAGE:-ai-stylist-core-public-api:local}
+    image: ${AI_CORE_API_IMAGE:-ai-stylist-core-public-api:latest}
     restart: unless-stopped
     environment:
-      AI_CORE_API_ORCHESTRATOR_URL: http://ai-core-orchestrator:8000
-      AI_CORE_API_INPUT_ORIGINS: '["http://minio:9000"]'
-      AI_CORE_API_MIN_INPUT_URL_TTL_SECONDS: 900
+      PUBLIC_API_ORCHESTRATOR_URL: http://ai-core-orchestrator:8000
+      PUBLIC_API_INPUT_ORIGINS: '["http://minio:9000"]'
+      PUBLIC_API_MIN_INPUT_URL_TTL_SECONDS: 900
     ports:
       - "127.0.0.1:8001:8000"
     depends_on:
