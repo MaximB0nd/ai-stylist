@@ -19,4 +19,6 @@ def test_ai_core_overlay_configures_all_artifact_origins() -> None:
 
     assert "ORCHESTRATOR_ARTIFACT_SERVICE_URL:" in compose
     assert "ORCHESTRATOR_ARTIFACT_PUBLIC_BASE_URL:" in compose
-    assert "ORCHESTRATOR_ARTIFACT_WORKER_BASE_URL:" in compose
+    assert "ORCHESTRATOR_ARTIFACT_WORKER_BASE_URL: ${AI_CORE_ARTIFACT_WORKER_BASE_URL" in compose
+    assert "ARTIFACT_SOURCE_ORIGIN: ${AI_CORE_ARTIFACT_SOURCE_ORIGIN" in compose
+    assert "PUBLIC_API_INPUT_ORIGINS: ${AI_CORE_INPUT_ORIGINS" in compose

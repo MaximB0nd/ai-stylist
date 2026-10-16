@@ -125,21 +125,23 @@ TTL и доступности ИИ. Текущий recovery не планиру�
    Overlay подключает backend к `http://ai-core-api:8000`, публикует API на
    `127.0.0.1:8001`, artifact-service на порту `18081` и orchestrator на
    `127.0.0.1:18180`. `AI_CORE_ARTIFACT_PUBLIC_BASE_URL` должен содержать адрес
-   хоста, достижимый и из контейнеров, и из native MPS worker (обычно LAN IP).
-   Overlay передаёт этот адрес оркестратору одновременно как public download
-   origin и worker-facing artifact origin; control-plane вызовы остаются на
-   Docker DNS `http://ai-core-artifact-service:8000`. Public API настраивается
-   актуальными переменными `PUBLIC_API_*` внутри overlay.
+   artifact-service, доступный клиентам. Worker-facing адрес задаётся отдельно
+   через `AI_CORE_ARTIFACT_WORKER_BASE_URL`: native MPS workers на том же Mac
+   используют `http://127.0.0.1:18081`, а контейнерные workers по умолчанию —
+   Docker DNS `http://ai-core-artifact-service:8000`. Control-plane вызовы также
+   остаются на Docker DNS. Такое разделение сохраняет строгую проверку origin.
    Пароль PostgreSQL и стабильный Fernet key обязательны.
    `AI_CORE_WORKER_URLS` обязан содержать все девять стадий пайплайна. Оркестратор
    возвращает `503` и перечисляет `missing_worker_stages`, если artifact-service
    недоступен или хотя бы одна стадия не настроена. Проверить `/health/ready` и
    `/v1/capabilities` AI Core.
 
-3. **Разрешить AI Core скачивать исходники.** Origin `http://minio:9000` должен быть
-   разрешён в настройках AI Core и доступен службе, которая действительно импортирует
-   фотографии. Важны схема, имя и порт. Проверять нужно из контейнера импортирующего
-   сервиса, а не только из браузера разработчика. MINIO_PRESIGNED_TTL должен превышать
+3. **Разрешить AI Core скачивать исходники.** Origin подписанных backend URL должен
+   совпадать в `AI_CORE_ARTIFACT_SOURCE_ORIGIN` и `AI_CORE_INPUT_ORIGINS` и быть
+   доступен artifact-service. Для полностью контейнерного запуска подходит
+   `http://minio:9000`; для гибридного запуска — LAN IP хоста. Важны схема, имя
+   и порт. Проверять нужно из контейнера импортирующего сервиса, а не только из
+   браузера разработчика. MINIO_PRESIGNED_TTL должен превышать
    актуальный min_ttl_seconds и оставлять запас на передачу и очередь. Сейчас TTL
    backend по умолчанию 3600 секунд. Переменную нужно передать именно процессу backend;
    добавление произвольной переменной в корневой .env не передаёт её контейнеру, если
@@ -179,9 +181,9 @@ TTL и доступности ИИ. Текущий recovery не планиру�
    отказ MinIO, 503 ИИ и перезапуск backend во время задачи. Делать это на тестовых
    данных и тестовой среде; unit-тесты с заглушками не подтверждают реальную сеть.
 
-На macOS FLUX worker запускается нативно на `127.0.0.1:18083` с MPS. Overlay
-обращается к нему через `host.docker.internal:18083`, а worker получает artifact
-URLs из `AI_CORE_ARTIFACT_PUBLIC_BASE_URL`. Этот origin нужно также разрешить в
+На macOS FLUX worker запускается нативно на `127.0.0.1:18088` с MPS. Overlay
+обращается к нему через `host.docker.internal:18088`, а worker получает artifact
+URLs из `AI_CORE_ARTIFACT_WORKER_BASE_URL`. Этот origin нужно также разрешить в
 `GENERATION_ARTIFACT_ORIGINS`. Публикацию порта `18081` следует ограничить
 локальной доверенной сетью firewall. Остальные обязательные processing workers должны
 быть добавлены в `ORCHESTRATOR_WORKER_URLS` до полного product E2E; отсутствие
