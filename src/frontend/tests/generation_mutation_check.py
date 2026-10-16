@@ -37,9 +37,7 @@ def main():
     if not NODE:
         raise SystemExit("Node.js was not found in PATH")
     source = SOURCE.read_text()
-    test = TEST.read_text().replace(
-        '"../public/js/pages/generation.js"', '"../public/js/pages/generation.js"'
-    )
+    test = TEST.read_text()
     for name, (old, new) in MUTATIONS.items():
         if source.count(old) != 1:
             raise SystemExit(f"Mutation target is ambiguous: {name}")
@@ -58,8 +56,11 @@ def main():
             )
             failures = [line for line in result.stdout.splitlines()
                         if line.startswith("ℹ fail ")]
+            failed_tests = [line for line in result.stdout.splitlines()
+                            if line.startswith("✖ ") or line.startswith("not ok ")]
             print(f"{name}: {'DETECTED' if result.returncode else 'MISSED'}; "
-                  f"{'; '.join(failures) or 'no failure summary'}")
+                  f"{'; '.join(failures) or 'no failure summary'}; "
+                  f"{'; '.join(failed_tests[:3])}")
 
 
 if __name__ == "__main__":
