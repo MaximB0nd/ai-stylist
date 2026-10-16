@@ -1,9 +1,12 @@
 import asyncio
 from contextlib import asynccontextmanager
+import hashlib
+from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import uuid
 import pytest
+from PIL import Image
 
 from app.services import generation_queue, generation_results
 
@@ -62,12 +65,24 @@ async def test_image_limit_is_shared_between_albums_and_covers_upload(monkeypatc
     monkeypatch.setattr(generation_queue, "get_generation_queue", lambda: queue)
     release, full = asyncio.Event(), asyncio.Event()
     active = peak = uploaded = 0
+    output = BytesIO()
+    Image.new("RGB", (1024, 1536), (32, 64, 96)).save(output, format="PNG")
+    content = output.getvalue()
+
+    def result(index):
+        return {
+            "order_index": index, "download_url": "http://storage/image",
+            "checksum_sha256": "sha256:" + hashlib.sha256(content).hexdigest(),
+            "size_bytes": len(content), "format": "png", "width": 1024, "height": 1536,
+            "model_version": "model-1", "prompt_version": "prompt-1",
+            "outfit_spec_version": "1.0", "seed": index,
+        }
 
     class Response:
         status_code = 200
 
         async def aiter_bytes(self):
-            yield b"image"
+            yield content
 
     class Client:
         async def __aenter__(self):
@@ -103,7 +118,7 @@ async def test_image_limit_is_shared_between_albums_and_covers_upload(monkeypatc
     monkeypatch.setattr("app.services.generation_cleanup.cleanup_attempt", AsyncMock())
     ai = SimpleNamespace(get_job=AsyncMock(return_value={
         "status": "COMPLETED", "result_delivery_status": "AVAILABLE", "requested_image_count": count,
-        "results": [{"order_index": i, "download_url": "http://storage/image"} for i in range(count)],
+        "results": [result(i) for i in range(count)],
     }), acknowledge_results=AsyncMock())
     storage = SimpleNamespace(upload_bytes=upload)
     tasks = [asyncio.create_task(generation_results._store_results_owned(

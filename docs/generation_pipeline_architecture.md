@@ -77,7 +77,7 @@ MinIO — это **объектное хранилище (Object Storage)**, с�
 $$\text{Ключ (Object Key)} \longrightarrow \text{Значение (Бинарные данные + Метаданные)}$$
 
 * **Бакет (Bucket):** Единственный верхнеуровневый контейнер для проекта — `stylist`. Создается автоматически бэкендом при старте приложения (`StorageService._ensure_bucket()`).
-* **Ключ объекта (Object Key):** Строка-идентификатор, например: `albums/0b457e8e-d98c-4f7a-9a90-fa8cefaee1bd/look_00.webp`.
+* **Ключ объекта (Object Key):** Строка-идентификатор, например: `albums/0b457e8e-d98c-4f7a-9a90-fa8cefaee1bd/look_00.png`.
 * **Виртуальные «папки»:** Символы слэша `/` в имени ключа не создают физических папок на диске. Это просто префиксы в имени ключа. Веб-интерфейс MinIO и S3-клиенты визуально группируют ключи по префиксам со слэшами для удобства навигации.
 
 ### 2.2. Именование ключей в проекте
@@ -95,19 +95,22 @@ stylist/
 └── albums/                                         <-- Сгенерированные готовые образы (луки)
     └── {album_id}/
         └── {processing_token}/
-            ├── look_00.webp
-            ├── look_01.webp
+            ├── look_00.png
+            ├── look_01.png
             ├── ...
-            └── look_09.webp
+            └── look_09.png
 ```
 
 1. **`sources/{user_id}/{generation_id}/face.{ext}` и `body.{ext}`:**
    * Загружаются пользователем при создании задачи.
    * Ссылки сохраняются в таблице `albums.source_face_key` и `albums.source_body_key`.
    * AI Core забирает их по временным ссылкам.
-2. **`albums/{album_id}/{processing_token}/look_{order_index:02d}.webp`:**
+2. **`albums/{album_id}/{processing_token}/look_{order_index:02d}.png`:**
    * Сгенерированные луки, скачанные из AI Core.
-   * Сохраняются с типом `image/webp`; backend ожидает готовый WebP от AI Core и не выполняет конвертацию. SHA-256 сверяется, если checksum передан в результате.
+   * Новые результаты сохраняются с типом `image/png`; backend проверяет PNG
+     signature, декодирование, RGB, размер `1024x1536`, длину и обязательный
+     SHA-256 до записи и ACK. Старые WebP-объекты остаются читаемыми по
+     сохранённым ключам.
    * Ссылки сохраняются в таблице `photos.object_key`.
 
 ---
@@ -119,7 +122,7 @@ stylist/
 Для доступа к файлам используются **Presigned URLs (подписанные временные ссылки)**:
 * Ссылка содержит в query-параметрах криптографическую подпись HMAC с ограниченным сроком действия (TTL, по умолчанию 3600 секунд):
   ```text
-  http://localhost:9000/stylist/albums/.../look_00.webp?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600&X-Amz-Signature=...
+  http://localhost:9000/stylist/albums/.../look_00.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=3600&X-Amz-Signature=...
   ```
 * **Для AI Core:** Backend генерирует presigned URL исходников, чтобы AI-сервис мог скачать их в течение времени генерации.
 * **Для фронтенда:** При запросе `GET /api/v1/albums/{id}` бэкенд на лету генерирует свежие presigned URLs для каждой фотографии в массиве `photos[].url`.

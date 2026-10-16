@@ -1,5 +1,6 @@
 """Exercise recoverable dispatches and actual MinIO SDK exception types."""
 from contextlib import asynccontextmanager
+import hashlib
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -8,6 +9,7 @@ import uuid
 from fastapi import UploadFile
 import httpx
 from minio.error import InvalidResponseError, S3Error, ServerError
+from PIL import Image
 import pytest
 from urllib3.exceptions import MaxRetryError, NewConnectionError, ReadTimeoutError
 from urllib3.response import HTTPResponse
@@ -23,6 +25,19 @@ def s3_error(code, status):
     return S3Error(HTTPResponse(status=status), code, "test error", "resource", "request", "host")
 
 
+def png_result(order_index=0):
+    output = BytesIO()
+    Image.new("RGB", (1024, 1536), (32, 64, 96)).save(output, format="PNG")
+    content = output.getvalue()
+    return content, {
+        "order_index": order_index, "download_url": "http://temporary/image",
+        "checksum_sha256": "sha256:" + hashlib.sha256(content).hexdigest(),
+        "size_bytes": len(content), "format": "png", "width": 1024, "height": 1536,
+        "model_version": "model-1", "prompt_version": "prompt-1",
+        "outfit_spec_version": "1.0", "seed": 42,
+    }
+
+
 @pytest.mark.parametrize("error, expected", [
     (MaxRetryError(None, "/object", NewConnectionError(None, "connection refused")), "DOWNLOADING"),
     (ReadTimeoutError(None, "/object", "timeout"), "DOWNLOADING"),
@@ -33,6 +48,7 @@ def s3_error(code, status):
     (s3_error("NoSuchBucket", 404), "FAILED"),
 ])
 async def test_minio_upload_outage_is_recoverable_without_ack(monkeypatch, error, expected):
+    content, item = png_result()
     repo = SimpleNamespace(finish_work=AsyncMock(), complete_with_photos=AsyncMock())
     @asynccontextmanager
     async def sessions():
@@ -40,7 +56,7 @@ async def test_minio_upload_outage_is_recoverable_without_ack(monkeypatch, error
     class Response:
         status_code = 200
         async def aiter_bytes(self):
-            yield b"image"
+            yield content
     class Http:
         async def __aenter__(self):
             return self
@@ -55,7 +71,7 @@ async def test_minio_upload_outage_is_recoverable_without_ack(monkeypatch, error
     monkeypatch.setattr("app.services.generation_cleanup.cleanup_attempt", AsyncMock())
     ai = SimpleNamespace(get_job=AsyncMock(return_value={
         "status": "COMPLETED", "result_delivery_status": "AVAILABLE", "requested_image_count": 1,
-        "results": [{"order_index": 0, "download_url": "http://temporary/image"}],
+        "results": [item],
     }), acknowledge_results=AsyncMock())
     storage = SimpleNamespace(upload_bytes=AsyncMock(side_effect=error))
     await generation_results._store_results_owned(uuid.uuid4(), uuid.uuid4(), ai, storage, uuid.uuid4())

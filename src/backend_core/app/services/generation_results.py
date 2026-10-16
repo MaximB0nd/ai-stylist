@@ -2,11 +2,13 @@
 
 import asyncio
 import hashlib
+from io import BytesIO
 import logging
 from typing import Optional
 import uuid
 
 import httpx
+from PIL import Image, UnidentifiedImageError
 
 from app.db.repositories.album_repository import AlbumRepository
 from app.db.session import AsyncSessionLocal
@@ -16,6 +18,48 @@ from app.core.config import settings
 from app.services.retry_policy import is_retryable_delivery_error
 
 logger = logging.getLogger(__name__)
+
+EXPECTED_RESULT_FORMAT = "png"
+EXPECTED_RESULT_SIZE = (1024, 1536)
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def _validate_result_metadata(item: dict) -> None:
+    checksum = item.get("checksum_sha256")
+    if (item.get("format") != EXPECTED_RESULT_FORMAT or
+            item.get("width") != EXPECTED_RESULT_SIZE[0] or
+            item.get("height") != EXPECTED_RESULT_SIZE[1] or
+            type(item.get("size_bytes")) is not int or item["size_bytes"] <= 0 or
+            not isinstance(checksum, str) or len(checksum) != 71 or
+            not checksum.startswith("sha256:") or
+            any(character not in "0123456789abcdef" for character in checksum[7:]) or
+            not isinstance(item.get("model_version"), str) or not item["model_version"] or
+            not isinstance(item.get("prompt_version"), str) or not item["prompt_version"] or
+            not isinstance(item.get("outfit_spec_version"), str) or
+            not item["outfit_spec_version"] or
+            type(item.get("seed")) is not int or not 0 <= item["seed"] <= 2**32 - 1):
+        raise ValueError("Invalid PNG result metadata")
+
+
+def _validate_png_bytes(content: bytes, item: dict) -> None:
+    if len(content) != item["size_bytes"]:
+        raise ValueError("PNG result size does not match metadata")
+    if not content.startswith(PNG_SIGNATURE):
+        raise ValueError("Result is not a PNG image")
+    actual_sha = hashlib.sha256(content).hexdigest()
+    if actual_sha != item["checksum_sha256"][7:]:
+        raise ValueError("PNG result checksum does not match metadata")
+    try:
+        with Image.open(BytesIO(content)) as image:
+            if image.format != "PNG" or image.size != EXPECTED_RESULT_SIZE or image.mode != "RGB":
+                raise ValueError("PNG result pixels do not match metadata")
+            image.verify()
+        with Image.open(BytesIO(content)) as image:
+            image.load()
+            if image.size != EXPECTED_RESULT_SIZE or image.mode != "RGB":
+                raise ValueError("PNG result pixels do not match metadata")
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError, SyntaxError) as exc:
+        raise ValueError("Invalid PNG result bytes") from exc
 
 async def _download_and_store_results(
     album_id: uuid.UUID,
@@ -99,6 +143,7 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
             async def _download_and_upload_single(item: dict) -> dict:
                 order_index = item["order_index"]
                 download_url = item["download_url"]
+                _validate_result_metadata(item)
 
                 # Validate URL scheme to prevent arbitrary protocol injection
                 from urllib.parse import urlparse
@@ -126,23 +171,12 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
                         chunks.append(chunk)
 
                 content = b"".join(chunks)
-
-                # Verify SHA256 checksum if provided.
-                # A mismatch means the image is corrupt/tampered — abort the whole album.
-                if item.get("checksum_sha256"):
-                    expected_sha = item["checksum_sha256"].replace("sha256:", "")
-                    actual_sha = hashlib.sha256(content).hexdigest()
-                    if actual_sha != expected_sha:
-                        raise RuntimeError(
-                            f"SHA256 checksum mismatch for order {order_index}: "
-                            f"expected {expected_sha}, got {actual_sha}. "
-                            "Image may be corrupt or tampered."
-                        )
+                await asyncio.to_thread(_validate_png_bytes, content, item)
 
                 # Store in Permanent MinIO
                 # Separate attempts cannot overwrite files referenced by the winning worker.
-                dest_key = f"albums/{album_id}/{token}/look_{order_index:02d}.webp"
-                await storage.upload_bytes(dest_key, content, content_type="image/webp")
+                dest_key = f"albums/{album_id}/{token}/look_{order_index:02d}.png"
+                await storage.upload_bytes(dest_key, content, content_type="image/png")
 
                 return {
                     "order_index": order_index,

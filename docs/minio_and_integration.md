@@ -7,7 +7,7 @@ PostgreSQL хранит пользователей, задачи, состоян
 не содержит изображение: она указывает, какой объект нужно получить из MinIO.
 
 Бакет — контейнер объектов, здесь обычно `stylist`. Ключ — имя объекта, например
-`albums/<album_id>/<processing_token>/look_00.webp`. Символы `/` задают префиксы,
+`albums/<album_id>/<processing_token>/look_00.png`. Символы `/` задают префиксы,
 а не настоящие каталоги. Исходники лежат под `sources/`; для них настроено удаление
 по lifecycle через один день. Результаты сохраняются постоянно под `albums/`.
 
@@ -119,12 +119,18 @@ TTL и доступности ИИ. Текущий recovery не планиру�
    В Compose миграции PostgreSQL применяются перед запуском uvicorn. Сама сборка
    образа не изменяет схему БД. Команда запуска: `docker compose up -d --build`.
 
-2. **Подключить AI Core к backend.** Текущий основной Compose не содержит службы
-   AI Core. Её нужно запустить отдельно и настроить AI_CORE_URL. Если ИИ находится
-   в той же Docker-сети, допустим адрес `http://ai-core:8001`; если служба запущена
-   на хосте Docker Desktop, пример — `http://host.docker.internal:8001`.
-   Реальные имя и порт определяются запуском ИИ. Пример не означает, что ИИ уже
-   реализован, запущен или готов. Проверить `/health/ready` и `/v1/capabilities` ИИ.
+2. **Подключить AI Core к backend.** Собрать три образа из `ai-stylist-core`:
+   artifact-service, main-orchestrator и public API, затем запустить
+   `docker compose -f docker-compose.yml -f docker-compose.ai-core.yml up -d`.
+   Overlay подключает backend к `http://ai-core-api:8000`, публикует API на
+   `127.0.0.1:8001`, artifact-service на порту `18081` и orchestrator на
+   `127.0.0.1:18180`. `AI_CORE_ARTIFACT_PUBLIC_BASE_URL` должен содержать адрес
+   хоста, достижимый и из контейнеров, и из native MPS worker (обычно LAN IP).
+   Пароль PostgreSQL и стабильный Fernet key обязательны.
+   `AI_CORE_WORKER_URLS` обязан содержать все девять стадий пайплайна. Оркестратор
+   возвращает `503` и перечисляет `missing_worker_stages`, если artifact-service
+   недоступен или хотя бы одна стадия не настроена. Проверить `/health/ready` и
+   `/v1/capabilities` AI Core.
 
 3. **Разрешить AI Core скачивать исходники.** Origin `http://minio:9000` должен быть
    разрешён в настройках AI Core и доступен службе, которая действительно импортирует
@@ -168,6 +174,14 @@ TTL и доступности ИИ. Текущий recovery не планиру�
    COMPLETED, ACK и открытие всех пяти изображений. Отдельно проверить временный
    отказ MinIO, 503 ИИ и перезапуск backend во время задачи. Делать это на тестовых
    данных и тестовой среде; unit-тесты с заглушками не подтверждают реальную сеть.
+
+На macOS FLUX worker запускается нативно на `127.0.0.1:18083` с MPS. Overlay
+обращается к нему через `host.docker.internal:18083`, а worker получает artifact
+URLs из `AI_CORE_ARTIFACT_PUBLIC_BASE_URL`. Этот origin нужно также разрешить в
+`GENERATION_ARTIFACT_ORIGINS`. Публикацию порта `18081` следует ограничить
+локальной доверенной сетью firewall. Остальные обязательные processing workers должны
+быть добавлены в `ORCHESTRATOR_WORKER_URLS` до полного product E2E; отсутствие
+этих адресов означает ожидающее задание, а не успешную production-конфигурацию.
 
 ## Проверки изменений
 
