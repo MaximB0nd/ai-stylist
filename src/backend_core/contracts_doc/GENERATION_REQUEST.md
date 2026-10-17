@@ -13,7 +13,7 @@
 
 - `face_photo`: бинарный файл (портрет крупным планом, webp/jpeg/png)
 - `body_photo`: бинарный файл (фото в полный рост, webp/jpeg/png)
-- `age`: `26` (целое число)
+- `age`: `26` (целое число от 16 до 100 включительно)
 - `height`: `172` (целое число, в см)
 - `gender`: `"f"` или `"m"` (пол: female / male)
 - `situation`: `"office"` (ровно 1 значение: `"street"`, `"study"`, `"office"`, `"evening"`)

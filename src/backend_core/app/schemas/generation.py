@@ -54,14 +54,14 @@ class GenerationRequestForm(BaseModel):
     """Validated form-data fields for generation request (parsed manually from form).
 
     Product ranges are narrower than the AI Core contract:
-      - age: 18..100 (AI Core accepts 1..120)
+      - age: 16..100 (AI Core accepts 1..120)
       - height: 120..230 cm (AI Core accepts 80..240)
 
     Styles are limited to the AI Core accepted set:
       minimal, classic, casual, romantic; minimalism is a REST alias.
     """
 
-    age: int = Field(..., ge=18, le=100, description="User age (18–100, product restriction)")
+    age: int = Field(..., ge=16, le=100, description="User age (16–100, product restriction)")
     height: int = Field(..., ge=120, le=230, description="Height in cm (120–230, product restriction)")
     gender: GenderEnum = Field(..., description="Gender: 'f' or 'm'")
     situation: SituationEnum

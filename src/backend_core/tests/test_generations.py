@@ -500,7 +500,7 @@ async def test_generation_uploads_correct_keys(
     "field, value, test_id",
     [
         ("age", "0", "age_too_low"),
-        ("age", "17", "age_17_below_min"),
+        ("age", "15", "age_15_below_min"),
         ("age", "101", "age_101_above_max"),
         ("age", "151", "age_too_high"),
         ("height", "49", "height_too_low"),
@@ -641,8 +641,8 @@ async def test_generation_rejects_invalid_magic_bytes(client: httpx.AsyncClient)
 @pytest.mark.parametrize(
     "age, height, style",
     [
-        ("18", "120", "classic"),
-        ("18", "230", "minimalism"),
+        ("16", "120", "classic"),
+        ("16", "230", "minimalism"),
         ("100", "120", "romantic"),
         ("100", "230", "casual"),
         ("25", "175", "minimal"),
@@ -655,7 +655,7 @@ async def test_generation_contract_boundary_success(
     height: str,
     style: str,
 ):
-    """Boundary values for age (18, 100), height (120, 230), and AI Core styles succeed with 202."""
+    """Boundary values for age (16, 100), height (120, 230), and AI Core styles succeed with 202."""
     form = {**VALID_FORM, "age": age, "height": height, "styles": style}
     resp = await client.post(
         "/api/v1/generations",
