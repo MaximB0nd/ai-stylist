@@ -93,26 +93,19 @@ class GenerationLayoutTests(unittest.TestCase):
                 self.assertIsNotNone(self.soup.find(id=reference))
         self.assertEqual(len(self.soup.select(".generation-error[hidden]")), 9)
 
-    def test_summary_separates_validation_from_future_generation(self):
+    def test_summary_has_one_submit_control_and_live_validation_status(self):
         progress = self.soup.select_one("progress")
         self.assertEqual((progress["value"], progress["max"]), ("0", "9"))
         self.assertEqual(len(self.soup.select("[data-selection]")), 4)
         check_button = self.soup.select_one(".generation-submit")
-        self.assertEqual(check_button.get_text(strip=True), "Проверить анкету")
-        self.assertTrue(check_button.has_attr("disabled"))
+        self.assertEqual(check_button.get_text(strip=True), "Сгенерировать")
+        self.assertFalse(check_button.has_attr("disabled"))
+        self.assertEqual(check_button["type"], "submit")
         self.assertEqual(check_button["form"], "generation-form")
-        generation_button = self.soup.select_one(".generation-generate")
-        self.assertEqual(
-            generation_button.get_text(strip=True), "Сгенерировать 5 образов"
-        )
-        self.assertTrue(generation_button.has_attr("disabled"))
-        self.assertEqual(
-            generation_button["aria-describedby"], "generation-availability"
-        )
-        self.assertIn(
-            "после подключения сервиса",
-            self.soup.select_one("#generation-availability").get_text(strip=True),
-        )
+        self.assertEqual(self.soup.select(".generation-generate"), [check_button])
+        self.assertEqual(len(self.soup.select('.generation-page button[type="submit"]')), 1)
+        self.assertIsNotNone(self.soup.select_one(f'form#{check_button["form"]}'))
+        self.assertEqual(self.soup.select_one(".generation-status")["role"], "status")
         self.assertEqual(
             self.soup.select_one(".generation-status")["aria-live"], "polite"
         )
@@ -137,11 +130,11 @@ class GenerationLayoutTests(unittest.TestCase):
         self.assertFalse(choices.has_attr("hidden"))
         self.assertEqual(len(choices.select("[data-summary-item]")), 4)
         self.assertTrue(
-            all("is-empty" in row.get("class", []) for row in choices.select("div"))
+            all("is-empty" in row.get("class", []) for row in choices.select("[data-summary-item]"))
         )
         self.assertTrue(
             all(
-                value.get_text(strip=True) == "Не выбрано"
+                value.get_text(strip=True) == ""
                 for value in choices.select("[data-selection]")
             )
         )
@@ -222,15 +215,18 @@ class GenerationLayoutTests(unittest.TestCase):
             self.assertEqual(empty.parent["for"], photo.select_one("input")["id"])
             self.assertFalse(photo.select_one(".generation-preview").has_attr("src"))
 
-    def test_selection_thumbnails_are_real_edit_controls(self):
+    def test_selection_previews_are_empty_until_a_question_is_answered(self):
         for key, title, _ in CHOICES:
-            button = self.soup.select_one(f'[data-edit-question="{key}"]')
-            self.assertEqual(button["type"], "button")
-            self.assertEqual(button["aria-label"], f"Изменить: {title}")
-            self.assertIsNotNone(button.select_one(f'[data-selection="{key}"]'))
-            image = button.img
-            self.assertTrue(image.has_attr("hidden"))
-            self.assertFalse(image.has_attr("src"))
+            with self.subTest(question=key):
+                item = self.soup.select_one(f'[data-summary-item="{key}"]')
+                self.assertEqual(item.dt.get_text(strip=True), title)
+                self.assertEqual(item.select_one(f'[data-selection="{key}"]').get_text(strip=True), "")
+                image = item.select_one(f'img[data-selection-image="{key}"]')
+                self.assertTrue(image.has_attr("hidden"))
+                self.assertFalse(image.has_attr("src"))
+                self.assertEqual(image["alt"], "")
+                self.assertEqual(item.select_one(".generation-selection")["aria-hidden"], "true")
+                self.assertIsNotNone(self.soup.select_one(f'[data-question="{key}"] input[type="radio"]'))
 
     def test_photo_status_and_action_hierarchy_are_accessible(self):
         for photo in self.soup.select("[data-photo]"):
