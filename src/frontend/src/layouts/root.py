@@ -12,7 +12,14 @@ def layout():
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ page_title }}</title>
     <meta name="description" content="{{ page_description }}" />
-    <link href="/css/index.css?v=front20-21" rel="stylesheet" />
+    <script>
+      try {
+        if (localStorage.getItem("ai-stylist-sidebar-collapsed") === "true") {
+          document.documentElement.classList.add("is-sidebar-collapsed");
+        }
+      } catch {}
+    </script>
+    <link href="/css/index.css?v=front19-header-5" rel="stylesheet" />
     <script type="module" src="/js/main.js?v=front20-7"></script>
   </head>
   <body>

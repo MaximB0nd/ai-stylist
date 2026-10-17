@@ -498,7 +498,7 @@
 /* Scope the compact shell to generation until the shared mobile layout is adopted. */
 @media (max-width: 900px) {
   .site-shell:has(.generation-page) { grid-template-columns: minmax(0, 1fr); --page-gutter: 20px; }
-  .site-shell:has(.generation-page) .site-sidebar { position: static; height: auto; padding: 8px 12px; border-right: 0; border-bottom: 0; }
+  .site-shell:has(.generation-page) .site-sidebar { position: relative; height: auto; padding: 50px 12px 8px; border-right: 0; border-bottom: 0; }
   .site-shell:has(.generation-page) .site-sidebar__brand,
   .site-shell:has(.generation-page) .site-sidebar__bottom { display: none; }
   .site-shell:has(.generation-page) .site-sidebar__nav { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 0; }
