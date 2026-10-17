@@ -1,0 +1,37 @@
+name: Frontend Generation Lab
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/frontend/**'
+      - '.github/workflows/frontend-generation-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.5"
+          python-version: "3.14"
+      - name: Install locked dependencies
+        working-directory: src/frontend
+        run: uv sync --frozen
+      - name: Check generation component
+        working-directory: src/frontend
+        run: |
+          uv run python -m unittest tests.test_generation_lab -v
+          GENERATION_LAB_MODE=full uv run python generation_lab.py --check
+      - name: Verify invalid configuration fails
+        working-directory: src/frontend
+        run: |
+          if GENERATION_LAB_MODE=invalid uv run python generation_lab.py --check; then
+            echo "Invalid configuration unexpectedly succeeded"
+            exit 1
+          fi
