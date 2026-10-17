@@ -61,7 +61,7 @@ class GenerationRequestForm(BaseModel):
       minimal, classic, casual, romantic; minimalism is a REST alias.
     """
 
-    age: int = Field(..., ge=18, le=100, description="User age (18–100, product restriction)")
+    age: int = Field(..., ge=16, le=100, description="User age (18–100, product restriction)")
     height: int = Field(..., ge=120, le=230, description="Height in cm (120–230, product restriction)")
     gender: GenderEnum = Field(..., description="Gender: 'f' or 'm'")
     situation: SituationEnum
