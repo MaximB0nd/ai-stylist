@@ -59,7 +59,7 @@ def _block_html(index, text):
 
 
 def _policy_content():
-    return "".join(_block_html(index, text) for index, text in enumerate(PRIVACY_BLOCKS))
+    return "".join(_block_html(index, text) for index, text in enumerate(PRIVACY_BLOCKS[1:], start=1))
 
 
 def _privacy_nav():
@@ -78,6 +78,9 @@ def page():
     return app_shell(
         f"""
 <section class="info-page privacy-page" aria-labelledby="privacy-title">
+  <div class="info-hero privacy-hero">
+    {_block_html(0, PRIVACY_BLOCKS[0])}
+  </div>
   <div class="privacy-layout">
     <article class="privacy-document">
       {_policy_content()}
