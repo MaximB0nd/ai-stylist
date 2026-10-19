@@ -1,6 +1,24 @@
 {
-  "age": 58,
-  "gender": "female",
-  "full_body_image": "full-body.png",
-  "face_image": "face.png"
+  "requested_image_count": 1,
+  "inputs": {
+    "face": {
+      "url": "http://photos.example/set-03/face.png",
+      "expires_at": "2099-01-01T00:00:00Z"
+    },
+    "body": {
+      "url": "http://photos.example/set-03/full-body.png",
+      "expires_at": "2099-01-01T00:00:00Z"
+    }
+  },
+  "person": {
+    "age": 58,
+    "height_cm": 168,
+    "gender": "female"
+  },
+  "preferences": {
+    "occasion": "office",
+    "style": "minimal",
+    "shoe": "loafers",
+    "mood": "confident"
+  }
 }

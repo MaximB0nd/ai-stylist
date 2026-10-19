@@ -1,0 +1,129 @@
+{
+  "requested_image_count": 1,
+  "inputs": {
+    "face": {
+      "url": "http://photos.example/set-01/face.png",
+      "expires_at": "2099-01-01T00:00:00Z"
+    },
+    "body": {
+      "url": "http://photos.example/set-01/full-body.png",
+      "expires_at": "2099-01-01T00:00:00Z"
+    }
+  },
+  "person": {
+    "age": 27,
+    "height_cm": 172,
+    "gender": "female"
+  },
+  "preferences": {
+    "occasion": "office",
+    "style": "minimal",
+    "shoe": "loafers",
+    "mood": "confident"
+  },
+  "drape_test": {
+    "protocol_version": "aba-v1",
+    "drape_set_id": "example-catalog",
+    "drape_set_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "lighting": "neutral_daylight",
+    "color_interference_removed": true,
+    "comparisons": [
+      {
+        "pair_id": "temperature_1",
+        "axis": "temperature",
+        "direction_a": "warm",
+        "direction_b": "cool",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "temperature_2",
+        "axis": "temperature",
+        "direction_a": "warm",
+        "direction_b": "cool",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "temperature_3",
+        "axis": "temperature",
+        "direction_a": "warm",
+        "direction_b": "cool",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "depth_1",
+        "axis": "depth",
+        "direction_a": "light",
+        "direction_b": "deep",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "depth_2",
+        "axis": "depth",
+        "direction_a": "light",
+        "direction_b": "deep",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "depth_3",
+        "axis": "depth",
+        "direction_a": "light",
+        "direction_b": "deep",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "chroma_1",
+        "axis": "chroma",
+        "direction_a": "clear",
+        "direction_b": "muted",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "chroma_2",
+        "axis": "chroma",
+        "direction_a": "clear",
+        "direction_b": "muted",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "chroma_3",
+        "axis": "chroma",
+        "direction_a": "clear",
+        "direction_b": "muted",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "contrast_1",
+        "axis": "contrast",
+        "direction_a": "low",
+        "direction_b": "high",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "contrast_2",
+        "axis": "contrast",
+        "direction_a": "low",
+        "direction_b": "high",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      },
+      {
+        "pair_id": "contrast_3",
+        "axis": "contrast",
+        "direction_a": "low",
+        "direction_b": "high",
+        "first_pass": "a",
+        "repeat_pass": "a"
+      }
+    ]
+  }
+}
