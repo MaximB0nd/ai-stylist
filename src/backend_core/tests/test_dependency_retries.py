@@ -1,3 +1,4 @@
+from tests.image_fixtures import image_bytes
 """Exercise recoverable dispatches and actual MinIO SDK exception types."""
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -40,7 +41,7 @@ async def test_minio_upload_outage_is_recoverable_without_ack(monkeypatch, error
     class Response:
         status_code = 200
         async def aiter_bytes(self):
-            yield b"image"
+            yield image_bytes()
     class Http:
         async def __aenter__(self):
             return self
@@ -81,7 +82,7 @@ async def test_initial_dispatch_outage_returns_accepted_and_replays_same_job(fai
     form = GenerationRequestForm(age=25, height=175, gender="m", situation="office",
                                  styles="casual", shoes="loafers", impressions="confident")
     def photo():
-        return UploadFile(filename="photo.jpg", file=BytesIO(b"\xff\xd8\xff\xe0test"), headers={"content-type": "image/jpeg"})
+        return UploadFile(filename="photo.jpg", file=BytesIO(image_bytes("JPEG")), headers={"content-type": "image/jpeg"})
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
         ai = AICoreClient(client=http)
         result = await GenerationService(repo, storage, ai).create_generation(FAKE_USER_ID, photo(), photo(), form)

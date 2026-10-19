@@ -167,6 +167,10 @@ class FakeStorageService:
         self.uploaded_files[object_key] = (data, content_type)
         return object_key
 
+    async def download_bytes(self, object_key, max_bytes):
+        from tests.image_fixtures import image_bytes
+        return image_bytes("WEBP")
+
 
 class FakeAICoreClient:
     def __init__(self):
@@ -189,10 +193,13 @@ class FakeAICoreClient:
 
 
 @pytest.fixture
-def fake_repos():
+def fake_repos(monkeypatch):
     album_repo = FakeAlbumRepository()
     storage = FakeStorageService()
     ai_client = FakeAICoreClient()
+    from unittest.mock import AsyncMock
+    monkeypatch.setattr("app.core.dependencies.get_storage_service", lambda: storage)
+    monkeypatch.setattr("app.services.generation_cleanup.cleanup_attempt", AsyncMock())
     return album_repo, storage, ai_client
 
 

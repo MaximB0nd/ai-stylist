@@ -90,7 +90,7 @@ class StorageService:
         )
         return object_key
 
-    async def upload_bytes(self, object_key: str, data: bytes, content_type: str = "image/webp") -> str:
+    async def upload_bytes(self, object_key: str, data: bytes, content_type: str = "image/png") -> str:
         """Upload raw bytes to MinIO. Returns the object key."""
         import io
 
@@ -105,6 +105,25 @@ class StorageService:
             await asyncio.gather(upload, return_exceptions=True)
             raise
         return object_key
+
+    async def delete_object(self, object_key: str) -> None:
+        """Remove only the explicitly named object of an unsuccessful source attempt."""
+        await asyncio.to_thread(self.client.remove_object, self.bucket, object_key)
+
+    async def download_bytes(self, object_key: str, max_bytes: int) -> bytes:
+        """Read a legacy result with a strict compressed-byte budget."""
+        def read():
+            response = self.client.get_object(self.bucket, object_key)
+            try:
+                data = response.read(max_bytes + 1)
+                if len(data) > max_bytes:
+                    from app.services.image_service import ImageTooLarge
+                    raise ImageTooLarge("Stored image exceeds 15 MiB")
+                return data
+            finally:
+                response.close()
+                response.release_conn()
+        return await asyncio.to_thread(read)
 
     def _put_object(self, key: str, data: BinaryIO, length: int, content_type: str) -> None:
         """Synchronous put_object call for use with asyncio.to_thread.

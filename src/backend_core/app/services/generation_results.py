@@ -14,8 +14,34 @@ from app.services.ai_core_client import AICoreClient
 from app.services.generation_lease import LeaseLostError, keep_lease
 from app.core.config import settings
 from app.services.retry_policy import is_retryable_delivery_error
+from app.services.image_service import normalize_result
 
 logger = logging.getLogger(__name__)
+
+
+async def store_legacy_results(album_id, photos, token, repo, storage):
+    """Normalize legacy object references into an isolated PNG result attempt."""
+    from app.services.generation_queue import get_generation_queue
+    from app.services.generation_cleanup import cleanup_attempt
+    try:
+        normalized = []
+        for photo in photos:
+            async with get_generation_queue().images:
+                content = await storage.download_bytes(photo["object_key"], 15 * 1024 * 1024)
+                content = await normalize_result(content)
+                key = f"albums/{album_id}/{token}/look_{photo['order_index']:02d}.png"
+                await storage.upload_bytes(key, content, content_type="image/png")
+                normalized.append({**photo, "object_key": key})
+        return await repo.complete_with_photos(album_id, normalized, token)
+    except Exception as exc:
+        await repo.finish_work(
+            album_id, token,
+            status="DOWNLOADING" if is_retryable_delivery_error(exc) else "FAILED",
+            error_message="Failed to normalize callback results: " + str(exc)[:400],
+        )
+        return False
+    finally:
+        await cleanup_attempt(album_id, token, storage)
 
 async def _download_and_store_results(
     album_id: uuid.UUID,
@@ -141,8 +167,9 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
 
                 # Store in Permanent MinIO
                 # Separate attempts cannot overwrite files referenced by the winning worker.
-                dest_key = f"albums/{album_id}/{token}/look_{order_index:02d}.webp"
-                await storage.upload_bytes(dest_key, content, content_type="image/webp")
+                content = await normalize_result(content)
+                dest_key = f"albums/{album_id}/{token}/look_{order_index:02d}.png"
+                await storage.upload_bytes(dest_key, content, content_type="image/png")
 
                 return {
                     "order_index": order_index,

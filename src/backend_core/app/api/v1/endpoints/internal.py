@@ -333,7 +333,15 @@ async def _accept_callback(album_repo, album, payload):
     if outcome == "already_finalized":
         return {"success": True, "album_id": str(album.id), "status": outcome}
     token = await album_repo.atomic_claim_for_download(album.id)
-    if token is not None and await album_repo.complete_with_photos(album.id, photos_data, token):
-        return {"success": True, "album_id": str(album.id)}
+    if token is not None:
+        from app.core.dependencies import get_storage_service
+        from app.services.generation_lease import keep_lease
+        from app.services.generation_results import store_legacy_results
+        async with keep_lease(album.id, token):
+            completed = await store_legacy_results(
+                album.id, photos_data, token, album_repo, get_storage_service(),
+            )
+        if completed:
+            return {"success": True, "album_id": str(album.id)}
     # Recovery consumes the persisted callback after the current lease expires/releases.
     return {"success": True, "album_id": str(album.id), "status": "accepted"}

@@ -1,3 +1,4 @@
+from tests.image_fixtures import image_bytes
 """Tests for AICoreClient and its integration with GenerationService."""
 
 from datetime import datetime, timezone
@@ -226,9 +227,9 @@ async def test_generation_service_dispatches_job_to_ai_core():
             shoes="loafers",
             impressions="confident",
         )
-        face_file = UploadFile(filename="face.jpg", file=BytesIO(b"\xff\xd8\xff\xe0fake-jpeg"))
+        face_file = UploadFile(filename="face.jpg", file=BytesIO(image_bytes("JPEG")))
         face_file.headers = {"content-type": "image/jpeg"}
-        body_file = UploadFile(filename="body.jpg", file=BytesIO(b"\xff\xd8\xff\xe0fake-jpeg"))
+        body_file = UploadFile(filename="body.jpg", file=BytesIO(image_bytes("JPEG")))
         body_file.headers = {"content-type": "image/jpeg"}
 
         response = await service.create_generation(
@@ -281,9 +282,9 @@ async def test_generation_service_dispatch_failure_marks_failed_and_raises_502()
             shoes="loafers",
             impressions="confident",
         )
-        face_file = UploadFile(filename="face.jpg", file=BytesIO(b"\xff\xd8\xff\xe0fake-jpeg"))
+        face_file = UploadFile(filename="face.jpg", file=BytesIO(image_bytes("JPEG")))
         face_file.headers = {"content-type": "image/jpeg"}
-        body_file = UploadFile(filename="body.jpg", file=BytesIO(b"\xff\xd8\xff\xe0fake-jpeg"))
+        body_file = UploadFile(filename="body.jpg", file=BytesIO(image_bytes("JPEG")))
         body_file.headers = {"content-type": "image/jpeg"}
 
         with pytest.raises(HTTPException) as exc_info:
