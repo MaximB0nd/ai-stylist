@@ -9,11 +9,10 @@ def app_shell(content, title="Носи Красиво", active_page=None):
     return html(f"""
 <div class="site-shell">
   <a class="site-skip-link" href="#main-content" pp-spa="false">Перейти к содержимому</a>
+  {header(title, active_page)}
   {sidebar(active_page)}
 
   <div class="site-shell__body">
-    {header(title)}
-
     <main class="site-main" id="main-content" tabindex="-1">
       {content}
     </main>

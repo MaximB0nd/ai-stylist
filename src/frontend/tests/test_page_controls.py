@@ -2,19 +2,21 @@ import unittest
 
 from bs4 import BeautifulSoup
 
-from src.pages import gallery, generation, home
+from src.pages import feedback, gallery, generation, home, privacy, user_guide
 
 
 class PageControlsTests(unittest.TestCase):
-    def test_generation_check_stays_disabled_until_javascript_initializes(self):
+    def test_generation_submit_is_available_and_targets_the_questionnaire(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")
         fields = soup.select('.generation-form input[type="number"]')
         self.assertEqual(len(fields), 2)
         self.assertTrue(all(not field.has_attr("disabled") for field in fields))
         button = soup.select_one(".generation-submit")
         self.assertEqual(button["type"], "submit")
-        self.assertTrue(button.has_attr("disabled"))
+        self.assertFalse(button.has_attr("disabled"))
         self.assertEqual(button["form"], "generation-form")
+        self.assertEqual(button.get_text(strip=True), "Сгенерировать")
+        self.assertIsNotNone(soup.select_one(f'form#{button["form"]}'))
 
     def test_gallery_uses_album_links_and_real_previews(self):
         soup = BeautifulSoup(str(gallery.page()), "html.parser")
@@ -92,6 +94,29 @@ class PageControlsTests(unittest.TestCase):
             image = guide.select_one(f".home-guide__vika--{scene}")
             self.assertTrue(image["data-animated-src"].endswith(".gif"))
             self.assertTrue(image["data-static-src"].endswith(".png"))
+
+    def test_header_links_to_info_pages(self):
+        soup = BeautifulSoup(str(generation.page()), "html.parser")
+        self.assertEqual(
+            {link.get_text(strip=True): link["href"] for link in soup.select(".site-header__nav a")},
+            {
+                "Политика": "/privacy",
+                "Помощь": "/user-guide",
+                "Контакты": "/feedback",
+            },
+        )
+
+    def test_info_pages_render_project_sections(self):
+        pages = (
+            (privacy.page, "privacy-title", "Политика конфиденциальности"),
+            (user_guide.page, "guide-title", "Помощь"),
+            (feedback.page, "feedback-title", "Обратная связь"),
+        )
+        for render, heading_id, title in pages:
+            with self.subTest(title=title):
+                soup = BeautifulSoup(str(render()), "html.parser")
+                self.assertEqual(soup.select_one(f"#{heading_id}").get_text(strip=True), title)
+                self.assertIsNotNone(soup.select_one(".info-page"))
 
 
 if __name__ == "__main__":

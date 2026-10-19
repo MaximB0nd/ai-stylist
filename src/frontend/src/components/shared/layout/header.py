@@ -1,12 +1,31 @@
 from html import escape
 
 
-def header(title="Носи Красиво"):
+def header(title="Носи Красиво", active_page=None):
     safe_title = escape(str(title))
+    nav_items = (
+        ("privacy", "/privacy", "Политика"),
+        ("user-guide", "/user-guide", "Помощь"),
+        ("feedback", "/feedback", "Контакты"),
+    )
+    nav_links = ""
+    for key, href, label in nav_items:
+        current = ' aria-current="page"' if active_page == key else ""
+        nav_links += f'<a href="{href}"{current}>{label}</a>'
 
     return f"""
 <header class="site-header">
+  <div class="site-header__brand-group">
+    <a class="site-header__brand" href="/" aria-label="Носи Красиво — главная">
+      <img src="/images/brand/logo-mark.png" alt="" width="68" height="68" />
+      <span>Носи <em>Красиво</em></span>
+    </a>
+  </div>
   <h1 class="site-header__title">{safe_title}</h1>
+
+  <nav class="site-header__nav" aria-label="Информационные страницы">
+    {nav_links}
+  </nav>
 
   <button class="site-header__profile site-header__profile-button" type="button" id="authTrigger" aria-haspopup="dialog" aria-controls="authModal">
     <span class="site-avatar" aria-hidden="true" data-auth-avatar><span class="site-icon site-icon--user-round"></span></span>
