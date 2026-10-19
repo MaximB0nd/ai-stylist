@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 import uuid
@@ -14,6 +15,9 @@ from app.schemas.generation import (
 from app.services.ai_core_client import AICoreClient
 from app.services.storage_service import StorageService
 from app.services.retry_policy import is_retryable_ai_error
+from app.services.image_service import (
+    InvalidImage, ImageTooLarge, MAX_SOURCE_BYTES, image_slot, normalize_png, run_image_work,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,43 +47,42 @@ class GenerationService:
         form: GenerationRequestForm,
     ) -> GenerationAcceptedResponse:
         """Validate photos, upload to storage, create album, dispatch to AI Core, return 202 response."""
-        await self._validate_photo(face_photo, "face_photo")
-        await self._validate_photo(body_photo, "body_photo")
-
-
         generation_id = uuid.uuid4()
         title = SITUATION_TITLES.get(form.situation.value, form.situation.value)
+        face_key = f"sources/{user_id}/{generation_id}/face.png"
+        body_key = f"sources/{user_id}/{generation_id}/body.png"
 
-        # Upload source photos to MinIO
-        face_key = f"sources/{user_id}/{generation_id}/face{_extension(face_photo)}"
-        body_key = f"sources/{user_id}/{generation_id}/body{_extension(body_photo)}"
+        # Hold admission through uploads so waiting requests do not accumulate
+        # decoded rasters or converted PNG buffers while MinIO is unavailable.
+        async with image_slot():
+            face_png = await self._prepare_photo(face_photo, "face_photo")
+            body_png = await self._prepare_photo(body_photo, "body_photo")
+            attempted = []
+            try:
+                for key, content in ((face_key, face_png), (body_key, body_png)):
+                    attempted.append(key)
+                    await self.storage.upload_bytes(key, content, content_type="image/png")
+            except BaseException as exc:
+                await self._cleanup_sources(attempted)
+                if isinstance(exc, asyncio.CancelledError):
+                    raise
+                logger.warning("Failed to store sources for generation %s", generation_id)
+                raise HTTPException(status_code=502, detail="Failed to store uploaded photos. Please try again.") from None
 
-        try:
-            await self.storage.upload_file(face_key, face_photo)
-            await self.storage.upload_file(body_key, body_photo)
-        except Exception:
-            logger.exception("Failed to upload source photos for generation %s", generation_id)
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Failed to store uploaded photos. Please try again.",
-            )
-
-        # Persist album record with initial status VALIDATING
-        album = await self.album_repo.create_album(
-            user_id=user_id,
-            generation_id=generation_id,
-            title=title,
-            situation=form.situation.value,
-            styles=[form.styles.value],
-            shoes=[form.shoes.value],
-            impressions=[form.impressions.value],
-            user_age=form.age,
-            user_height=form.height,
-            gender=form.gender.value,
-            source_face_key=face_key,
-            source_body_key=body_key,
-            status="VALIDATING",
-        )
+            try:
+                album = await self.album_repo.create_album(
+                    user_id=user_id, generation_id=generation_id, title=title,
+                    situation=form.situation.value, styles=[form.styles.value],
+                    shoes=[form.shoes.value], impressions=[form.impressions.value],
+                    user_age=form.age, user_height=form.height, gender=form.gender.value,
+                    source_face_key=face_key, source_body_key=body_key, status="VALIDATING",
+                )
+            except Exception:
+                # A commit can succeed even if its response is lost. Keep source
+                # objects on an ambiguous DB error; lifecycle removes orphans.
+                logger.warning("Could not persist source metadata for generation %s", generation_id)
+                raise
+        del face_png, body_png, content
 
         current_status = "VALIDATING"
 
@@ -121,70 +124,26 @@ class GenerationService:
             status_poll_url=f"{settings.API_V1_PREFIX}/generations/{generation_id}/status",
         )
 
+    async def _cleanup_sources(self, keys):
+        for key in keys:
+            try:
+                await self.storage.delete_object(key)
+            except Exception:
+                logger.warning("Could not clean failed source upload")
+
     @staticmethod
-    async def _validate_photo(file: UploadFile, field_name: str) -> None:
-        """Validate that uploaded file is an allowed image type, matches magic bytes,
-        and does not exceed MAX_IMAGE_SIZE.
-
-        Reads the entire file content into memory here so we can check both the
-        magic signature AND the total size before handing the file to storage.
-        The UploadFile is seeked back to position 0 afterwards so subsequent
-        reads (e.g. upload_file) work correctly.
-        """
+    async def _prepare_photo(file: UploadFile, field_name: str) -> bytes:
+        """Read a bounded upload and validate/convert it under image admission."""
         if not file or not file.filename:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Both photos are required. Missing: {field_name}",
-            )
-        content_type = file.content_type or ""
-        if content_type not in ALLOWED_IMAGE_TYPES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid file type for {field_name}: {content_type}. Allowed: webp, jpeg, png.",
-            )
-
-        # Read MAX_IMAGE_SIZE + 1 bytes to detect oversized files without reading
-        # the entire (potentially enormous) upload into memory unconditionally.
-        chunk = await file.read(MAX_IMAGE_SIZE + 1)
-        await file.seek(0)
-
-        if len(chunk) > MAX_IMAGE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=(
-                    f"{field_name} exceeds the maximum allowed size of "
-                    f"{MAX_IMAGE_SIZE // (1024 * 1024)} MiB."
-                ),
-            )
-
-        # Validate magic bytes / file signature using the first 16 bytes of the chunk.
-        header = chunk[:16]
-        is_jpeg = header.startswith(b"\xff\xd8\xff")
-        is_png = header.startswith(b"\x89PNG\r\n\x1a\n")
-        is_webp = header[:4] == b"RIFF" and header[8:12] == b"WEBP"
-
-        if not (is_jpeg or is_png or is_webp):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid file content for {field_name}: file signature (magic bytes) does not match image format (JPEG, PNG, WEBP).",
-            )
-
-
-
-
-MIME_TO_EXTENSION: dict[str, str] = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-}
-
-
-def _extension(file: UploadFile) -> str:
-    """Determine file extension strictly from validated MIME content_type.
-
-    Avoids using client-supplied file extensions which could lead to path manipulation
-    or stored MIME confusion (e.g. uploading a JPEG with .html or .php extension).
-    """
-    content_type = (file.content_type or "").lower()
-    return MIME_TO_EXTENSION.get(content_type, ".bin")
-
+            raise HTTPException(status_code=422, detail=f"Both photos are required. Missing: {field_name}")
+        if file.content_type not in ALLOWED_IMAGE_TYPES:
+            raise HTTPException(status_code=400, detail=f"Invalid file type for {field_name}. Allowed: webp, jpeg, png.")
+        data = await file.read(MAX_SOURCE_BYTES + 1)
+        if len(data) > MAX_SOURCE_BYTES:
+            raise HTTPException(status_code=413, detail=f"{field_name} exceeds the maximum allowed size of 10 MiB.")
+        try:
+            return await run_image_work(normalize_png, data, file.content_type)
+        except ImageTooLarge as exc:
+            raise HTTPException(status_code=413, detail=f"{field_name}: {exc}") from None
+        except InvalidImage as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid image content for {field_name}: {exc}") from None

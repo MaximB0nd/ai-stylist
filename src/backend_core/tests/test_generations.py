@@ -1,3 +1,4 @@
+from tests.image_fixtures import image_bytes
 """In-memory tests for POST /api/v1/generations endpoint and GenerationService.
 
 All dependencies (AlbumRepository, StorageService, UserRepository) are mocked
@@ -218,13 +219,16 @@ class InMemoryStorageService(StorageService):
         return f"http://fake-minio.local/{object_key}?signed=1"
 
 
+    async def delete_object(self, object_key: str) -> None:
+        self.uploads.pop(object_key, None)
+
 class FailingStorageService(StorageService):
     """Storage mock that always raises on upload — simulates MinIO outage."""
 
     def __init__(self) -> None:
         pass
 
-    async def upload_file(self, object_key: str, file) -> str:
+    async def upload_bytes(self, object_key: str, data: bytes, content_type: str = "image/png") -> str:
         raise ConnectionError("MinIO is unreachable")
 
     def presigned_url(self, object_key: str) -> str:
@@ -265,13 +269,8 @@ def _auth_header(user_id: uuid.UUID = FAKE_USER_ID) -> Dict[str, str]:
 
 def _fake_image(content_type: str = "image/jpeg", filename: str = "photo.jpg") -> tuple:
     """Return (filename, BytesIO, content_type) tuple suitable for httpx file upload."""
-    if "png" in content_type:
-        header = b"\x89PNG\r\n\x1a\nfake-png-bytes"
-    elif "webp" in content_type:
-        header = b"RIFF\x00\x00\x00\x00WEBPfake-webp-bytes"
-    else:
-        header = b"\xff\xd8\xff\xe0fake-jpeg-bytes"
-    return (filename, BytesIO(header), content_type)
+    format = {"image/png": "PNG", "image/webp": "WEBP"}.get(content_type, "JPEG")
+    return (filename, BytesIO(image_bytes(format)), content_type)
 
 
 
@@ -488,7 +487,7 @@ async def test_generation_uploads_correct_keys(
     assert face_key.startswith(f"sources/{FAKE_USER_ID}/")
     assert face_key.endswith(".png")
     assert body_key.startswith(f"sources/{FAKE_USER_ID}/")
-    assert body_key.endswith(".webp")
+    assert body_key.endswith(".png")
 
 
 # =============================================================================
@@ -635,7 +634,7 @@ async def test_generation_rejects_invalid_magic_bytes(client: httpx.AsyncClient)
         headers=_auth_header(),
     )
     assert resp.status_code == 400
-    assert "magic bytes" in resp.json()["detail"].lower()
+    assert "invalid image content" in resp.json()["detail"].lower()
 
 
 @pytest.mark.parametrize(
@@ -672,7 +671,7 @@ async def test_generation_contract_boundary_success(
 async def test_generation_file_size_boundary_10mib_accepted(client: httpx.AsyncClient):
     """A valid JPEG file of exactly 10 MiB is accepted (boundary test)."""
     max_size = 10 * 1024 * 1024
-    header = b"\xff\xd8\xff\xe0"
+    header = image_bytes("JPEG")
     content = header + b"\x00" * (max_size - len(header))
     assert len(content) == max_size
 

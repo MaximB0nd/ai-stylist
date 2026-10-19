@@ -1,3 +1,4 @@
+from tests.image_fixtures import image_bytes
 import asyncio
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
@@ -67,7 +68,7 @@ async def test_image_limit_is_shared_between_albums_and_covers_upload(monkeypatc
         status_code = 200
 
         async def aiter_bytes(self):
-            yield b"image"
+            yield image_bytes()
 
     class Client:
         async def __aenter__(self):

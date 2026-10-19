@@ -29,7 +29,8 @@ async def recover_album(album_id, ai_client, storage):
                 pending = getattr(album, "pending_callback", None)
                 if pending:
                     if await repo.finish_work(album_id, token, release=False, status="DOWNLOADING"):
-                        await repo.complete_with_photos(album_id, pending, token)
+                        from app.services.generation_results import store_legacy_results
+                        await store_legacy_results(album_id, pending, token, repo, storage)
                     return
                 age = (datetime.now(timezone.utc) - album.created_at).total_seconds()
                 if age >= settings.GENERATION_TIMEOUT_SECONDS:

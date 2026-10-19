@@ -216,14 +216,19 @@ async def test_health_reports_dependency_failures(monkeypatch, failed):
     assert "private" not in response.text
 
 
-async def test_pending_callback_is_recovered_without_remote_job(recovery_state):
+async def test_pending_callback_is_recovered_without_remote_job(recovery_state, monkeypatch):
     album, token, repo = recovery_state
     album.ai_job_id = None
     album.pending_callback = [{"order_index": 0, "object_key": "albums/test.webp"}]
     repo.complete_with_photos = AsyncMock(return_value=True)
     client = SimpleNamespace(get_job=AsyncMock(), create_job=AsyncMock())
-    await generation_recovery.recover_album(album.id, client, object())
-    repo.complete_with_photos.assert_awaited_once_with(album.id, album.pending_callback, token)
+    from tests.image_fixtures import image_bytes
+    monkeypatch.setattr("app.services.generation_cleanup.cleanup_attempt", AsyncMock())
+    storage = SimpleNamespace(download_bytes=AsyncMock(return_value=image_bytes("JPEG")), upload_bytes=AsyncMock())
+    await generation_recovery.recover_album(album.id, client, storage)
+    saved = repo.complete_with_photos.await_args.args[1]
+    assert saved[0]["object_key"] == f"albums/{album.id}/{token}/look_00.png"
+    assert storage.upload_bytes.await_args.kwargs["content_type"] == "image/png"
     client.get_job.assert_not_awaited()
 
 
