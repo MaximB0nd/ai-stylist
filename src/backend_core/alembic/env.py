@@ -19,6 +19,7 @@ from app.models.base import Base
 import app.models.user
 import app.models.album
 import app.models.photo
+import app.models.feedback
 
 config = context.config
 
