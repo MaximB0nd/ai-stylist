@@ -31,6 +31,15 @@ class AICoreError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.response_body = response_body
+        self.retry_after_seconds = None
+
+    @classmethod
+    def from_response(cls, response):
+        error = cls(f"AI Core HTTP {response.status_code}", response.status_code, response.text)
+        value = response.headers.get("Retry-After", "").strip()
+        if value.isascii() and value.isdigit() and len(value) <= 8:
+            error.retry_after_seconds = int(value)
+        return error
 
 
 from contextlib import asynccontextmanager
@@ -120,11 +129,7 @@ class AICoreClient:
                 resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code not in (200, 201):
                     logger.error("AI Core create_job error [%s]: %s", resp.status_code, resp.text)
-                    raise AICoreError(
-                        f"AI Core rejected job: {resp.text}",
-                        status_code=resp.status_code,
-                        response_body=resp.text,
-                    )
+                    raise AICoreError.from_response(resp)
                 return resp.json()
         except httpx.RequestError as exc:
             logger.exception("Network error connecting to AI Core at %s", url)
@@ -139,11 +144,7 @@ class AICoreClient:
             async with self._get_client() as client:
                 resp = await client.get(url, headers=headers)
                 if resp.status_code != 200:
-                    raise AICoreError(
-                        f"Failed to fetch AI Core job {job_id}: {resp.text}",
-                        status_code=resp.status_code,
-                        response_body=resp.text,
-                    )
+                    raise AICoreError.from_response(resp)
                 return resp.json()
         except httpx.RequestError as exc:
             raise AICoreError(f"Network error communicating with AI Core: {exc}") from exc
@@ -158,11 +159,7 @@ class AICoreClient:
                 resp = await client.post(url, headers=headers)
                 if resp.status_code != 204:
                     logger.error("AI Core ACK failed [%s]: %s", resp.status_code, resp.text)
-                    raise AICoreError(
-                        f"AI Core ACK rejected: {resp.text}",
-                        status_code=resp.status_code,
-                        response_body=resp.text,
-                    )
+                    raise AICoreError.from_response(resp)
                 return True
         except httpx.RequestError as exc:
             raise AICoreError(f"Network error acknowledging AI Core job: {exc}") from exc
@@ -176,11 +173,7 @@ class AICoreClient:
             async with self._get_client() as client:
                 resp = await client.post(url, headers=headers)
                 if resp.status_code != 200:
-                    raise AICoreError(
-                        f"Failed to cancel AI Core job {job_id}: {resp.text}",
-                        status_code=resp.status_code,
-                        response_body=resp.text,
-                    )
+                    raise AICoreError.from_response(resp)
                 return resp.json() if resp.content else {"status": "CANCELLED"}
         except httpx.RequestError as exc:
             raise AICoreError(f"Network error cancelling AI Core job: {exc}") from exc

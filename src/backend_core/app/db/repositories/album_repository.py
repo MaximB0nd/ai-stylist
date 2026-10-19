@@ -177,7 +177,7 @@ class AlbumRepository:
             ).values(
                 ai_job_id=ai_job_id,
                 status=case((Album.status == "VALIDATING", status), else_=Album.status),
-                processing_token=None, lease_expires_at=None, updated_at=now, error_message=None,
+                processing_token=None, lease_expires_at=None, updated_at=now, error_message=None, next_retry_at=None,
             ).returning(Album.id)
         )
         await self.session.commit()
@@ -189,12 +189,14 @@ class AlbumRepository:
             select(Album).where(
                 Album.status.in_(["VALIDATING", "QUEUED", "PROCESSING", "DOWNLOADING"]),
                 Album.updated_at < now - timedelta(seconds=settings.GENERATION_RECOVERY_INTERVAL_SECONDS),
+                or_(Album.next_retry_at.is_(None), Album.next_retry_at <= now,
+                    Album.created_at <= now - timedelta(seconds=settings.GENERATION_TIMEOUT_SECONDS)),
                 or_(Album.processing_token.is_(None), Album.lease_expires_at <= now),
             ).order_by(Album.updated_at).limit(100)
         )
         return list(result.scalars().all())
 
-    async def complete_with_photos(self, album_id, photos_data, token) -> bool:
+    async def complete_with_photos(self, album_id, photos_data, token, *, ack_job_id=None) -> bool:
         """Commit the photo replacement and final state in one fenced transaction."""
         try:
             now = datetime.now(timezone.utc)
@@ -203,7 +205,11 @@ class AlbumRepository:
                     Album.id == album_id, Album.status == "DOWNLOADING",
                     Album.processing_token == token, Album.lease_expires_at > now,
                 ).values(status="COMPLETED", total_photos=len(photos_data), error_message=None,
-                         processing_token=None, lease_expires_at=None, pending_callback=None, updated_at=now)
+                         processing_token=None, lease_expires_at=None, pending_callback=None, updated_at=now,
+                         next_retry_at=None, results_ack_pending=ack_job_id is not None,
+                         results_ack_next_attempt_at=now if ack_job_id is not None else None,
+                         results_ack_error=None,
+                         **({"ai_job_id": ack_job_id} if ack_job_id is not None else {}))
                 .returning(Album.id)
             )
             if result.scalar_one_or_none() is None:
@@ -364,3 +370,24 @@ class AlbumRepository:
         except Exception:
             await self.session.rollback()
             raise
+
+
+    async def get_pending_result_acks(self):
+        now = datetime.now(timezone.utc)
+        result = await self.session.execute(
+            select(Album.id, Album.ai_job_id).where(
+                Album.status == "COMPLETED", Album.results_ack_pending.is_(True),
+                or_(Album.results_ack_next_attempt_at.is_(None), Album.results_ack_next_attempt_at <= now),
+            ).order_by(Album.results_ack_next_attempt_at).limit(100)
+        )
+        return list(result.all())
+
+    async def record_result_ack(self, album_id, job_id, *, pending, next_attempt_at=None, error=None):
+        await self.session.execute(
+            update(Album).where(
+                Album.id == album_id, Album.ai_job_id == job_id,
+                Album.status == "COMPLETED", Album.results_ack_pending.is_(True),
+            ).values(results_ack_pending=pending, results_ack_next_attempt_at=next_attempt_at,
+                     results_ack_error=error)
+        )
+        await self.session.commit()

@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     # MinIO / S3-compatible storage (strictly required from .env / environment)
     MINIO_ENDPOINT: str
     MINIO_PUBLIC_ENDPOINT: Optional[str] = None
+    MINIO_AI_ENDPOINT: Optional[str] = None
     MINIO_ACCESS_KEY: str
     MINIO_SECRET_KEY: str
     MINIO_BUCKET: str

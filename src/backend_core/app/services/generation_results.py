@@ -13,7 +13,7 @@ from app.db.session import AsyncSessionLocal
 from app.services.ai_core_client import AICoreClient
 from app.services.generation_lease import LeaseLostError, keep_lease
 from app.core.config import settings
-from app.services.retry_policy import is_retryable_delivery_error
+from app.services.retry_policy import is_retryable_delivery_error, retry_deadline
 from app.services.image_service import normalize_result
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ async def store_legacy_results(album_id, photos, token, repo, storage):
             album_id, token,
             status="DOWNLOADING" if is_retryable_delivery_error(exc) else "FAILED",
             error_message="Failed to normalize callback results: " + str(exc)[:400],
+            next_retry_at=retry_deadline(exc) if is_retryable_delivery_error(exc) else None,
         )
         return False
     finally:
@@ -201,14 +202,12 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
         async with AsyncSessionLocal() as session:
             from app.db.repositories.album_repository import AlbumRepository as _Repo
             repo = _Repo(session=session)
-            if not await repo.complete_with_photos(album_id, list(photos_data), token):
+            if not await repo.complete_with_photos(album_id, list(photos_data), token, ack_job_id=job_uuid):
                 return
 
-        # Acknowledge delivery to AI Core so it cleans up temporary S3
-        try:
-            await ai_client.acknowledge_results(job_uuid)
-        except Exception as exc:
-            logger.warning("Could not send ACK to AI Core for job %s: %s", job_uuid, exc)
+        # The durable pending flag was committed with the photos before sending ACK.
+        from app.services.generation_ack import acknowledge_saved_results
+        await acknowledge_saved_results(album_id, job_uuid, ai_client, session_factory=AsyncSessionLocal)
 
         logger.info("Successfully processed and saved completed album %s in parallel", album_id)
 
@@ -225,6 +224,7 @@ async def _store_results_owned(album_id, job_uuid, ai_client, storage, token):
                     album_id, token,
                     status="DOWNLOADING" if transient else "FAILED",
                     error_message=f"Failed to download results: {exc}"[:500],
+                    next_retry_at=retry_deadline(exc) if transient else None,
                 )
         except Exception as db_exc:
             logger.exception(

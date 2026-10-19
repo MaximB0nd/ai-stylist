@@ -12,6 +12,7 @@ from app.services.ai_core_client import AICoreClient, AICoreError
 from app.services.generation_dispatch import dispatch_generation
 from app.services.generation_lease import keep_lease
 from app.services.storage_service import StorageService
+from app.services.retry_policy import retry_deadline
 
 logger = logging.getLogger(__name__)
 ACTIVE_STATUSES = ["VALIDATING", "QUEUED", "PROCESSING", "DOWNLOADING"]
@@ -65,6 +66,8 @@ async def recover_album(album_id, ai_client, storage):
                 values = {"error_message": "Recovery failed: " + str(exc)[:470]}
                 if terminal:
                     values["status"] = "FAILED"
+                else:
+                    values["next_retry_at"] = retry_deadline(exc)
                 await AlbumRepository(error_session).finish_work(album_id, token, **values)
 
 
@@ -95,4 +98,9 @@ async def recovery_loop():
             await cleanup_orphan_attempts()
         except Exception:
             logger.exception("Generation reconciliation failed; retrying on the next pass")
+        try:
+            from app.services.generation_ack import recover_result_acks
+            await recover_result_acks()
+        except Exception:
+            logger.exception("ACK reconciliation failed; retrying on the next pass")
         await asyncio.sleep(settings.GENERATION_RECOVERY_INTERVAL_SECONDS)

@@ -32,3 +32,12 @@ def is_retryable_delivery_error(exc: Exception) -> bool:
         or isinstance(exc, (Urllib3HTTPError, SQLAlchemyError))
         or (isinstance(exc, RuntimeError) and "HTTP 5" in str(exc))
     )
+
+
+def retry_deadline(exc):
+    """Honor integer Retry-After without blocking the recovery worker."""
+    from datetime import datetime, timedelta, timezone
+    from app.core.config import settings
+    delay = max(settings.GENERATION_RECOVERY_INTERVAL_SECONDS,
+                getattr(exc, "retry_after_seconds", None) or 0)
+    return datetime.now(timezone.utc) + timedelta(seconds=delay)
