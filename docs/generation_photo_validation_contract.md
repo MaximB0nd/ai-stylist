@@ -18,6 +18,6 @@
 
 ## Подмена и проверка
 
-Тестовая реализация `fixedPhotoSelectionError` находится в `src/frontend/tests/generation_module_contract.test.js`. Она повторяет заявленные решения для фиксированных сценариев. Один и тот же `resolvePhotoSelection` вызывается с рабочей и тестовой реализацией без изменения кода потребителя. Тестовая подмена подтверждает решения на заданных метаданных, но не работу браузерного декодирования, загрузки или серверной проверки.
+Тестовая реализация `fixedPhotoSelectionError` находится в `src/frontend/tests/generation_module_contract.test.js`. Она повторяет заявленные решения для фиксированных сценариев. Один и тот же `resolvePhotoSelection` вызывается с рабочей и тестовой реализацией без изменения кода потребителя. Браузерный сценарий в `src/frontend/tests/generation_browser.test.html` монтирует форму с тестовым правилом, отправляет событие `drop` и проверяет вызов правила, вывод ошибки и отсутствие object URL при отказе. Подмена подтверждает решения на заданных метаданных, но не работу загрузки или серверной проверки.
 
-Команда из `src/frontend`: `node --test tests/generation_module_contract.test.js tests/generation_lab_validation.test.js tests/generation_validation.test.js`.
+Команда из `src/frontend`: `node --test --experimental-test-coverage tests/*.test.js`. Эта команда также выполняется frontend GitHub Actions job для PR в `main`.

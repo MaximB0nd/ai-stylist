@@ -40,12 +40,12 @@ const activateWithSpace = async (input) => {
   await tick();
 };
 
-async function test(name, run) {
+async function test(name, run, options = {}) {
   const fixture = document.querySelector("#fixture");
   fixture.replaceChildren(template.cloneNode(true));
   const root = fixture.firstElementChild;
   const query = selector => root.querySelector(selector);
-  const stop = mountGeneration(query("form"));
+  const stop = mountGeneration(query("form"), options);
   decodes = [];
   const drop = (key, files) => {
     const dataTransfer = new DataTransfer();
@@ -72,6 +72,25 @@ async function test(name, run) {
 }
 
 try {
+  let injectedCalls = 0;
+  await test("Injected photo rule rejects a drop without creating a preview URL", async ({ query, drop }) => {
+    const nativeCreateObjectURL = URL.createObjectURL;
+    let createdUrls = 0;
+    URL.createObjectURL = (...args) => { createdUrls++; return nativeCreateObjectURL(...args); };
+    try {
+      drop("body", [photo]);
+      assert(injectedCalls === 1, "Mounted form did not call the injected rule");
+      assert(query("#body-error").textContent === "Фото отклонено тестовым правилом.", "Injected error was not shown");
+      assert(query('[data-photo="body"] .generation-preview').hidden, "Rejected photo has a preview");
+      assert(createdUrls === 0, "Rejected photo created an object URL");
+    } finally {
+      URL.createObjectURL = nativeCreateObjectURL;
+    }
+  }, { photoSelectionError(files) {
+    injectedCalls++;
+    assert(files.length === 1 && files[0] === photo, "Injected rule received the wrong file");
+    return "Фото отклонено тестовым правилом.";
+  } });
   await test("Example images and captions activate the matching file input", async ({ query }) => {
     for (const key of ["body", "face"]) {
       const card = query(`[data-photo="${key}"]`);
