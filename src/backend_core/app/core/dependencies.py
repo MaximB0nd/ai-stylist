@@ -9,14 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token
 from app.db.repositories.album_repository import AlbumRepository
 from app.db.repositories.user_repository import UserRepository
+from app.db.repositories.feedback_repository import FeedbackRepository
 from app.db.session import get_db
 from app.models.user import User
 from app.services.album_service import AlbumService
 from app.services.auth_service import AuthService
 from app.services.generation_service import GenerationService
 from app.services.storage_service import StorageService
+from app.services.feedback_service import FeedbackService
 
 http_bearer = HTTPBearer(auto_error=False)
+
+
+def get_feedback_repository(session: AsyncSession = Depends(get_db)) -> FeedbackRepository:
+    return FeedbackRepository(session=session)
+
+
+def get_feedback_service(
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repository),
+) -> FeedbackService:
+    return FeedbackService(feedback_repo=feedback_repo)
 
 
 # ---------------------------------------------------------------------------
