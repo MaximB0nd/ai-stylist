@@ -88,9 +88,10 @@ export function mountGeneration(form) {
       const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
       const image = page.querySelector(`[data-selection-image="${group.dataset.question}"]`);
       const item = output.closest("dl > div");
-      output.textContent = value || "";
+      output.textContent = value || "Не выбрано";
       item.classList.toggle("is-empty", !selected);
       image.hidden = !selected;
+      item.querySelector("[data-clear-selection]").hidden = !selected;
       if (selected) image.src = selected.closest("label").querySelector("img").src;
       else image.removeAttribute("src");
       if (selected) choices++;
@@ -117,6 +118,19 @@ export function mountGeneration(form) {
       if (candidate.name === radio.name) checkedBeforeActivation.set(candidate, candidate.checked);
     }
   };
+  for (const group of groups) {
+    const key = group.dataset.question;
+    page.querySelector(`[data-edit-question="${key}"]`).addEventListener("click", () => {
+      (group.querySelector("input:checked") || group.querySelector('input[type="radio"]'))?.focus();
+    }, { signal: events.signal });
+    page.querySelector(`[data-clear-selection="${key}"]`).addEventListener("click", () => {
+      const selected = group.querySelector("input:checked");
+      if (!selected) return;
+      selected.checked = false;
+      selected.dispatchEvent(new Event("change", { bubbles: true }));
+      group.querySelector('input[type="radio"]')?.focus();
+    }, { signal: events.signal });
+  }
   for (const radio of toggleRadios) {
     radio.addEventListener("keydown", (event) => {
       if (event.key !== " " || !radio.checked) return;

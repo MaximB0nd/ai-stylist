@@ -183,11 +183,28 @@ function updateChrome(user) {
 	for (const accountLabel of elements?.accountLabels ?? []) {
 		accountLabel.textContent = label;
 	}
+	for (const sidebarLabel of document.querySelectorAll("[data-auth-sidebar-label]")) {
+		sidebarLabel.textContent = name || "Аккаунт";
+	}
 	for (const avatar of elements?.avatars ?? []) {
 		avatar.textContent = name ? getInitials(name) : "";
 		if (!name) {
 			avatar.innerHTML = '<span class="site-icon site-icon--user-round"></span>';
 		}
+	}
+	if (elements?.trigger) {
+		if (user) {
+			elements.trigger.removeAttribute("aria-haspopup");
+			elements.trigger.removeAttribute("aria-controls");
+			elements.trigger.removeAttribute("aria-expanded");
+		} else {
+			elements.trigger.setAttribute("aria-haspopup", "dialog");
+			elements.trigger.setAttribute("aria-controls", "authModal");
+			elements.trigger.setAttribute("aria-expanded", "false");
+		}
+	}
+	for (const button of document.querySelectorAll("[data-auth-logout]")) {
+		button.hidden = !user;
 	}
 
 	updateProfile(user);
@@ -254,6 +271,27 @@ function openModal(elements) {
 	elements.emailInput.focus();
 }
 
+async function activateAccount(elements) {
+	const session = readSession();
+	if (!session) {
+		openModal(elements);
+		return;
+	}
+
+	const user = await loadCurrentUser(session);
+	if (user) {
+		window.location.assign("/profile");
+	} else {
+		openModal(elements);
+	}
+}
+
+function signOut() {
+	clearSession();
+	updateChrome(null);
+	window.location.assign("/");
+}
+
 function closeModal(elements) {
 	elements.modal.hidden = true;
 	elements.trigger?.setAttribute("aria-expanded", "false");
@@ -292,7 +330,10 @@ async function submitAuth(elements) {
 			body: JSON.stringify(body),
 		});
 		const session = writeSession(token);
-		await loadCurrentUser(session);
+		const user = await loadCurrentUser(session);
+		if (!user) {
+			throw new Error("Не удалось подтвердить вход. Попробуйте ещё раз.");
+		}
 		setStatus(elements, "Готово. Вы вошли в аккаунт.", "success");
 		window.setTimeout(() => closeModal(elements), 600);
 	} catch (error) {
@@ -309,7 +350,12 @@ function handleAuthAction(target) {
 	}
 
 	if (target.closest("#authTrigger")) {
-		openModal(elements);
+		void activateAccount(elements);
+		return true;
+	}
+
+	if (target.closest("[data-auth-logout]")) {
+		signOut();
 		return true;
 	}
 
@@ -333,6 +379,12 @@ function handleClick(event) {
 
 	const target = event.target;
 	if (!(target instanceof Element)) {
+		return;
+	}
+	if (target.closest(".site-sidebar__account")) {
+		event.preventDefault();
+		const elements = findElements();
+		if (elements) void activateAccount(elements);
 		return;
 	}
 
@@ -402,7 +454,13 @@ function bindCurrentElements(elements) {
 	elements.trigger?.addEventListener("click", (event) => {
 		event.preventDefault();
 		event.stopPropagation();
-		openModal(elements);
+		void activateAccount(elements);
+	});
+	const sidebarAccount = document.querySelector(".site-sidebar__account");
+	sidebarAccount?.addEventListener("click", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		void activateAccount(elements);
 	});
 	elements.modal.querySelectorAll("[data-auth-close]").forEach((node) => {
 		node.addEventListener("click", (event) => {

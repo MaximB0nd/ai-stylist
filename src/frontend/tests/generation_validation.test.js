@@ -45,7 +45,7 @@ test("reports invalid numeric text before submission", () => {
 
 test("names the out-of-range field and its bounds", () => {
   for (const flag of ["rangeUnderflow", "rangeOverflow"]) {
-    assert.equal(measurementError({ name: "height", min: "80", max: "240", validity: { [flag]: true } }), "Укажите рост от 80 до 240.");
+    assert.equal(measurementError({ name: "height", min: "120", max: "230", validity: { [flag]: true } }), "Укажите рост от 120 до 230.");
   }
 });
 

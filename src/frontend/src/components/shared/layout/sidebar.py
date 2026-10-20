@@ -24,7 +24,7 @@ def sidebar(active_page=None):
   <div class="site-sidebar__bottom">
     <a class="site-sidebar__account" href="/profile" aria-label="Аккаунт"{profile_current}>
       <span class="site-avatar" aria-hidden="true" data-auth-avatar><span class="site-icon site-icon--user-round"></span></span>
-      <span class="site-sidebar__account-copy">Аккаунт</span>
+      <span class="site-sidebar__account-copy" data-auth-sidebar-label>Аккаунт</span>
       <span class="site-icon site-icon--chevron-right" aria-hidden="true"></span>
     </a>
   </div>

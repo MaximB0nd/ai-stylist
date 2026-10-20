@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -24,6 +24,11 @@ class AlbumDetailResponse(BaseModel):
     styles: List[str]
     shoes: List[str]
     impressions: List[str]
+    user_age: Optional[int] = None
+    user_height: Optional[int] = None
+    gender: Optional[str] = None
+    source_face_url: Optional[str] = None
+    source_body_url: Optional[str] = None
     created_at: datetime
     is_archived: bool
     total_photos: int

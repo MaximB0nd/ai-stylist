@@ -63,6 +63,17 @@ class AlbumService:
             styles=album.styles,
             shoes=album.shoes,
             impressions=album.impressions,
+            user_age=album.user_age,
+            user_height=album.user_height,
+            gender=album.gender,
+            source_face_url=(
+                await asyncio.to_thread(get_url, album.source_face_key)
+                if album.source_face_key else None
+            ),
+            source_body_url=(
+                await asyncio.to_thread(get_url, album.source_body_key)
+                if album.source_body_key else None
+            ),
             created_at=album.created_at,
             is_archived=album.is_archived,
             total_photos=album.total_photos,

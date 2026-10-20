@@ -36,9 +36,7 @@ def header(title="Носи Красиво", active_page=None):
     <button class="auth-modal__backdrop" type="button" aria-label="Закрыть окно входа" data-auth-close></button>
 
     <div class="auth-modal__content">
-      <button class="auth-modal__close" type="button" aria-label="Закрыть окно входа" data-auth-close>
-        &times;
-      </button>
+      <button class="auth-modal__close" type="button" aria-label="Закрыть окно входа" data-auth-close></button>
 
       <h2 class="auth-modal__title" id="authModalTitle">Вход в аккаунт</h2>
       <p class="auth-modal__subtitle" id="authModalSubtitle">Добро пожаловать обратно</p>

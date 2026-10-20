@@ -469,7 +469,7 @@ async def test_generation_uploads_correct_keys(
     client: httpx.AsyncClient,
     storage: InMemoryStorageService,
 ):
-    """Uploaded object keys follow the pattern sources/{user_id}/{gen_id}/face|body.ext."""
+    """Source photos use the normalized PNG keys from the current pipeline."""
     resp = await client.post(
         "/api/v1/generations",
         data=VALID_FORM,

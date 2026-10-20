@@ -13,7 +13,7 @@ metadata = Metadata(
 
 def page():
     albums = "".join(
-        f'''<a class="album-card" href="/album/{escape(album['slug'], quote=True)}">
+        f'''<a class="album-card" href="/gallery" aria-label="Открыть свои альбомы в галерее">
           <div class="album-cover">
             <div class="album-mosaic album-mosaic--{escape(album['mosaic_layout'], quote=True)}">
               <img class="album-image album-mosaic__primary" src="/images/home/{escape(album['image'], quote=True)}.webp"
