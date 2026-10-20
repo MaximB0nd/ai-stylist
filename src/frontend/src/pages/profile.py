@@ -62,6 +62,10 @@ def page():
           </label>
         </div>
       </section>
+
+      <div class="profile-page__actions">
+        <button class="profile-signout" type="button" data-auth-logout hidden>Выйти из аккаунта</button>
+      </div>
     </div>
 
     <aside class="profile-guide" aria-hidden="true">

@@ -370,6 +370,11 @@ async def test_get_album_detail_success(
     assert body["styles"] == ["minimalism"]
     assert body["shoes"] == ["loafers"]
     assert body["impressions"] == ["confident"]
+    assert body["user_age"] == 25
+    assert body["user_height"] == 175
+    assert body["gender"] == "m"
+    assert "face.jpg" in body["source_face_url"]
+    assert "body.jpg" in body["source_body_url"]
     assert body["total_photos"] == 3
     assert body["is_archived"] is False
     assert "created_at" in body
@@ -426,6 +431,22 @@ async def test_get_album_detail_no_photos(
     )
     assert resp.status_code == 200
     assert resp.json()["photos"] == []
+
+
+async def test_get_album_detail_missing_source_photos(
+    client: httpx.AsyncClient,
+    album_repo: InMemoryAlbumRepository,
+):
+    album = album_repo.seed_album(USER_A_ID)
+    album.source_face_key = None
+    album.source_body_key = None
+
+    resp = await client.get(
+        f"/api/v1/albums/{album.id}", headers=_auth_header(USER_A_ID)
+    )
+    assert resp.status_code == 200
+    assert resp.json()["source_face_url"] is None
+    assert resp.json()["source_body_url"] is None
 
 
 async def test_get_album_detail_archived(
@@ -549,6 +570,11 @@ async def test_album_detail_response_fields(
         "styles",
         "shoes",
         "impressions",
+        "user_age",
+        "user_height",
+        "gender",
+        "source_face_url",
+        "source_body_url",
         "created_at",
         "is_archived",
         "total_photos",

@@ -18,28 +18,12 @@ class PageControlsTests(unittest.TestCase):
         self.assertEqual(button.get_text(strip=True), "Сгенерировать")
         self.assertIsNotNone(soup.select_one(f'form#{button["form"]}'))
 
-    def test_gallery_uses_album_links_and_real_previews(self):
+    def test_gallery_waits_for_authenticated_album_data(self):
         soup = BeautifulSoup(str(gallery.page()), "html.parser")
         self.assertEqual(soup.select(".filter-tab"), [])
-        self.assertEqual(soup.select_one(".gallery-count").get_text(strip=True), "4 альбома")
-        self.assertEqual(
-            {link["href"] for link in soup.select(".album-card")},
-            {"/album/office", "/album/evening", "/album/street", "/album/study"},
-        )
-        self.assertEqual(len(soup.select(".album-card .album-image[src]")), 12)
-        self.assertEqual(len(soup.select(".album-card .album-mosaic__primary[alt]")), 4)
-        self.assertEqual(len(soup.select('.album-card .album-mosaic__secondary[alt=""]')), 8)
-        layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in soup.select(".album-card")}
-        self.assertEqual(len(layouts), 4)
-        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
-        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
-        previews = {
-            tuple(image["src"] for image in card.select(".album-mosaic__secondary"))
-            for card in soup.select(".album-card")
-        }
-        self.assertEqual(len(previews), 4)
-        self.assertTrue(all(card.select_one(".album-preview .album-date") is None for card in soup.select(".album-card")))
-        self.assertTrue(all(card.select_one(".album-footer time.album-date") is not None for card in soup.select(".album-card")))
+        self.assertEqual(soup.select(".album-card"), [])
+        self.assertIsNotNone(soup.select_one("[data-gallery-grid]"))
+        self.assertIsNotNone(soup.select_one("[data-gallery-message][role='status']"))
 
     def test_home_album_covers_use_three_photo_mosaics(self):
         soup = BeautifulSoup(str(home.page()), "html.parser")

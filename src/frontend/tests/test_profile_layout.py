@@ -41,6 +41,13 @@ class ProfileLayoutTests(unittest.TestCase):
             ["darkMode", "reduceMotion"],
         )
 
+    def test_signout_is_separate_from_profile_details(self):
+        button = self.soup.select_one(".profile-page__actions [data-auth-logout]")
+        self.assertIsNotNone(button)
+        self.assertEqual(button.get_text(strip=True), "Выйти из аккаунта")
+        self.assertTrue(button.has_attr("hidden"))
+        self.assertIsNone(self.soup.select_one(".profile-account [data-auth-logout]"))
+
     def test_profile_has_no_generation_actions(self):
         self.assertIsNone(self.soup.select_one('.profile-page a[href="/generation"]'))
         self.assertIsNone(self.soup.select_one(".profile-actions"))

@@ -18,6 +18,10 @@ class SharedLayoutTests(unittest.TestCase):
             with self.subTest(path=path):
                 soup = BeautifulSoup(str(module.page()), "html.parser")
                 self.assertEqual(len(soup.select(".site-sidebar")), 1)
+                self.assertEqual(
+                    soup.select_one(".site-sidebar__account [data-auth-sidebar-label]").get_text(strip=True),
+                    "Аккаунт",
+                )
                 self.assertEqual(len(soup.select(".site-header")), 1)
                 self.assertEqual(len(soup.select(".site-footer")), 1)
                 header_brand = soup.select_one(".site-header__brand")

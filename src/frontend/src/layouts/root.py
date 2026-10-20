@@ -19,8 +19,8 @@ def layout():
         }
       } catch {}
     </script>
-    <link href="/css/index.css?v=front19-header-5" rel="stylesheet" />
-    <script type="module" src="/js/main.js?v=front20-7"></script>
+    <link href="/css/index.css?v=front22-36" rel="stylesheet" />
+    <script type="module" src="/js/main.js?v=front22-36"></script>
   </head>
   <body>
     <slot />
