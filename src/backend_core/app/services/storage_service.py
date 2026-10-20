@@ -43,6 +43,7 @@ class StorageService:
             secure=public_secure,
             region="us-east-1",
         )
+        self.ai_endpoint = settings.MINIO_AI_ENDPOINT
         self.bucket = settings.MINIO_BUCKET
         self.presigned_ttl = settings.MINIO_PRESIGNED_TTL
 
@@ -162,13 +163,23 @@ class StorageService:
         )
 
     def presigned_internal_url(self, object_key: str) -> str:
-        """Generate a presigned GET URL using internal endpoint for backend/AI Core consumption."""
+        """Generate a presigned GET URL using the AI-facing endpoint, falling back to the internal endpoint."""
         from datetime import timedelta
 
         client = getattr(self, "client", None)
         if client is None or not hasattr(client, "presigned_get_object"):
             return getattr(self, "presigned_url", lambda k: f"http://minio:9000/{getattr(self, 'bucket', 'stylist')}/{k}")(object_key)
 
+        # Resolve the region internally, but sign the exact host reachable by AI Core.
+        endpoint = getattr(self, "ai_endpoint", None)
+        if endpoint:
+            client = Minio(
+                endpoint=endpoint,
+                access_key=settings.MINIO_ACCESS_KEY,
+                secret_key=settings.MINIO_SECRET_KEY,
+                secure=settings.MINIO_SECURE,
+                region=self.client._get_region(self.bucket),
+            )
         return client.presigned_get_object(
             bucket_name=self.bucket,
             object_name=object_key,

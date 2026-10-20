@@ -14,7 +14,7 @@ from app.schemas.generation import (
 )
 from app.services.ai_core_client import AICoreClient
 from app.services.storage_service import StorageService
-from app.services.retry_policy import is_retryable_ai_error
+from app.services.retry_policy import is_retryable_ai_error, retry_deadline
 from app.services.image_service import (
     InvalidImage, ImageTooLarge, MAX_SOURCE_BYTES, image_slot, normalize_png, run_image_work,
 )
@@ -103,6 +103,7 @@ class GenerationService:
                     await self.album_repo.finish_work(
                         album.id, token,
                         error_message=f"Temporary AI Core dispatch failure: {exc}"[:500],
+                        next_retry_at=retry_deadline(exc),
                     )
                     current_status = album.status
                     logger.warning("AI Core dispatch deferred for generation %s", generation_id)

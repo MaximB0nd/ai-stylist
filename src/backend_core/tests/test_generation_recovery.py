@@ -283,3 +283,16 @@ def test_public_signing_uses_internal_region_without_public_network(monkeypatch)
         raise AssertionError("Signing must not contact the public endpoint")
     monkeypatch.setattr("minio.api.Minio._url_open", no_network)
     assert "eu-west-1" in storage.presigned_public_url("albums/test.webp")
+
+
+async def test_polling_retry_after_is_persisted_without_resubmission(recovery_state):
+    from app.services.ai_core_client import AICoreError
+    album, token, repo = recovery_state
+    error = AICoreError("temporarily unavailable", 503)
+    error.retry_after_seconds = 120
+    ai = SimpleNamespace(get_job=AsyncMock(side_effect=error), create_job=AsyncMock())
+    await generation_recovery.recover_album(album.id, ai, object())
+    ai.create_job.assert_not_awaited()
+    values = repo.finish_work.await_args.kwargs
+    assert "status" not in values
+    assert values["next_retry_at"] > datetime.now(timezone.utc) + timedelta(seconds=119)

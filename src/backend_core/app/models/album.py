@@ -56,6 +56,10 @@ class Album(Base):
     lease_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     pending_callback: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
     dispatch_request: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    next_retry_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    results_ack_pending: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False, nullable=False)
+    results_ack_next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    results_ack_error: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
