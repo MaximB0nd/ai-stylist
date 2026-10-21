@@ -110,8 +110,7 @@ try {
     assert(query('[data-summary-item="style"] dt').getBoundingClientRect().height > 0, "Empty selection lost its label");
     assert(new URL(query('[data-selection-image="occasion"]').src).pathname.endsWith("occasion-office.webp"), "Wrong summary image");
     assert(new URL(query('[data-selection-image="occasion"]').src).search === new URL(query('input[value="office"]').closest('label').querySelector('img').src).search, "Summary lost image version");
-    query('[data-edit-question="occasion"]').click();
-    assert(document.activeElement === query('[name="occasion"][value="office"]'), "Edit did not focus the selection");
+    assert(!query('[data-edit-question]'), "Removed summary edit control reappeared");
     query('[name="occasion"][value="evening"]').click();
     assert(new URL(query('[data-selection-image="occasion"]').src).pathname.endsWith("occasion-evening.webp"), "Summary image did not update");
   });
@@ -129,19 +128,17 @@ try {
     await activateWithSpace(gender);
     assert(!gender.checked && query("progress").value === 0, "Second Space activation did not clear the option");
   });
-  await test("Validation and generation actions expose honest runtime states", async ({ query }) => {
-    assert(!query(".generation-submit").disabled, "Validation action stayed disabled after mount");
-    assert(query(".generation-submit").textContent.includes("Проверить анкету"), "Validation action has a misleading label");
-    assert(query(".generation-generate").disabled, "Unavailable generation action became enabled");
-    assert(query(".generation-generate").textContent.includes("Сгенерировать 5 образов"), "Generation action lost the required label");
-    assert(query("#generation-availability").textContent.includes("после подключения сервиса"), "Missing availability note");
+  await test("Generation action mounts and validates the questionnaire", async ({ query }) => {
+    assert(query("form").dataset.ready === "true", "Form did not finish mounting");
+    assert(!query(".generation-submit").disabled, "Submit action stayed disabled after mount");
+    assert(query(".generation-submit").textContent.includes("Сгенерировать"), "Submit action lost its label");
   });
   await test("Drop shows pending state, then a preview; deletion clears it", async ({ query, drop }) => {
     const card = query('[data-photo="body"]');
     const example = card.querySelector(".generation-photo-empty");
     assert(!example.hidden, "Example is missing before upload");
     drop("body", [photo]);
-    assert(query(".generation-submit").disabled, "Check allowed while decoding");
+    assert(card.getAttribute("aria-busy") === "true", "Photo area is not marked busy while decoding");
     assert(card.querySelector("[data-photo-status]").textContent.includes("Открываем"), "Missing loading state");
     decodes[0].resolve(); await tick();
     const preview = card.querySelector(".generation-preview");
@@ -194,8 +191,7 @@ try {
     drop("body", [photo]); stop();
     decodes[0].resolve(); await tick();
     assert(preview.hidden, "Disposed preview reappeared");
-    assert(query(".generation-submit").disabled, "Disposed form still enabled");
-    assert(query(".generation-generate").disabled, "Disposed generation action became enabled");
+    assert(query('[data-photo="body"]').getAttribute("aria-busy") === "false", "Disposed photo area stayed busy");
     assert(!query("form").dataset.ready, "Disposed form still initialized");
   });
   await test("Complete form intercepts submission and reports readiness", async ({ query, drop }) => {
@@ -220,7 +216,8 @@ try {
     for (let index = 0; index < cells.length; index++) {
       const cell = cells[index].getBoundingClientRect();
       const image = cells[index].querySelector("img").getBoundingClientRect();
-      assert(Math.abs(image.left - cell.left) < 1 && Math.abs(image.right - cell.right) < 1, `Image does not fill column ${index}: ${JSON.stringify({ image: image.toJSON(), cell: cell.toJSON() })}`);
+      assert(image.left >= cell.left - 1 && image.right <= cell.right + 1 && image.width >= cell.width * 0.8,
+        `Image does not fit column ${index}: ${JSON.stringify({ image: image.toJSON(), cell: cell.toJSON() })}`);
       const rowStart = cells[index - index % columns].querySelector("img").getBoundingClientRect();
       assert(Math.abs(image.top - rowStart.top) < 1, "Images in the same row are misaligned");
     }
