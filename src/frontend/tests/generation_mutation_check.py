@@ -1,10 +1,9 @@
 """Run isolated, temporary mutations against the generation validation tests."""
 
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "public/js/pages/generation.js"
@@ -36,20 +35,22 @@ MUTATIONS = {
 def main():
     if not NODE:
         raise SystemExit("Node.js was not found in PATH")
-    source = SOURCE.read_text()
-    test = TEST.read_text()
+    source = SOURCE.read_text(encoding="utf-8")
+    test = TEST.read_text(encoding="utf-8")
     for name, (old, new) in MUTATIONS.items():
         if source.count(old) != 1:
             raise SystemExit(f"Mutation target is ambiguous: {name}")
         with tempfile.TemporaryDirectory(prefix="generation-mutation-") as temp:
             root = Path(temp)
-            (root / "package.json").write_text('{"type":"module"}')
+            (root / "package.json").write_text('{"type":"module"}', encoding="utf-8")
             (root / "public/js/pages").mkdir(parents=True)
             (root / "tests").mkdir()
             (root / "public/js/pages/generation.js").write_text(
-                source.replace(old, new)
+                source.replace(old, new), encoding="utf-8"
             )
-            (root / "tests/generation_lab_validation.test.js").write_text(test)
+            (root / "tests/generation_lab_validation.test.js").write_text(
+                test, encoding="utf-8"
+            )
             result = subprocess.run(
                 [NODE, "--test", "tests/generation_lab_validation.test.js"],
                 cwd=root, text=True, capture_output=True, check=False
@@ -57,7 +58,7 @@ def main():
             failures = [line for line in result.stdout.splitlines()
                         if line.startswith("ℹ fail ")]
             failed_tests = [line for line in result.stdout.splitlines()
-                            if line.startswith("✖ ") or line.startswith("not ok ")]
+                            if line.startswith(("✖ ", "not ok "))]
             print(f"{name}: {'DETECTED' if result.returncode else 'MISSED'}; "
                   f"{'; '.join(failures) or 'no failure summary'}; "
                   f"{'; '.join(failed_tests[:3])}")
