@@ -26,7 +26,29 @@ export function photoSelectionError(files) {
   return files.length ? photoFileError(files[0]) : "";
 }
 
-export function mountGeneration(form) {
+/**
+ * Decide whether the page may decode a selected photo through a supplied rule.
+ * @param {ArrayLike<File>} files - A snapshot of the selected files.
+ * @param {(files: ArrayLike<File>) => string} validate - Selection contract.
+ * @returns {{file: File | null, error: string}} A file only when accepted.
+ * Does not mutate the input, retain a file, create URLs, or perform I/O.
+ * @example resolvePhotoSelection([file], photoSelectionError);
+ */
+export function resolvePhotoSelection(files, validate = photoSelectionError) {
+  const error = validate(files);
+  return { file: error || !files.length ? null : files[0], error };
+}
+
+/**
+ * Mount the generation form with an interchangeable photo-selection rule.
+ * @param {HTMLFormElement} form - The existing page form; ownership stays with the caller.
+ * @param {{photoSelectionError?: (files: ArrayLike<File>) => string}} options
+ * @returns {() => void} Releases listeners and preview URLs.
+ * The validator returns an empty string for an accepted selection or a user-visible error.
+ * A thrown validator error propagates; no upload or server request is performed here.
+ * @example mountGeneration(form, { photoSelectionError });
+ */
+export function mountGeneration(form, { photoSelectionError: validatePhotoSelection = photoSelectionError } = {}) {
   const page = form.closest(".generation-page");
   const status = page.querySelector(".generation-status");
   const numbers = [...form.querySelectorAll('input[type="number"]')];
@@ -158,7 +180,8 @@ export function mountGeneration(form) {
     const request = ++photo.request;
     photo.pending = false;
     photo.input.value = "";
-    const message = photoSelectionError(files);
+    const selection = resolvePhotoSelection(files, validatePhotoSelection);
+    const message = selection.error;
     photoError(photo, message);
     if (message) {
       renderPhoto(photo);
@@ -166,7 +189,7 @@ export function mountGeneration(form) {
       return;
     }
 
-    const url = URL.createObjectURL(files[0]);
+    const url = URL.createObjectURL(selection.file);
     liveUrls.add(url);
     photo.pending = true;
     renderPhoto(photo);
