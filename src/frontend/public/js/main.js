@@ -1,9 +1,9 @@
 import "/js/vendor/pp-reactive-v2.min.js";
-import { initializeAuth } from "/js/pages/auth.js?v=front22-2";
-import { initializeAlbum, releaseAlbum } from "/js/pages/album.js?v=front22-35";
-import { initializeGeneration, releaseGeneration } from "/js/pages/generation.js?v=front22-3";
-import { initializeGallery, releaseGallery } from "/js/pages/gallery.js?v=front22-3";
-import { initializeHomeFaq, initializeHomeGuideMotion } from "/js/pages/home.js?v=front20-5";
+import { initializeAuth } from "/js/pages/auth.js?v=front31-1";
+import { initializeAlbum, releaseAlbum } from "/js/pages/album.js?v=front31-1";
+import { initializeGeneration, releaseGeneration } from "/js/pages/generation.js?v=front31-1";
+import { initializeGallery, releaseGallery } from "/js/pages/gallery.js?v=front31-1";
+import { initializeHomeAlbums, initializeHomeFaq, initializeHomeGuideMotion, releaseHomeAlbums } from "/js/pages/home.js?v=front31-1";
 import { initializeLayout } from "/js/pages/layout.js?v=front19-1";
 import { applyProfilePreferences, initializeProfile } from "/js/pages/profile.js?v=front11-1";
 
@@ -13,6 +13,7 @@ document.addEventListener("pp:navigation:complete", initializeAlbum);
 document.addEventListener("pp:navigation:complete", initializeGallery);
 document.addEventListener("pp:navigation:complete", initializeHomeFaq);
 document.addEventListener("pp:navigation:complete", initializeHomeGuideMotion);
+document.addEventListener("pp:navigation:complete", initializeHomeAlbums);
 document.addEventListener("pp:navigation:complete", initializeLayout);
 document.addEventListener("pp:navigation:complete", () => {
 	initializeProfile();
@@ -21,9 +22,11 @@ document.addEventListener("pp:navigation:complete", () => {
 window.addEventListener("pagehide", releaseGeneration);
 window.addEventListener("pagehide", releaseAlbum);
 window.addEventListener("pagehide", releaseGallery);
+window.addEventListener("pagehide", releaseHomeAlbums);
 window.addEventListener("ai-stylist-auth:changed", () => {
 	releaseGallery();
 	initializeGallery();
+	initializeHomeAlbums();
 });
 window.addEventListener("pageshow", () => {
 	initializeGeneration();
@@ -32,6 +35,7 @@ window.addEventListener("pageshow", () => {
 	initializeGallery();
 	initializeHomeFaq();
 	initializeHomeGuideMotion();
+	initializeHomeAlbums();
 	initializeLayout();
 	initializeProfile();
 	applyProfilePreferences();
@@ -52,6 +56,7 @@ if (document.readyState !== "loading") {
 	initializeGallery();
 	initializeHomeFaq();
 	initializeHomeGuideMotion();
+	initializeHomeAlbums();
 	initializeLayout();
 	initializeProfile();
 	applyProfilePreferences();
@@ -66,6 +71,7 @@ if (document.readyState !== "loading") {
 			initializeGallery();
 			initializeHomeFaq();
 			initializeHomeGuideMotion();
+			initializeHomeAlbums();
 			initializeLayout();
 			initializeProfile();
 			applyProfilePreferences();

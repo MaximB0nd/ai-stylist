@@ -1,6 +1,11 @@
 export const AUTH_STORAGE_KEY = "aiStylistAuth";
 const AUTH_CHANGED_EVENT = "ai-stylist-auth:changed";
 const API_BASE = globalThis.AI_STYLIST_API_BASE ?? "/api/v1";
+let pendingDestination = null;
+
+function hasProtectedAccess() {
+	return Boolean(readSession());
+}
 
 function normalizeSession(value) {
 	if (!value || typeof value.access_token !== "string" || !value.access_token.trim()) {
@@ -271,6 +276,14 @@ function openModal(elements) {
 	elements.emailInput.focus();
 }
 
+function requestProtectedAccess(destination = null) {
+	const elements = findElements();
+	if (!elements) return;
+	pendingDestination = destination;
+	setMode(elements, "login");
+	openModal(elements);
+}
+
 async function activateAccount(elements) {
 	const session = readSession();
 	if (!session) {
@@ -296,6 +309,7 @@ function closeModal(elements) {
 	elements.modal.hidden = true;
 	elements.trigger?.setAttribute("aria-expanded", "false");
 	setStatus(elements, "");
+	pendingDestination = null;
 }
 
 function toggleMode(elements) {
@@ -335,7 +349,11 @@ async function submitAuth(elements) {
 			throw new Error("Не удалось подтвердить вход. Попробуйте ещё раз.");
 		}
 		setStatus(elements, "Готово. Вы вошли в аккаунт.", "success");
-		window.setTimeout(() => closeModal(elements), 600);
+		window.setTimeout(() => {
+			const destination = pendingDestination;
+			closeModal(elements);
+			if (destination) window.location.assign(destination);
+		}, 600);
 	} catch (error) {
 		setStatus(elements, error.message || "Не удалось войти. Проверьте данные.", "error");
 	} finally {
@@ -370,6 +388,51 @@ function handleAuthAction(target) {
 	}
 
 	return false;
+}
+
+function guestTarget(target) {
+	const link = target.closest("a[href]");
+	if (link) {
+		const url = new URL(link.href, window.location.href);
+		if (url.origin === window.location.origin && ["/generation", "/gallery"].includes(url.pathname)) {
+			return url.pathname + url.search + url.hash;
+		}
+	}
+	if (target.closest(".generation-form :is(input, select, textarea, label, button), .generation-summary button")) return "form";
+	return null;
+}
+
+function gateGuestAction(event) {
+	if (event.defaultPrevented || hasProtectedAccess() || !(event.target instanceof Element)) return;
+	const target = guestTarget(event.target);
+	if (!target) return;
+	event.preventDefault();
+	event.stopImmediatePropagation();
+	requestProtectedAccess(target === "form" ? null : target);
+}
+
+function gateGuestFormKey(event) {
+	if (event.defaultPrevented || hasProtectedAccess() || !(event.target instanceof Element)) return;
+	if (["Tab", "Shift", "Control", "Alt", "Escape"].includes(event.key)) return;
+	if (!event.target.closest(".generation-form :is(input, select, textarea, label, button), .generation-summary button")) return;
+	event.preventDefault();
+	event.stopImmediatePropagation();
+	requestProtectedAccess();
+}
+
+function gateGuestFormInput(event) {
+	if (hasProtectedAccess() || !(event.target instanceof Element)) return;
+	if (!event.target.closest(".generation-form :is(input, select, textarea)")) return;
+	event.preventDefault();
+	event.stopImmediatePropagation();
+	requestProtectedAccess();
+}
+
+function gateGuestFormSubmit(event) {
+	if (event.target?.id !== "generation-form" || hasProtectedAccess()) return;
+	event.preventDefault();
+	event.stopImmediatePropagation();
+	requestProtectedAccess();
 }
 
 function handleClick(event) {
@@ -490,6 +553,11 @@ export function initializeAuth() {
 	}
 
 	if (document.documentElement.dataset.authListeners !== "true") {
+		document.addEventListener("click", gateGuestAction, { capture: true });
+		document.addEventListener("keydown", gateGuestFormKey, { capture: true });
+		document.addEventListener("beforeinput", gateGuestFormInput, { capture: true });
+		document.addEventListener("drop", gateGuestFormInput, { capture: true });
+		document.addEventListener("submit", gateGuestFormSubmit, { capture: true });
 		document.addEventListener("click", handleClick);
 		document.addEventListener("submit", handleSubmit);
 		document.addEventListener("keydown", handleKeydown);

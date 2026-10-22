@@ -16,7 +16,7 @@ class GenerationLayoutTests(unittest.TestCase):
     def test_measurement_constraints_match_the_reference(self):
         for key, minimum, maximum, step in (
             ("age", "16", "100", "1"),
-            ("height", "80", "240", "1"),
+            ("height", "120", "230", "1"),
         ):
             with self.subTest(field=key):
                 field = self.soup.select_one(f"#generation-{key}")

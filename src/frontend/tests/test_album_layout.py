@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import patch
 
 from bs4 import BeautifulSoup
 
@@ -7,17 +6,11 @@ from src.pages import album
 
 
 class AlbumLayoutTests(unittest.TestCase):
-    def test_albums_render_real_photo_cards(self):
-        for album_id, (name, date) in album.ALBUMS.items():
-            with self.subTest(album_id=album_id):
-                soup = BeautifulSoup(str(album.page({"album_id": album_id})), "html.parser")
-                self.assertEqual(soup.select_one("#album-title").text, name)
-                self.assertEqual(soup.select_one("time").text, date)
-                self.assertEqual(len(soup.select(".look-card")), 5)
-                self.assertEqual(len(soup.select('.look-card img[src^="/images/album/"]')), 5)
-                self.assertEqual(len(soup.select(".look-number")), 0)
-                self.assertEqual(len(soup.select(".look-button")), 0)
-                self.assertEqual(len(soup.select(".album-actions")), 0)
+    def test_album_waits_for_authenticated_photo_data(self):
+        soup = BeautifulSoup(str(album.page({"album_id": "office"})), "html.parser")
+        self.assertEqual(soup.select_one("#album-title").text, "Ваш альбом")
+        self.assertEqual(soup.select(".look-card"), [])
+        self.assertEqual(soup.select('.look-card img[src^="/images/album/"]'), [])
 
     def test_album_back_link_is_aligned_with_heading(self):
         soup = BeautifulSoup(str(album.page()), "html.parser")
@@ -30,7 +23,7 @@ class AlbumLayoutTests(unittest.TestCase):
 
     def test_unknown_album_uses_fallback(self):
         soup = BeautifulSoup(str(album.page({"album_id": "missing"})), "html.parser")
-        self.assertEqual(len(soup.select(".look-card")), 5)
+        self.assertEqual(len(soup.select(".look-card")), 0)
 
     def test_album_details_panel_has_questionnaire_structure(self):
         soup = BeautifulSoup(str(album.page({"album_id": "office"})), "html.parser")
@@ -50,13 +43,10 @@ class AlbumLayoutTests(unittest.TestCase):
         self.assertEqual(len(soup.select(".look-card")), 0)
         self.assertIsNotNone(soup.select_one("[data-album-looks-status]"))
 
-    def test_album_preview_is_available_only_in_development(self):
-        with patch.dict("os.environ", {"APP_ENV": "development"}):
-            development = BeautifulSoup(str(album.page({"album_id": "office"})), "html.parser")
-        with patch.dict("os.environ", {"APP_ENV": "production"}):
-            production = BeautifulSoup(str(album.page({"album_id": "office"})), "html.parser")
-        self.assertEqual(development.select_one(".album-page")["data-preview-enabled"], "true")
-        self.assertEqual(production.select_one(".album-page")["data-preview-enabled"], "false")
+    def test_album_never_embeds_preview_data(self):
+        soup = BeautifulSoup(str(album.page({"album_id": "office"})), "html.parser")
+        self.assertIsNone(soup.select_one("[data-preview-enabled]"))
+        self.assertIsNone(soup.select_one(".look-card"))
 
 
 if __name__ == "__main__":
