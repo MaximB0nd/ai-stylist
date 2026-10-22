@@ -1,56 +1,29 @@
 from casp.layout import Metadata
 from html import escape
-from os import getenv
-from uuid import UUID
 
 from src.components.shared.layout.app_shell import app_shell
 
 metadata = Metadata(title="Альбом образов", description="Сохранённые образы")
 
-ALBUMS = {
-    "office": ("Офис", "05.09.2026"),
-    "evening": ("Вечер", "03.09.2026"),
-    "street": ("Улица", "01.09.2026"),
-    "study": ("Учёба", "28.08.2026"),
-}
-
-
 def page(params=None):
-    album_id = (params or {}).get("album_id", "street")
-    is_real_album = False
-    try:
-        UUID(album_id)
-        is_real_album = True
-    except (TypeError, ValueError):
-        pass
-    name, date = ALBUMS.get(album_id, ("Ваш альбом", ""))
-    looks = "".join(
-        f"""
-        <button class="look-card" type="button" data-look-index="{index - 1}" aria-label="Открыть образ {index}">
-          <div class="look-visual">
-            <img src="/images/album/look{index:02d}.png" alt="Образ {index}" width="640" height="960" loading="lazy" decoding="async">
-          </div>
-        </button>
-        """
-        for index in range(1, 6)
-    ) if not is_real_album else ""
+    album_id = (params or {}).get("album_id", "")
+    name = "Ваш альбом"
     album_id_attr = escape(album_id, quote=True)
-    empty_looks = '<p class="album-looks-status" data-album-looks-status>Загрузка образов…</p>' if is_real_album else ""
 
     return app_shell(
         f"""
-<section class="album-page" data-album-id="{album_id_attr}" data-real-album="{str(is_real_album).lower()}" data-preview-enabled="{str(getenv('APP_ENV') == 'development').lower()}" aria-labelledby="album-title">
+<section class="album-page" data-album-id="{album_id_attr}" aria-labelledby="album-title">
   <div class="content-wrapper">
     <header class="album-heading">
       <a href="/gallery" class="album-back" aria-label="Вернуться в галерею" title="Галерея"><span class="site-icon site-icon--arrow-left" aria-hidden="true"></span></a>
       <div class="album-heading-copy">
         <h1 class="album-title" id="album-title">{name}</h1>
-        <time class="album-date" data-album-date>{date}</time>
+        <time class="album-date" data-album-date></time>
       </div>
       <button class="album-details-trigger" type="button" data-album-details-trigger aria-label="Показать данные подбора" aria-haspopup="dialog" aria-expanded="false" aria-controls="album-details" title="О подборе"><span class="site-icon site-icon--info" aria-hidden="true"></span></button>
     </header>
-    {empty_looks}
-    <div class="looks-grid" data-looks-grid aria-label="Фотографии образов">{looks}</div>
+    <p class="album-looks-status" data-album-looks-status>Загрузка образов…</p>
+    <div class="looks-grid" data-looks-grid aria-label="Фотографии образов"></div>
   </div>
 </section>
 <aside class="album-details" id="album-details" data-album-details role="dialog" aria-labelledby="album-details-title" hidden>

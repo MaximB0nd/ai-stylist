@@ -16,7 +16,7 @@ test("album choices reuse the selected questionnaire illustration", () => {
 
 test("casual style is shown with the Russian label", () => {
   assert.deepEqual(albumChoice("style", "casual"), {
-    label: "Удобный",
+    label: "Свободный",
     image: "/images/generation/style-casual.webp?v=3",
   });
 });

@@ -1,0 +1,106 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Home albums browser regression tests</title>
+<link rel="stylesheet" href="/css/index.css">
+<h1>Home albums browser regression tests</h1>
+<p id="result" role="status">Running</p>
+<ol id="results"></ol>
+<div id="fixture" style="position:absolute;left:-10000px;width:1000px"></div>
+<script type="module">
+import { initializeHomeAlbums, releaseHomeAlbums } from "/js/pages/home.js";
+
+const response = await fetch("/");
+const parsed = new DOMParser().parseFromString(await response.text(), "text/html");
+const template = parsed.querySelector(".home-page")
+  || parsed.querySelector("template[pp-component]")?.content.querySelector(".home-page");
+if (!template) throw new Error("Missing home fixture");
+
+const storageKey = "aiStylistAuth";
+const savedSession = localStorage.getItem(storageKey);
+const nativeFetch = window.fetch.bind(window);
+const fixture = document.querySelector("#fixture");
+const results = document.querySelector("#results");
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const waitForAlbums = async (page) => {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    if (page.querySelector("[data-home-albums-message]").textContent !== "Загружаем ваши альбомы…") return;
+    await tick();
+  }
+  throw new Error("Album request did not finish");
+};
+let passed = 0;
+let failed = 0;
+
+async function test(name, session, albums, run) {
+  releaseHomeAlbums();
+  fixture.replaceChildren(template.cloneNode(true));
+  if (session) localStorage.setItem(storageKey, JSON.stringify({ access_token: session }));
+  else localStorage.removeItem(storageKey);
+  window.fetch = (url, options) => {
+    const path = new URL(url, location.href).pathname;
+    if (!path.startsWith("/api/v1/albums")) return nativeFetch(url, options);
+    const item = albums[path];
+    if (!item) return Promise.resolve(new Response("{}", { status: 404 }));
+    return Promise.resolve(new Response(JSON.stringify(item), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+  };
+  const row = document.createElement("li");
+  try {
+    initializeHomeAlbums();
+    const page = fixture.querySelector(".home-page");
+    if (session) await waitForAlbums(page);
+    await run(page);
+    row.textContent = `PASS: ${name}`;
+    passed++;
+  } catch (error) {
+    row.textContent = `FAIL: ${name}: ${error.message}`;
+    failed++;
+  }
+  results.append(row);
+}
+
+try {
+  await test("Guest sees no sample albums", null, {}, async (page) => {
+    assert(!page.querySelector(".album-card"), "Sample card appeared for a guest");
+    assert(page.querySelector("[data-home-albums-message]").textContent.includes("Войдите"), "Guest message is missing");
+    assert(page.querySelector("[data-home-albums-link]").hidden, "Gallery link is visible to a guest");
+  });
+  await test("Empty account sees a create action", "empty", { "/api/v1/albums": { album_ids: [] } }, async (page) => {
+    assert(!page.querySelector(".album-card"), "Empty account has cards");
+    assert(page.querySelector("[data-home-albums-message]").textContent === "Создайте свой первый альбом", "Empty prompt is missing");
+    assert(!page.querySelector("[data-home-albums-action]").hidden, "Create action is hidden");
+    assert(page.querySelector("[data-home-albums-link]").hidden, "Empty gallery link is visible");
+  });
+  await test("Newest account albums keep the home mosaic", "with-albums", {
+    "/api/v1/albums": { album_ids: ["older", "newer"] },
+    "/api/v1/albums/older": { id: "older", title: "Офис", created_at: "2026-09-01T12:00:00Z", photos: [{ order_index: 0, url: "/images/album/look01.png" }] },
+    "/api/v1/albums/newer": { id: "newer", title: "Вечер", created_at: "2026-09-03T12:00:00Z", photos: [
+      { order_index: 2, url: "/images/album/look03.png" },
+      { order_index: 0, url: "/images/album/look01.png" },
+      { order_index: 1, url: "/images/album/look02.png" },
+    ] },
+  }, async (page) => {
+    const cards = [...page.querySelectorAll(".album-card")];
+    assert(cards.length === 2, "Wrong number of account albums");
+    assert(cards[0].getAttribute("href") === "/album/newer", "Newest album is not first");
+    assert(cards[0].querySelectorAll(".album-mosaic img").length === 3, "Three-photo mosaic is missing");
+    assert(cards[1].querySelector(".album-mosaic--single"), "Single-photo album has empty space");
+    assert(page.querySelector("[data-home-albums-state]").hidden, "Empty prompt stayed visible");
+    assert(!page.querySelector("[data-home-albums-link]").hidden, "Gallery link is hidden");
+  });
+  await test("Failed loading is not mistaken for an empty account", "failure", {}, async (page) => {
+    assert(page.querySelector("[data-home-albums-action]").hidden, "Create action appeared after an error");
+    assert(page.querySelector("[data-home-albums-message]").textContent.includes("Не удалось"), "Loading error is missing");
+  });
+} finally {
+  releaseHomeAlbums();
+  window.fetch = nativeFetch;
+  if (savedSession === null) localStorage.removeItem(storageKey);
+  else localStorage.setItem(storageKey, savedSession);
+  fixture.replaceChildren();
+}
+document.querySelector("#result").textContent = `${passed} passed, ${failed} failed`;
+</script>

@@ -11,6 +11,20 @@
 .gallery-page .album-card:hover { z-index: 1; transform: scale(1.02); box-shadow: 0 24px 58px rgb(73 51 62 / 10%); }
 .gallery-page .album-preview { position: relative; overflow: hidden; aspect-ratio: 4 / 5; border-radius: var(--radius-unified); background: var(--color-soft); }
 .gallery-page .album-preview--empty { display: grid; place-items: center; padding: 16px; color: var(--color-muted); text-align: center; }
+.gallery-page .album-preview--pending {
+  background: linear-gradient(110deg, var(--color-soft) 4%, var(--color-accent-soft) 38%, var(--color-surface) 58%, var(--color-soft) 92%);
+  background-size: 220% 100%;
+  animation: album-preview-shimmer 3.2s ease-in-out infinite alternate;
+}
+@keyframes album-preview-shimmer {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+.gallery-page .album-card--pending:hover { transform: none; box-shadow: 0 18px 46px rgb(73 51 62 / 7%); }
+.gallery-page .album-card--failed .album-preview { background: var(--color-soft); }
+.gallery-page .album-pending-dismiss { margin-top: 8px; border: 0; padding: 0; background: none; color: var(--color-accent); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.gallery-page .album-generation-state { margin: 8px 0 0; color: var(--color-accent); font-size: var(--generation-text-body); }
+.gallery-page .album-generation-state::before { display: inline-block; width: 8px; height: 8px; margin-right: 9px; border-radius: 50%; background: currentColor; content: ""; vertical-align: 2px; }
 .gallery-page .album-image { display: block; width: 100%; height: 100%; object-fit: cover; }
 .gallery-page .album-footer { position: relative; padding: 20px 4px 2px; }
 .gallery-page .album-meta { min-width: 0; }
@@ -36,4 +50,7 @@
 @media (max-width: 420px) {
   .site-shell:has(.gallery-page) { --page-gutter: 16px; }
   .site-shell:has(.gallery-page) .site-sidebar__link { flex-direction: column; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gallery-page .album-preview--pending { animation: none; background-position: 50% 50%; }
 }

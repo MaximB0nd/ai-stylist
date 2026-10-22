@@ -1,5 +1,4 @@
 from casp.layout import Metadata
-from os import getenv
 
 from src.components.shared.layout.app_shell import app_shell
 
@@ -8,8 +7,8 @@ metadata = Metadata(title="Галерея", description="Ваши альбомы
 
 def page():
     return app_shell(
-        f"""
-<section class="gallery-page" data-preview-enabled="{str(getenv('APP_ENV') == 'development').lower()}" aria-labelledby="gallery-title">
+        """
+<section class="gallery-page" aria-labelledby="gallery-title">
   <div class="content-wrapper">
     <header class="gallery-header">
       <h1 class="gallery-title" id="gallery-title">Галерея</h1>

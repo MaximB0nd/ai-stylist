@@ -1,12 +1,11 @@
-import { readSession } from "./auth.js?v=front22-1";
-import { previewAlbum } from "./album-preview.js?v=front22-2";
+import { readSession } from "./auth.js?v=front31-1";
 
 const API_BASE = globalThis.AI_STYLIST_API_BASE ?? "/api/v1";
 const ALBUM_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CHOICES = {
   occasion: { street: "Улица", study: "Учёба", office: "Офис", evening: "Вечер" },
-  style: { minimal: "Базовый", minimalism: "Базовый", classic: "Классика", casual: "Удобный", romantic: "Романтика" },
+  style: { minimal: "Базовый", minimalism: "Базовый", classic: "Классика", casual: "Свободный", romantic: "Романтика" },
   shoe: { sneakers: "Кроссовки", loafers: "Лоферы", heels: "Каблук", boots: "Ботинки" },
   mood: { confident: "Уверенное", elegant: "Элегантное", relaxed: "Уютное", bright: "Яркое" },
 };
@@ -198,12 +197,7 @@ function mountAlbum(page) {
     dialog.querySelector("[data-album-details-content]").hidden = false;
     const status = dialog.querySelector("[data-album-details-status]");
     if (!ALBUM_ID.test(albumId)) {
-      const preview = page.dataset.previewEnabled === "true" ? previewAlbum(albumId) : null;
-      if (preview) {
-        renderDetails(dialog, preview);
-      } else {
-        status.textContent = "Исходная анкета и фотографии этого альбома не сохранены.";
-      }
+      status.textContent = "Альбом не найден.";
       return;
     }
     status.textContent = "Загрузка данных подбора…";
@@ -222,6 +216,8 @@ function mountAlbum(page) {
     getAlbum(albumId, events.signal).then((album) => renderAlbum(page, album)).catch((error) => {
       if (!events.signal.aborted) page.querySelector("[data-album-looks-status]").textContent = error.message;
     });
+  } else {
+    page.querySelector("[data-album-looks-status]").textContent = "Альбом не найден.";
   }
   return () => {
     events.abort();

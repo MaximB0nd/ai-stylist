@@ -91,6 +91,17 @@
   width: 250px;
 }
 
+.home-page .home-gallery-button {
+  min-width: 180px;
+  background: var(--color-surface);
+  color: var(--color-accent);
+}
+
+.home-page .home-gallery-button:hover {
+  background: var(--color-accent);
+  color: var(--color-surface);
+}
+
 .home-page .home-text-link {
   display: inline-flex;
   align-items: center;
@@ -351,6 +362,12 @@
   gap: clamp(24px, 3vw, 36px);
 }
 
+.home-page .home-albums-state { display: grid; justify-items: start; gap: 20px; padding: 22px 0 8px; }
+.home-page .albums-section:has(.home-albums-state:not([hidden])) { padding-bottom: 32px; }
+.home-page .home-albums-state[hidden], .home-page [data-home-albums-link][hidden], .home-page [data-home-albums-action][hidden] { display: none; }
+.home-page .home-albums-state p { margin: 0; color: var(--color-muted); font-size: var(--text-body); }
+.home-page .home-albums-action { min-height: 48px; }
+
 .home-page .album-card {
   position: relative;
   display: block;
@@ -377,6 +394,10 @@
   border-radius: var(--radius-unified);
   background: var(--color-surface);
 }
+
+.home-page .album-cover--empty { display: grid; place-items: center; padding: 20px; color: var(--color-muted); text-align: center; }
+.home-page .album-mosaic--single { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.home-page .album-mosaic--two { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
 
 .home-page .album-image {
   display: block;
@@ -502,7 +523,7 @@
 .home-page .home-faq__answer {
   max-width: 560px;
   color: var(--color-muted);
-  font-size: var(--text-small);
+  font-size: var(--text-body);
   line-height: 1.5;
 }
 

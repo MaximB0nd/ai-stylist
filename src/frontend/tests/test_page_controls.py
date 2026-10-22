@@ -6,6 +6,19 @@ from src.pages import feedback, gallery, generation, home, privacy, user_guide
 
 
 class PageControlsTests(unittest.TestCase):
+    def test_generation_has_only_real_account_flow(self):
+        soup = BeautifulSoup(str(generation.page()), "html.parser")
+        self.assertIsNone(soup.select_one("[data-demo-enabled], [data-auth-demo]"))
+        notice = soup.select_one(".generation-launch-notice")
+        self.assertTrue(notice.has_attr("hidden"))
+        self.assertEqual(notice.select_one("a")["href"], "/gallery")
+
+    def test_home_entry_points_use_protected_routes(self):
+        soup = BeautifulSoup(str(home.page()), "html.parser")
+        self.assertEqual(soup.select_one(".hero-actions .home-button")["href"], "/generation")
+        self.assertEqual(soup.select_one(".hero-actions .home-gallery-button")["href"], "/gallery")
+        self.assertEqual(soup.select_one(".site-sidebar a[href='/gallery']")["href"], "/gallery")
+
     def test_generation_submit_is_available_and_targets_the_questionnaire(self):
         soup = BeautifulSoup(str(generation.page()), "html.parser")
         fields = soup.select('.generation-form input[type="number"]')
@@ -18,6 +31,15 @@ class PageControlsTests(unittest.TestCase):
         self.assertEqual(button.get_text(strip=True), "Сгенерировать")
         self.assertIsNotNone(soup.select_one(f'form#{button["form"]}'))
 
+    def test_generation_style_labels_keep_existing_values(self):
+        soup = BeautifulSoup(str(generation.page()), "html.parser")
+        labels = {
+            radio["value"]: radio.find_parent("label").get_text(strip=True)
+            for radio in soup.select('[data-question="style"] input[type="radio"]')
+        }
+        self.assertEqual(labels["minimal"], "Базовый")
+        self.assertEqual(labels["casual"], "Свободный")
+
     def test_gallery_waits_for_authenticated_album_data(self):
         soup = BeautifulSoup(str(gallery.page()), "html.parser")
         self.assertEqual(soup.select(".filter-tab"), [])
@@ -25,16 +47,13 @@ class PageControlsTests(unittest.TestCase):
         self.assertIsNotNone(soup.select_one("[data-gallery-grid]"))
         self.assertIsNotNone(soup.select_one("[data-gallery-message][role='status']"))
 
-    def test_home_album_covers_use_three_photo_mosaics(self):
+    def test_home_albums_wait_for_account_data(self):
         soup = BeautifulSoup(str(home.page()), "html.parser")
-        cards = soup.select(".albums-grid .album-card")
-        self.assertEqual(len(cards), 3)
-        self.assertTrue(all(len(card.select(".album-mosaic img")) == 3 for card in cards))
-        self.assertTrue(all(card.select_one("time.album-date") is not None for card in cards))
-        layouts = {tuple(card.select_one(".album-mosaic")["class"]) for card in cards}
-        self.assertEqual(len(layouts), 3)
-        allowed_layouts = {"album-mosaic--left", "album-mosaic--right", "album-mosaic--left-compact", "album-mosaic--right-compact"}
-        self.assertTrue(all(allowed_layouts.intersection(layout) for layout in layouts))
+        self.assertEqual(soup.select(".albums-grid .album-card"), [])
+        self.assertIsNotNone(soup.select_one("[data-home-albums-grid]"))
+        self.assertIsNotNone(soup.select_one("[data-home-albums-state][role='status']"))
+        self.assertIsNotNone(soup.select_one("[data-home-albums-action][hidden]"))
+        self.assertIsNotNone(soup.select_one("[data-home-albums-link][hidden]"))
 
     def test_home_has_accessible_faq_disclosures(self):
         soup = BeautifulSoup(str(home.page()), "html.parser")

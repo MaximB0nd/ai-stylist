@@ -3,7 +3,7 @@ from html import escape
 from casp.layout import Metadata
 
 from src.components.shared.layout.app_shell import app_shell
-from src.data.home import HOME_ALBUMS, HOME_FAQ
+from src.data.home import HOME_FAQ
 
 metadata = Metadata(
     title="Носи Красиво — ваш персональный стиль",
@@ -12,23 +12,6 @@ metadata = Metadata(
 
 
 def page():
-    albums = "".join(
-        f'''<a class="album-card" href="/gallery" aria-label="Открыть свои альбомы в галерее">
-          <div class="album-cover">
-            <div class="album-mosaic album-mosaic--{escape(album['mosaic_layout'], quote=True)}">
-              <img class="album-image album-mosaic__primary" src="/images/home/{escape(album['image'], quote=True)}.webp"
-                   alt="{escape(album['alt'], quote=True)}" width="640" height="960" loading="lazy" decoding="async">
-              <img class="album-image album-mosaic__secondary album-mosaic__secondary--one" src="/images/album/{escape(album['preview_images'][0], quote=True)}" alt="" width="640" height="960" loading="lazy" decoding="async">
-              <img class="album-image album-mosaic__secondary album-mosaic__secondary--two" src="/images/album/{escape(album['preview_images'][1], quote=True)}" alt="" width="640" height="960" loading="lazy" decoding="async">
-            </div>
-          </div>
-          <div class="album-info">
-            <div><h3 class="album-name">{escape(album['name'])}</h3>
-              <time class="album-date">{escape(album['description'])}</time></div>
-          </div>
-        </a>'''
-        for album in HOME_ALBUMS
-    )
     faq_items = "".join(
         f'''<details class="home-faq__item">
           <summary>
@@ -48,6 +31,7 @@ def page():
       <p class="hero-description">Персональный стилист для образов под ваш повод, настроение и особенности.</p>
       <div class="hero-actions">
         <a class="ui-button generate-button home-button" href="/generation">Найти свой образ</a>
+        <a class="ui-button home-gallery-button" href="/gallery">В галерею</a>
       </div>
     </div>
     <figure class="hero-visual" aria-hidden="true">
@@ -95,9 +79,13 @@ def page():
     <div class="section-heading">
       <div><h2 class="section-title" id="home-albums-title">Альбомы</h2></div>
       <div class="section-aside">
-        <a class="all-albums-link home-text-link" href="/gallery">Вся галерея <span aria-hidden="true">↗</span></a></div>
+        <a class="all-albums-link home-text-link" href="/gallery" data-home-albums-link hidden>Вся галерея <span aria-hidden="true">↗</span></a></div>
     </div>
-    <div class="albums-grid">{albums}</div>
+    <div class="albums-grid" data-home-albums-grid></div>
+    <div class="home-albums-state" data-home-albums-state role="status" aria-live="polite">
+      <p data-home-albums-message>Войдите, чтобы увидеть свои альбомы.</p>
+      <a class="ui-button home-albums-action" href="/generation" data-home-albums-action hidden>Создать альбом</a>
+    </div>
   </section>
 
   <section class="home-faq" aria-labelledby="home-faq-title">
