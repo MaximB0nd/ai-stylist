@@ -474,7 +474,7 @@ def _dev_cookie_scope() -> str:
                     scope = str(parsed_url.port or "")
                 else:
                     scope = ""
-            except OSError, json.JSONDecodeError:
+            except (OSError, json.JSONDecodeError):
                 scope = ""
 
     return scope if scope and scope.isdigit() else ""
