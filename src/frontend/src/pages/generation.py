@@ -25,9 +25,9 @@ CHOICES = (
         "style",
         "Стиль",
         (
-            ("minimal", "Мини"),
+            ("minimal", "Базовый"),
             ("classic", "Классика"),
-            ("casual", "Casual"),
+            ("casual", "Свободный"),
             ("romantic", "Романтика"),
         ),
     ),
@@ -57,7 +57,7 @@ CHOICES = (
 def _measurements():
     fields = (
         ("age", "Возраст, лет", 16, 100, "1", "28"),
-        ("height", "Рост, см", 80, 240, "1", "168"),
+        ("height", "Рост, см", 120, 230, "1", "168"),
     )
     return "".join(
         f"""
@@ -171,6 +171,10 @@ def _selections():
       <span class="visually-hidden" data-selection="{key}"></span>
     </div>
   </dd>
+  <button class="generation-selection-clear" type="button" data-clear-selection="{key}"
+          aria-label="Убрать выбор: {title}" title="Убрать выбор: {title}" hidden>
+    <span class="site-icon generation-icon-clear" aria-hidden="true"></span>
+  </button>
 </div>"""
         for key, title, _ in CHOICES
     )
@@ -236,6 +240,13 @@ def page():
         Сгенерировать
       </button>
     </aside>
+  </div>
+  <div class="generation-launch-notice" role="status" aria-live="polite" hidden>
+    <div class="generation-launch-copy">
+      <h3>Генерация запущена</h3>
+      <p>Вика уже собирает ваши образы. Новый альбом ждёт вас в галерее.</p>
+      <a class="generation-launch-link ui-button" href="/gallery">В альбомы</a>
+    </div>
   </div>
 </section>
 """,

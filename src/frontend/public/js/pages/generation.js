@@ -1,3 +1,8 @@
+import { readSession } from "./auth.js?v=front31-1";
+import { rememberPendingGeneration } from "./generation-pending.js";
+
+const API_BASE = globalThis.AI_STYLIST_API_BASE ?? "/api/v1";
+
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
@@ -45,21 +50,79 @@ export function resolvePhotoSelection(files, validate = photoSelectionError) {
  * @param {{photoSelectionError?: (files: ArrayLike<File>) => string}} options
  * @returns {() => void} Releases listeners and preview URLs.
  * The validator returns an empty string for an accepted selection or a user-visible error.
- * A thrown validator error propagates; no upload or server request is performed here.
+ * A thrown validator error propagates; accepted photos are retained for submission.
  * @example mountGeneration(form, { photoSelectionError });
  */
 export function mountGeneration(form, { photoSelectionError: validatePhotoSelection = photoSelectionError } = {}) {
   const page = form.closest(".generation-page");
+  const events = new AbortController();
   const status = page.querySelector(".generation-status");
+  const submitButton = page.querySelector(".generation-submit");
+  const launchNotice = page.querySelector(".generation-launch-notice");
+  let noticeTimer;
+  let noticeHideTimer;
+
+  function hideLaunchNotice() {
+    if (!launchNotice || launchNotice.hidden) return;
+    clearTimeout(noticeTimer);
+    launchNotice.classList.remove("is-visible");
+    clearTimeout(noticeHideTimer);
+    noticeHideTimer = setTimeout(() => { launchNotice.hidden = true; }, 360);
+  }
+
+  function scheduleNoticeHide() {
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(hideLaunchNotice, 4000);
+  }
+
+  function showLaunchNotice() {
+    if (!launchNotice) return;
+    clearTimeout(noticeHideTimer);
+    launchNotice.hidden = false;
+    requestAnimationFrame(() => launchNotice.classList.add("is-visible"));
+    scheduleNoticeHide();
+  }
+
+  launchNotice?.addEventListener("mouseenter", () => clearTimeout(noticeTimer), { signal: events.signal });
+  launchNotice?.addEventListener("mouseleave", scheduleNoticeHide, { signal: events.signal });
+  launchNotice?.addEventListener("focusin", () => clearTimeout(noticeTimer), { signal: events.signal });
+  launchNotice?.addEventListener("focusout", (event) => {
+    if (!launchNotice.contains(event.relatedTarget)) scheduleNoticeHide();
+  }, { signal: events.signal });
   const numbers = [...form.querySelectorAll('input[type="number"]')];
   const groups = [...form.querySelectorAll("[data-question]")];
   const personalGroups = [...form.querySelectorAll("[data-personal-question]")];
-  const events = new AbortController();
+  const layout = page.querySelector(".generation-layout");
+  const summary = layout?.querySelector(".generation-summary");
+  const styleGroup = form.querySelector('[data-question="style"]');
+  let alignmentFrame = 0;
+  const alignmentObserver = layout && summary && styleGroup && typeof ResizeObserver !== "undefined"
+    ? new ResizeObserver(() => {
+      cancelAnimationFrame(alignmentFrame);
+      alignmentFrame = requestAnimationFrame(alignSummary);
+    })
+    : null;
+
+  function alignSummary() {
+    if (!layout || !summary || !styleGroup) return;
+    if (window.innerWidth <= 1100) {
+      summary.style.removeProperty("--generation-summary-offset");
+      return;
+    }
+    const offset = Math.max(0, styleGroup.getBoundingClientRect().top - layout.getBoundingClientRect().top);
+    summary.style.setProperty("--generation-summary-offset", `${offset}px`);
+  }
+
+  alignSummary();
+  alignmentObserver?.observe(form);
+  alignmentObserver?.observe(styleGroup);
+  window.addEventListener("resize", alignSummary, { signal: events.signal });
   const photos = [...form.querySelectorAll("[data-photo]")].map((element) => ({
     element,
     input: element.querySelector('input[type="file"]'),
     preview: element.querySelector(".generation-preview"),
     url: null,
+    file: null,
     request: 0,
     pending: false,
   }));
@@ -108,10 +171,12 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
       const value = selected?.closest("label").querySelector(".generation-choice-card > span").textContent;
       const output = page.querySelector(`[data-selection="${group.dataset.question}"]`);
       const image = page.querySelector(`[data-selection-image="${group.dataset.question}"]`);
+      const clear = page.querySelector(`[data-clear-selection="${group.dataset.question}"]`);
       const item = output.closest("dl > div");
       output.textContent = value || "Не выбрано";
       item.classList.toggle("is-empty", !selected);
       image.hidden = !selected;
+      clear.hidden = !selected;
       if (selected) image.src = selected.closest("label").querySelector("img").src;
       else image.removeAttribute("src");
       if (selected) choices++;
@@ -139,6 +204,12 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
     }
   };
   for (const radio of toggleRadios) {
+    radio.closest("label").addEventListener("click", (event) => {
+      if (event.target === radio || !radio.checked) return;
+      event.preventDefault();
+      radio.checked = false;
+      radio.dispatchEvent(new Event("change", { bubbles: true }));
+    }, { signal: events.signal });
     radio.addEventListener("keydown", (event) => {
       if (event.key !== " " || !radio.checked) return;
       event.preventDefault();
@@ -154,6 +225,16 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
         radio.dispatchEvent(new Event("change", { bubbles: true }));
       }, 0);
     }, { capture: true, signal: events.signal });
+  }
+
+  for (const button of page.querySelectorAll("[data-clear-selection]")) {
+    button.addEventListener("click", () => {
+      const group = groups.find((candidate) => candidate.dataset.question === button.dataset.clearSelection);
+      const selected = group?.querySelector("input:checked");
+      if (!selected) return;
+      selected.checked = false;
+      selected.dispatchEvent(new Event("change", { bubbles: true }));
+    }, { signal: events.signal });
   }
 
   function renderPhoto(photo) {
@@ -201,6 +282,7 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
       if (disposed || request !== photo.request) return;
       revoke(photo.url);
       photo.url = url;
+      photo.file = selection.file;
     } catch {
       if (!disposed && request === photo.request) {
         photoError(photo, "Не удалось открыть фото. Выберите другой файл.");
@@ -237,6 +319,7 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
       photo.pending = false;
       revoke(photo.url);
       photo.url = null;
+      photo.file = null;
       photo.input.value = "";
       error(photo.input, photo.input.name, submitted ? "Добавьте фотографию." : "");
       renderPhoto(photo);
@@ -271,8 +354,9 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
     if (numbers.includes(event.target)) validateNumber(event.target);
   }, { capture: true, signal: events.signal });
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (submitButton.disabled) return;
     submitted = true;
     if (photos.some((photo) => photo.pending)) {
       status.textContent = "Подождите, фотографии ещё открываются.";
@@ -294,13 +378,60 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
       error(group, group.dataset.question, selected ? "" : "Выберите один вариант.");
       if (!selected) invalid.push(group.querySelector("input"));
     }
-    status.textContent = invalid.length
-      ? "Заполните подсвеченные блоки."
-      : "Анкета заполнена. Сгенерировать 5 образов можно будет после подключения сервиса.";
-    status.dataset.state = invalid.length ? "error" : "success";
-    if (invalid.length) pulseInvalidSections();
-    // Follow the visible form order when sections are rearranged.
-    [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
+    if (invalid.length) {
+      status.textContent = "Заполните подсвеченные блоки.";
+      status.dataset.state = "error";
+      pulseInvalidSections();
+      // Follow the visible form order when sections are rearranged.
+      [...form.querySelectorAll("input")].find((input) => invalid.includes(input))?.focus();
+      return;
+    }
+    const session = readSession();
+    if (!session) {
+      status.textContent = "Войдите в аккаунт, чтобы создать альбом.";
+      status.dataset.state = "error";
+      return;
+    }
+    const data = new FormData();
+    const values = new FormData(form);
+    for (const key of ["age", "height", "occasion", "style", "shoe", "mood"]) {
+      const apiKey = { occasion: "situation", style: "styles", shoe: "shoes", mood: "impressions" }[key] || key;
+      data.set(apiKey, values.get(key));
+    }
+    data.set("gender", values.get("gender") === "female" ? "f" : "m");
+    data.set("face_photo", photos.find((photo) => photo.input.name === "face").file);
+    data.set("body_photo", photos.find((photo) => photo.input.name === "body").file);
+    submitButton.disabled = true;
+    submitButton.textContent = "Отправляем…";
+    status.textContent = "Отправляем фотографии и анкету…";
+    delete status.dataset.state;
+    try {
+      const response = await fetch(`${API_BASE}/generations`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: data,
+        signal: events.signal,
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        const detail = result?.detail;
+        throw new Error(response.status === 401
+          ? "Сессия завершилась. Войдите снова."
+          : typeof detail === "string" ? detail : "Не удалось запустить генерацию. Попробуйте ещё раз.");
+      }
+      if (!result?.generation_id) throw new Error("Сервер не вернул номер задачи. Проверьте альбомы перед повторной отправкой.");
+      rememberPendingGeneration(result.generation_id, session.user?.id);
+      status.textContent = "Генерация запущена.";
+      status.dataset.state = "success";
+      showLaunchNotice();
+    } catch (error) {
+      if (events.signal.aborted) return;
+      status.textContent = error.message || "Не удалось связаться с сервером. Попробуйте ещё раз.";
+      status.dataset.state = "error";
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Сгенерировать";
+    }
   }, { signal: events.signal });
 
   photos.forEach(renderPhoto);
@@ -309,10 +440,16 @@ export function mountGeneration(form, { photoSelectionError: validatePhotoSelect
   return () => {
     disposed = true;
     events.abort();
+    clearTimeout(noticeTimer);
+    clearTimeout(noticeHideTimer);
+    alignmentObserver?.disconnect();
+    cancelAnimationFrame(alignmentFrame);
+    summary?.style.removeProperty("--generation-summary-offset");
     photos.forEach((photo) => {
       photo.request++;
       photo.pending = false;
       photo.url = null;
+      photo.file = null;
       photo.input.value = "";
       renderPhoto(photo);
     });

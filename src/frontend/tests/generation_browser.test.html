@@ -147,6 +147,28 @@ try {
     await activateWithSpace(gender);
     assert(!gender.checked && query("progress").value === 0, "Second Space activation did not clear the option");
   });
+  await test("Every choice card toggles off and can be cleared from the summary", async ({ query }) => {
+    for (const name of ["occasion", "style", "shoe", "mood"]) {
+      const radio = query(`[name="${name}"]`);
+      const card = radio.closest("label").querySelector(".generation-choice-card");
+      const clear = query(`[data-clear-selection="${name}"]`);
+      assert(clear.hidden, `${name} clear button appears before selection`);
+      card.click();
+      assert(radio.checked && !clear.hidden, `${name} card did not select`);
+      const style = getComputedStyle(clear);
+      assert(clear.getBoundingClientRect().width === radio.getBoundingClientRect().width, `${name} clear button differs from the radio size`);
+      assert(style.backgroundColor === getComputedStyle(query(".generation-selection")).backgroundColor, `${name} clear button is not white`);
+      assert(style.color === getComputedStyle(query(".generation-submit")).backgroundColor, `${name} clear icon is not pink`);
+      assert(getComputedStyle(clear.querySelector(".generation-icon-clear")).maskImage.includes("/icons/lucide/x.svg"), `${name} does not use the standard close icon`);
+      card.click();
+      assert(!radio.checked && clear.hidden, `${name} card did not deselect`);
+      card.click();
+      clear.click();
+      assert(!radio.checked && clear.hidden, `${name} summary button did not clear selection`);
+      assert(query(`[data-summary-item="${name}"]`).classList.contains("is-empty"), `${name} summary retained its selected state`);
+      assert(query("progress").value === 0, `${name} remained in progress count`);
+    }
+  });
   await test("Generation action mounts and validates the questionnaire", async ({ query }) => {
     assert(query("form").dataset.ready === "true", "Form did not finish mounting");
     assert(!query(".generation-submit").disabled, "Submit action stayed disabled after mount");
@@ -213,7 +235,18 @@ try {
     assert(query('[data-photo="body"]').getAttribute("aria-busy") === "false", "Disposed photo area stayed busy");
     assert(!query("form").dataset.ready, "Disposed form still initialized");
   });
-  await test("Complete form intercepts submission and reports readiness", async ({ query, drop }) => {
+  await test("Complete form posts photos and parameters before showing the launch notice", async ({ query, drop }) => {
+    const oldSession = localStorage.getItem("aiStylistAuth");
+    const nativeFetch = window.fetch;
+    let request;
+    localStorage.setItem("aiStylistAuth", JSON.stringify({ access_token: "test-token", user: { id: "test-user" } }));
+    window.fetch = async (url, options) => {
+      request = { url, options };
+      return new Response(JSON.stringify({ generation_id: "a11e4a0d-9e37-420e-bf07-b2f0f0d9fb0d" }), {
+        status: 202, headers: { "Content-Type": "application/json" },
+      });
+    };
+    try {
     for (const [name, value] of [["age", "28"], ["height", "168"]]) query(`[name="${name}"]`).value = value;
     query('[name="gender"][value="female"]').click();
     for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();
@@ -222,7 +255,20 @@ try {
     const event = new Event("submit", { bubbles: true, cancelable: true });
     query("form").dispatchEvent(event);
     assert(event.defaultPrevented && query("progress").value === 9 && query("progress").max === 9, "Form is not complete");
-    assert(query(".generation-status").textContent.includes("Анкета заполнена"), "Missing completion state");
+    await tick();
+    assert(request?.url === "/api/v1/generations", "Form did not call the generation API");
+    assert(request.options.headers.Authorization === "Bearer test-token", "Auth token is missing");
+    assert(request.options.body.get("face_photo")?.name === "fixture.webp", "Face photo is missing");
+    assert(request.options.body.get("body_photo")?.name === "fixture.webp", "Body photo is missing");
+    assert(request.options.body.get("gender") === "f" && request.options.body.get("situation") === "street", "Form fields do not match the API");
+    assert(query(".generation-status").textContent.includes("Генерация запущена"), "Missing accepted state");
+    assert(!query(".generation-launch-notice").hidden, "Launch notice did not open");
+    } finally {
+      window.fetch = nativeFetch;
+      sessionStorage.removeItem("aiStylistPendingGenerations");
+      if (oldSession === null) localStorage.removeItem("aiStylistAuth");
+      else localStorage.setItem("aiStylistAuth", oldSession);
+    }
   });
   await test("Summary selections align with the submit button and each other", async ({ query }) => {
     for (const name of ["occasion", "style", "shoe", "mood"]) query(`[name="${name}"]`).click();

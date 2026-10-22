@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Generation alignment</title>
+<iframe src="/generation" title="Generation layout" style="width: 1600px; height: 1200px; border: 0"></iframe>
+<pre id="result">Waiting</pre>
+<script>
+const frame = document.querySelector("iframe");
+const result = document.querySelector("#result");
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function measure(width) {
+  frame.style.width = `${width}px`;
+  await delay(250);
+  const doc = frame.contentDocument;
+  const style = doc.querySelector('[data-question="style"]');
+  const summary = doc.querySelector(".generation-summary");
+  const styleTop = style.getBoundingClientRect().top;
+  const summaryTop = summary.getBoundingClientRect().top;
+  const difference = Math.abs(styleTop - summaryTop);
+  if (difference > 1) throw new Error(`${width}px: borders differ by ${difference.toFixed(2)}px`);
+  if (getComputedStyle(summary).position !== "static") {
+    throw new Error(`${width}px: summary must follow the form while scrolling`);
+  }
+  return { width, difference };
+}
+
+frame.addEventListener("load", async () => {
+  try {
+    const doc = frame.contentDocument;
+    for (let attempt = 0; attempt < 40 && !doc.querySelector("#generation-form[data-ready]"); attempt++) {
+      await delay(50);
+    }
+    if (!doc.querySelector("#generation-form[data-ready]")) throw new Error("Generation form did not initialize");
+    const measures = [];
+    for (const width of [1600, 1250, 1600]) measures.push(await measure(width));
+    result.textContent = JSON.stringify(measures);
+    result.dataset.complete = "true";
+  } catch (error) {
+    result.textContent = error.message;
+    result.dataset.complete = "false";
+  }
+}, { once: true });
+</script>
