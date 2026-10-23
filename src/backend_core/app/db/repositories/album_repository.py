@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from sqlalchemy import case, delete, or_, select, update
+from sqlalchemy import func, case, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -76,6 +76,8 @@ class AlbumRepository:
         album = await self.session.get(Album, album_id)
         if not album:
             return None
+        if status in ("COMPLETED", "FAILED") and album.status not in ("COMPLETED", "FAILED") and album.finished_at is None:
+            album.finished_at = datetime.now(timezone.utc)
         album.status = status
         # Explicitly set updated_at — SQLAlchemy Python-side onupdate is not
         # reliably triggered for AsyncSession attribute assignments.
@@ -143,6 +145,8 @@ class AlbumRepository:
     async def finish_work(self, album_id, token, release=True, **values) -> bool:
         """Apply progress/error only while this worker owns the live lease."""
         now = datetime.now(timezone.utc)
+        if values.get("status") in ("COMPLETED", "FAILED"):
+            values["finished_at"] = func.coalesce(Album.finished_at, now)
         if release:
             values.update(processing_token=None, lease_expires_at=None)
         result = await self.session.execute(
@@ -175,6 +179,7 @@ class AlbumRepository:
                 Album.id == album_id, Album.processing_token == token,
                 Album.lease_expires_at > now, Album.status.not_in(["COMPLETED", "FAILED"]),
             ).values(
+                finished_at=case((Album.status == "VALIDATING", func.coalesce(Album.finished_at, now)), else_=Album.finished_at) if status == "FAILED" else Album.finished_at,
                 ai_job_id=ai_job_id,
                 status=case((Album.status == "VALIDATING", status), else_=Album.status),
                 processing_token=None, lease_expires_at=None, updated_at=now, error_message=None, next_retry_at=None,
@@ -204,7 +209,7 @@ class AlbumRepository:
                 update(Album).where(
                     Album.id == album_id, Album.status == "DOWNLOADING",
                     Album.processing_token == token, Album.lease_expires_at > now,
-                ).values(status="COMPLETED", total_photos=len(photos_data), error_message=None,
+                ).values(status="COMPLETED", finished_at=func.coalesce(Album.finished_at, now), total_photos=len(photos_data), error_message=None,
                          processing_token=None, lease_expires_at=None, pending_callback=None, updated_at=now,
                          next_retry_at=None, results_ack_pending=ack_job_id is not None,
                          results_ack_next_attempt_at=now if ack_job_id is not None else None,
@@ -265,6 +270,8 @@ class AlbumRepository:
         """
         now = datetime.now(timezone.utc)
         values = {"status": to_status, "updated_at": now}
+        if to_status in ("COMPLETED", "FAILED"):
+            values["finished_at"] = case((Album.status.not_in(["COMPLETED", "FAILED"]), func.coalesce(Album.finished_at, now)), else_=Album.finished_at)
         if error_message is not None:
             values["error_message"] = error_message
 
@@ -359,6 +366,7 @@ class AlbumRepository:
             source_face_key=source_face_key,
             source_body_key=source_body_key,
             status=status,
+            finished_at=datetime.now(timezone.utc) if status in ("COMPLETED", "FAILED") else None,
             ai_job_id=ai_job_id,
             error_message=error_message,
         )

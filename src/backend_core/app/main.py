@@ -30,9 +30,17 @@ async def lifespan(app: FastAPI):
     delivery_queue = get_generation_queue()
     delivery_queue.start()
     recovery_task = asyncio.create_task(recovery_loop())
+    monitoring_task = None
+    if settings.ADMIN_ENABLED:
+        from app.services.admin_monitoring_service import monitoring_loop
+        monitoring_task = asyncio.create_task(monitoring_loop())
     try:
         yield
     finally:
+        if monitoring_task is not None:
+            monitoring_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await monitoring_task
         recovery_task.cancel()
         with suppress(asyncio.CancelledError):
             await recovery_task
@@ -103,3 +111,8 @@ async def health_check() -> JSONResponse:
         status_code=200 if healthy else 503,
         content={"status": "ok" if healthy else "unavailable", "checks": checks},
     )
+
+
+if settings.ADMIN_ENABLED:
+    from app.admin.app import create_admin_app
+    app.mount("/admin", create_admin_app())
