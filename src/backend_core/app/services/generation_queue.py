@@ -16,6 +16,7 @@ class GenerationQueue:
         self.images = asyncio.Semaphore(settings.GENERATION_IMAGE_CONCURRENCY)
         self.pending = set()
         self.workers = []
+        self.active_workers = 0
 
     def start(self):
         if not self.workers:
@@ -36,12 +37,14 @@ class GenerationQueue:
         from app.services.generation_results import _download_and_store_results
         while True:
             album_id, job_uuid, ai_client = await self.queue.get()
+            self.active_workers += 1
             try:
                 # Acquire a fresh database lease only when actual processing starts.
                 await _download_and_store_results(album_id, job_uuid, ai_client)
             except Exception:
                 logger.exception("Queued delivery failed for album %s", album_id)
             finally:
+                self.active_workers -= 1
                 self.pending.discard(album_id)
                 self.queue.task_done()
 

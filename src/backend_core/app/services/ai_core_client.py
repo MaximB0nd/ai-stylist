@@ -63,10 +63,12 @@ class AICoreClient:
     @asynccontextmanager
     async def _get_client(self):
         if self._client is not None:
-            yield self._client
+            from app.services.admin_monitoring_service import ObservedClient
+            yield ObservedClient(self._client)
         else:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                yield client
+                from app.services.admin_monitoring_service import ObservedClient
+                yield ObservedClient(client)
 
     def _headers(self, idempotency_key: Optional[str] = None) -> Dict[str, str]:
         headers = {

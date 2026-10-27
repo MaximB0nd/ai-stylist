@@ -24,6 +24,10 @@ _FORBIDDEN_SECRETS: set[str] = {
 
 
 class Settings(BaseSettings):
+    ADMIN_ENABLED: bool = False
+    ADMIN_SECRET_KEY: Optional[str] = None
+    ADMIN_COOKIE_SECURE: bool = False
+
     PROJECT_NAME: str = "AI Stylist Backend Core"
     API_V1_PREFIX: str = "/api/v1"
 
@@ -111,6 +115,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def assemble_database_url(self) -> "Settings":
+        if self.ADMIN_ENABLED:
+            if not self.ADMIN_SECRET_KEY or len(self.ADMIN_SECRET_KEY) < 32 or self.ADMIN_SECRET_KEY == self.SECRET_KEY:
+                raise ValueError("ADMIN_SECRET_KEY must be a separate secret of at least 32 characters")
+            if self.ENVIRONMENT == "production" and not self.ADMIN_COOKIE_SECURE:
+                raise ValueError("ADMIN_COOKIE_SECURE must be enabled in production")
         if not self.DATABASE_URL:
             self.DATABASE_URL = URL.create(
                 drivername="postgresql+asyncpg",
