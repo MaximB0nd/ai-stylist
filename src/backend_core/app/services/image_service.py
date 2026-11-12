@@ -11,6 +11,8 @@ from PIL import Image, ImageCms, ImageOps, UnidentifiedImageError
 MAX_SOURCE_BYTES = 10 * 1024 * 1024
 MAX_PNG_BYTES = 15 * 1024 * 1024
 MAX_SIDE = 4096
+PNG_DEPTH_8 = 8
+PNG_DEPTH_16 = 16
 MIME_FORMATS = {"image/jpeg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="image-normalize")
 _slots = WeakKeyDictionary()
@@ -91,13 +93,13 @@ def normalize_png(data: bytes, declared_mime: str | None = None) -> bytes:
                 raise InvalidImage("Image dimensions must not exceed 4096 pixels per side")
             if getattr(probe, "n_frames", 1) != 1:
                 raise InvalidImage("Animated images are not supported")
-            if probe.format == "PNG" and data[24] == 16:
+            if probe.format == "PNG" and data[24] == PNG_DEPTH_16:
                 raise InvalidImage("16-bit PNG is not supported; use an 8-bit image")
             # PNG verify validates chunk checksums; load below checks decoding.
             probe.verify()
         with Image.open(BytesIO(data)) as image:
             image.load()
-            if image.format == "PNG" and image.mode in ("RGB", "RGBA") and data[24] == 8 and not image.info and _plain_png(data):
+            if image.format == "PNG" and image.mode in ("RGB", "RGBA") and data[24] == PNG_DEPTH_8 and not image.info and _plain_png(data):
                 return data
             oriented = ImageOps.exif_transpose(image)
             try:

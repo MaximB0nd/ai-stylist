@@ -48,7 +48,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r src/backend_core/requirements.txt
-          pip install allure-pytest==2.13.5
+          pip install allure-pytest==2.13.5 ruff==0.11.13
+
+      - name: Check image service for magic values
+        run: ruff check --isolated --select PLR2004 src/backend_core/app/services/image_service.py
 
       - name: Run tests with Allure
         id: run_tests
