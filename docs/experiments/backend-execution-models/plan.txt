@@ -1,0 +1,13 @@
+# Experiment plan recorded before measurements.
+# CPU: 16 fixed JPEGs, 512 x 512, Random(42), identical normalized bytes.
+# Separate sequential baseline; warmed ProcessPoolExecutor at p=2,4,16.
+# Expected S below p due to serialization, scheduling, memory bandwidth.
+# IO: 24 HTTP requests of 32768 bytes; local server delays each by 20 ms.
+# Expected 0.48 s sequential, lower bounds 0.24/0.12/0.06 at k=2/4/8.
+# Race: 8 albums x 64 photos. Invariant total=512 with each album count=64.
+# Introduce asyncio.sleep(0) between reading and updating a count.
+# Correct comparisons: per-worker summaries versus asyncio.Lock.
+# Album hypothesis: bounded concurrent signing (k=4) of 7 keys reduces
+# median get_album by >=30% with a 10 ms per-key test provider.
+# Reject if <30% or ranges overlap. Scope limited to the delayed provider.
+# No claim of production MinIO latency or speedup.
