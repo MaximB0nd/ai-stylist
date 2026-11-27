@@ -1,0 +1,43 @@
+FFF....                                                                  [100%]
+================================== FAILURES ===================================
+________ test_permanent_database_error_does_not_retry[IntegrityError] _________
+
+error_type = <class 'sqlalchemy.exc.IntegrityError'>
+
+    @pytest.mark.parametrize("error_type", [IntegrityError, ProgrammingError, DataError])
+    def test_permanent_database_error_does_not_retry(error_type):
+        error = error_type("statement", {}, ValueError("permanent failure"))
+>       assert is_retryable_delivery_error(error) is False
+E       AssertionError: assert True is False
+E        +  where True = is_retryable_delivery_error(IntegrityError('(builtins.ValueError) permanent failure'))
+
+src\backend_core\tests\test_retry_policy_regression.py:11: AssertionError
+_______ test_permanent_database_error_does_not_retry[ProgrammingError] ________
+
+error_type = <class 'sqlalchemy.exc.ProgrammingError'>
+
+    @pytest.mark.parametrize("error_type", [IntegrityError, ProgrammingError, DataError])
+    def test_permanent_database_error_does_not_retry(error_type):
+        error = error_type("statement", {}, ValueError("permanent failure"))
+>       assert is_retryable_delivery_error(error) is False
+E       AssertionError: assert True is False
+E        +  where True = is_retryable_delivery_error(ProgrammingError('(builtins.ValueError) permanent failure'))
+
+src\backend_core\tests\test_retry_policy_regression.py:11: AssertionError
+___________ test_permanent_database_error_does_not_retry[DataError] ___________
+
+error_type = <class 'sqlalchemy.exc.DataError'>
+
+    @pytest.mark.parametrize("error_type", [IntegrityError, ProgrammingError, DataError])
+    def test_permanent_database_error_does_not_retry(error_type):
+        error = error_type("statement", {}, ValueError("permanent failure"))
+>       assert is_retryable_delivery_error(error) is False
+E       AssertionError: assert True is False
+E        +  where True = is_retryable_delivery_error(DataError('(builtins.ValueError) permanent failure'))
+
+src\backend_core\tests\test_retry_policy_regression.py:11: AssertionError
+=========================== short test summary info ===========================
+FAILED src\backend_core\tests\test_retry_policy_regression.py::test_permanent_database_error_does_not_retry[IntegrityError]
+FAILED src\backend_core\tests\test_retry_policy_regression.py::test_permanent_database_error_does_not_retry[ProgrammingError]
+FAILED src\backend_core\tests\test_retry_policy_regression.py::test_permanent_database_error_does_not_retry[DataError]
+3 failed, 4 passed in 3.26s

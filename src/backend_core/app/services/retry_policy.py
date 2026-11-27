@@ -2,7 +2,7 @@
 
 import httpx
 from minio.error import InvalidResponseError, S3Error, ServerError
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, DataError, IntegrityError, ProgrammingError, SQLAlchemyError
 from urllib3.exceptions import HTTPError as Urllib3HTTPError
 
 from app.services.ai_core_client import AICoreError
@@ -15,6 +15,10 @@ def is_retryable_ai_error(exc: Exception) -> bool:
 
 
 def is_retryable_delivery_error(exc: Exception) -> bool:
+    if isinstance(exc, DBAPIError) and exc.connection_invalidated:
+        return True
+    if isinstance(exc, (IntegrityError, ProgrammingError, DataError)):
+        return False
     if isinstance(exc, S3Error):
         status = getattr(exc.response, "status", None)
         return exc.code in {
