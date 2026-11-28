@@ -1,0 +1,81 @@
+{
+  "python": "3.12.14",
+  "versions": {
+    "before": {
+      "cases": [
+        {
+          "case": "AI503",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "case": "AI400",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "case": "DBIntegrity",
+          "expected": false,
+          "actual": true,
+          "passed": false
+        },
+        {
+          "case": "DBProgramming",
+          "expected": false,
+          "actual": true,
+          "passed": false
+        },
+        {
+          "case": "DBOperational",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "retained_delta": 0,
+      "peak_bytes": 184
+    },
+    "after": {
+      "cases": [
+        {
+          "case": "AI503",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "case": "AI400",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "case": "DBIntegrity",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "case": "DBProgramming",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "case": "DBOperational",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        }
+      ],
+      "retained_delta": 0,
+      "peak_bytes": 200
+    }
+  },
+  "regression": {
+    "before": false,
+    "after": true
+  }
+}

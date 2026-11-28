@@ -717,3 +717,45 @@ async def test_album_repo_add_photos(album_repo: InMemoryAlbumRepository):
     assert added[1].is_favorite is True
     assert len(album.photos) == 2
 
+
+
+@pytest.mark.parametrize("face,body", [(None, None), (None, "body.png"), ("face.png", None)])
+async def test_album_source_keys_are_optional(client, album_repo, face, body):
+    album = album_repo.seed_album(USER_A_ID, num_photos=1)
+    album.source_face_key = face
+    album.source_body_key = body
+    response = await client.get(
+        f"/api/v1/albums/{album.id}", headers=_auth_header(USER_A_ID)
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert (result["source_face_url"] is None) == (face is None)
+    assert (result["source_body_url"] is None) == (body is None)
+    assert len(result["photos"]) == 1
+
+
+@pytest.mark.parametrize("failed_key", ["face.png", "body.png"])
+async def test_source_signing_failure_returns_no_partial_album(
+    client, album_repo, storage, monkeypatch, failed_key
+):
+    album = album_repo.seed_album(USER_A_ID, num_photos=1)
+    album.source_face_key = "face.png"
+    album.source_body_key = "body.png"
+    original = storage.presigned_url
+    calls = []
+
+    def sign(key):
+        calls.append(key)
+        if key == failed_key:
+            raise TimeoutError("injected source signing failure")
+        return original(key)
+
+    monkeypatch.setattr(storage, "presigned_url", sign)
+    with pytest.raises(TimeoutError, match="injected source"):
+        await client.get(
+            f"/api/v1/albums/{album.id}", headers=_auth_header(USER_A_ID)
+        )
+    assert failed_key in calls
+    assert album.source_face_key == "face.png"
+    assert album.source_body_key == "body.png"
+    assert len(album.photos) == 1
